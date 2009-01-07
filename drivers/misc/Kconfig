@@ -265,6 +265,10 @@ config BUG_DOCK
 	  Say yes to enable omap3 bug to shut down and start up it's USB hub
 	  as it is needed by modules/dock. This should probably be built in.
 
+config UID_STAT
+	bool "UID based statistics tracking exported to /proc/uid_stat"
+	default n
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
