@@ -60,7 +60,9 @@ static int twl_mmc_card_detect(int irq)
 			continue;
 		if (irq != mmc->slots[0].card_detect_irq)
 			continue;
-
+		
+		if (i == 2)
+		  return 1;
 		/* NOTE: assumes card detect signal is active-low */
 		return !gpio_get_value_cansleep(mmc->slots[0].switch_pin);
 	}
@@ -95,8 +97,9 @@ static int twl_mmc_late_init(struct device *dev)
 	/* MMC/SD/SDIO doesn't require a card detect switch */
 	if (gpio_is_valid(mmc->slots[0].switch_pin)) {
 		ret = gpio_request(mmc->slots[0].switch_pin, "mmc_cd");
-		if (ret)
+		if (ret)		  
 			goto done;
+
 		ret = gpio_direction_input(mmc->slots[0].switch_pin);
 		if (ret)
 			goto err;
@@ -158,7 +161,7 @@ err:
 done:
 	mmc->slots[0].card_detect_irq = 0;
 	mmc->slots[0].card_detect = NULL;
-
+	ret = 0; /*MI*/
 	dev_err(dev, "err %d configuring card detect\n", ret);
 	return ret;
 }
@@ -266,7 +269,7 @@ static int twl_mmc1_set_power(struct device *dev, int slot, int power_on,
 	return ret;
 }
 
-static int twl_mmc23_set_power(struct device *dev, int slot, int power_on, int vdd)
+static int twl_mmc2_set_power(struct device *dev, int slot, int power_on, int vdd)
 {
 	int ret = 0;
 	struct twl_mmc_controller *c = NULL;
@@ -286,8 +289,19 @@ static int twl_mmc23_set_power(struct device *dev, int slot, int power_on, int v
 	/* If we don't see a Vcc regulator, assume it's a fixed
 	 * voltage always-on regulator.
 	 */
-	if (!c->vcc)
-		return 0;
+	if (!c->vcc) {
+	  if (power_on) {
+	    /* only MMC2 supports a CLKIN */
+	    if (mmc->slots[0].internal_clock) {
+	      u32 reg;
+	      
+	      reg = omap_ctrl_readl(control_devconf1_offset);
+	      reg |= OMAP2_MMCSDIO2ADPCLKISEL;
+	      omap_ctrl_writel(reg, control_devconf1_offset);
+	    }
+	  }
+	  return 0;
+	}
 
 	/*
 	 * Assume Vcc regulator is used only to power the card ... OMAP
@@ -327,6 +341,13 @@ static int twl_mmc23_set_power(struct device *dev, int slot, int power_on, int v
 
 	return ret;
 }
+
+static int twl_mmc3_set_power(struct device *dev, int slot, int power_on, int vdd)
+{
+    /* MMC3 power is taken care */
+    return 0;
+}
+
 
 static struct omap_mmc_platform_data *hsmmc_data[OMAP34XX_NR_MMC] __initdata;
 
@@ -418,10 +439,11 @@ void __init twl4030_mmc_init(struct twl4030_hsmmc_info *controllers)
 				c->transceiver = 1;
 			if (c->transceiver && c->wires > 4)
 				c->wires = 4;
-			/* FALLTHROUGH */
+			mmc->slots[0].set_power = twl_mmc2_set_power;
+			break;
 		case 3:
 			/* off-chip level shifting, or none */
-			mmc->slots[0].set_power = twl_mmc23_set_power;
+			mmc->slots[0].set_power = twl_mmc3_set_power;
 			break;
 		default:
 			pr_err("MMC%d configuration not supported!\n", c->mmc);

@@ -1044,7 +1044,7 @@ static int _set_gpio_wakeup(struct gpio_bank *bank, int gpio, int enable)
 
 static void _reset_gpio(struct gpio_bank *bank, int gpio)
 {
-	_set_gpio_direction(bank, get_gpio_index(gpio), 1);
+  //	_set_gpio_direction(bank, get_gpio_index(gpio), 1);
 	_set_gpio_irqenable(bank, gpio, 0);
 	_clear_gpio_irqstatus(bank, gpio);
 	_set_gpio_triggering(bank, get_gpio_index(gpio), IRQ_TYPE_NONE);

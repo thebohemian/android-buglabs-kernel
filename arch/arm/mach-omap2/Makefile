@@ -63,6 +63,10 @@ obj-$(CONFIG_MACH_OVERO)		+= board-overo.o \
 					   mmc-twl4030.o
 obj-$(CONFIG_MACH_OMAP3EVM)		+= board-omap3evm.o \
 					   mmc-twl4030.o
+obj-$(CONFIG_MACH_OMAP3BUG)		+= board-omap3bug.o \
+					   mmc-twl4030.o \
+					   board-omap3bug-flash.o \
+					   twl4030-generic-scripts.o
 obj-$(CONFIG_MACH_OMAP3_PANDORA)	+= board-omap3pandora.o \
 					   mmc-twl4030.o
 obj-$(CONFIG_MACH_OMAP_3430SDP)		+= board-3430sdp.o \

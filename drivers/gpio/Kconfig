@@ -188,4 +188,10 @@ config GPIO_MCP23S08
 	  SPI driver for Microchip MCP23S08 I/O expander.  This provides
 	  a GPIO interface supporting inputs and outputs.
 
+config GPIO_SC16IS7X
+	tristate "NXP SC16IS7X I/O expander"
+	depends on SPI_MASTER
+	help
+	  SPI driver for Microchip MCP23S08 I/O expander.  This provides
+	  a GPIO interface supporting inputs and outputs.
 endif

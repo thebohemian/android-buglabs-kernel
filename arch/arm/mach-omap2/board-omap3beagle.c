@@ -162,7 +162,7 @@ static int beagle_twl_gpio_setup(struct device *dev,
 
 	/* TWL4030_GPIO_MAX + 0 == ledA, EHCI nEN_USB_PWR (out, active low) */
 	gpio_request(gpio + TWL4030_GPIO_MAX, "nEN_USB_PWR");
-	gpio_direction_output(gpio + TWL4030_GPIO_MAX, 1);
+	gpio_direction_output(gpio + TWL4030_GPIO_MAX, 0);
 
 	/* TWL4030_GPIO_MAX + 1 == ledB, PMU_STAT (out, active low LED) */
 	gpio_leds[2].gpio = gpio + TWL4030_GPIO_MAX + 1;
@@ -339,6 +339,41 @@ static struct platform_device keys_gpio = {
 	},
 };
 
+static struct resource bmi_slot1_resources[] = {
+  [0] = {
+    .start = 161,
+    .flags = IORESOURCE_IRQ,
+  },
+  [1] = {
+    .start = 134,
+    .flags = IORESOURCE_IRQ,
+  },
+};
+
+static struct platform_device bmi_slot_devices[] = {
+  {
+    .name = "omap_bmi_slot",
+    .id = 0,
+    .num_resources = ARRAY_SIZE(bmi_slot1_resources),
+    .resource = bmi_slot1_resources,
+  },
+};
+
+
+static void omap_init_bmi_slots(void)
+{
+  int i;
+
+  gpio_direction_output(156, false);
+  gpio_direction_output(159, false);
+
+  for (i = 0; i < ARRAY_SIZE(bmi_slot_devices); i++) {
+    if (platform_device_register(&bmi_slot_devices[i]) < 0)
+      dev_err(&bmi_slot_devices[i].dev,
+	      "Unable to register BMI slot\n");
+  }
+}
+
 static struct omap_board_config_kernel omap3_beagle_config[] __initdata = {
 	{ OMAP_TAG_LCD,		&omap3_beagle_lcd_config },
 };
@@ -428,6 +463,7 @@ static void __init omap3_beagle_init(void)
 	usb_musb_init();
 	usb_ehci_init(&ehci_pdata);
 	omap3beagle_flash_init();
+	omap_init_bmi_slots();
 
 	/* Ensure SDRC pins are mux'd for self-refresh */
 	omap_cfg_reg(H16_34XX_SDRC_CKE0);

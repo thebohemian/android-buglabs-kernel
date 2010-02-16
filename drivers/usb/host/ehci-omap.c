@@ -235,6 +235,7 @@ static void omap_usb_utmi_init(struct ehci_hcd_omap *omap, u8 tll_channel_mask)
  */
 static int omap_start_ehc(struct ehci_hcd_omap *omap, struct usb_hcd *hcd)
 {
+	struct omap_chip_id oci = OMAP_CHIP_INIT(CHIP_GE_OMAP3430ES3);
 	unsigned long timeout = jiffies + msecs_to_jiffies(1000);
 	u8 tll_ch_mask = 0;
 	unsigned reg = 0;
@@ -290,12 +291,14 @@ static int omap_start_ehc(struct ehci_hcd_omap *omap, struct usb_hcd *hcd)
 	if (omap->phy_reset) {
 		/* Refer: ISSUE1 */
 		if (gpio_is_valid(omap->reset_gpio_port[0])) {
+		  printk(KERN_INFO "omap-ehci: USB1 PHY reset valid..\n");
 			gpio_request(omap->reset_gpio_port[0],
 						"USB1 PHY reset");
 			gpio_direction_output(omap->reset_gpio_port[0], 0);
 		}
 
 		if (gpio_is_valid(omap->reset_gpio_port[1])) {
+		  printk(KERN_INFO "omap-ehci: USB2 PHY reset valid..\n");
 			gpio_request(omap->reset_gpio_port[1],
 						"USB2 PHY reset");
 			gpio_direction_output(omap->reset_gpio_port[1], 0);
@@ -364,16 +367,8 @@ static int omap_start_ehc(struct ehci_hcd_omap *omap, struct usb_hcd *hcd)
 	reg &= ~OMAP_UHH_HOSTCONFIG_INCRX_ALIGN_EN;
 
 	/* Bypass the TLL module for PHY mode operation */
-	 if (omap_rev() <= OMAP3430_REV_ES2_1) {
-		dev_dbg(omap->dev, "OMAP3 ES version <= ES2.1 \n");
-		if ((omap->port_mode[0] == EHCI_HCD_OMAP_MODE_PHY) ||
-			(omap->port_mode[1] == EHCI_HCD_OMAP_MODE_PHY) ||
-				(omap->port_mode[2] == EHCI_HCD_OMAP_MODE_PHY))
-			reg &= ~OMAP_UHH_HOSTCONFIG_ULPI_BYPASS;
-		else
-			reg |= OMAP_UHH_HOSTCONFIG_ULPI_BYPASS;
-	} else {
-		dev_dbg(omap->dev, "OMAP3 ES version > ES2.1\n");
+	if (omap_chip_is(oci)) {
+		dev_dbg(omap->dev, "OMAP3 ES version > ES3\n");
 		if (omap->port_mode[0] == EHCI_HCD_OMAP_MODE_PHY)
 			reg &= ~OMAP_UHH_HOSTCONFIG_ULPI_P1_BYPASS;
 		else if (omap->port_mode[0] == EHCI_HCD_OMAP_MODE_TLL)
@@ -389,6 +384,14 @@ static int omap_start_ehc(struct ehci_hcd_omap *omap, struct usb_hcd *hcd)
 		else if (omap->port_mode[2] == EHCI_HCD_OMAP_MODE_TLL)
 			reg |= OMAP_UHH_HOSTCONFIG_ULPI_P3_BYPASS;
 
+	} else {
+		dev_dbg(omap->dev, "OMAP3 ES version < ES3\n");
+		if ((omap->port_mode[0] == EHCI_HCD_OMAP_MODE_PHY) ||
+			(omap->port_mode[1] == EHCI_HCD_OMAP_MODE_PHY) ||
+				(omap->port_mode[2] == EHCI_HCD_OMAP_MODE_PHY))
+			reg &= ~OMAP_UHH_HOSTCONFIG_ULPI_BYPASS;
+		else
+			reg |= OMAP_UHH_HOSTCONFIG_ULPI_BYPASS;
 	}
 	ehci_omap_writel(omap->uhh_base, OMAP_UHH_HOSTCONFIG, reg);
 	dev_dbg(omap->dev, "UHH setup done, uhh_base=%x\n", reg);

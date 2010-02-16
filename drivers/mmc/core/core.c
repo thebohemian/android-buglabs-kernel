@@ -890,9 +890,10 @@ void mmc_rescan(struct work_struct *work)
 	mmc_claim_host(host);
 
 	mmc_power_up(host);
-	mmc_go_idle(host);
-
-	mmc_send_if_cond(host, host->ocr_avail);
+	err = mmc_go_idle(host);
+	printk(KERN_INFO "mmc_core: send_go_idle return %d\n",err);
+	err = mmc_send_if_cond(host, host->ocr_avail);
+	printk(KERN_INFO "mmc_core: send_if_cond return %d\n",err);
 
 	/*
 	 * First we search for SDIO...

@@ -852,9 +852,9 @@ static void omap_mmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 			OMAP_HSMMC_READ(host->base, HCTL) | FOUR_BIT);
 		break;
 	case MMC_BUS_WIDTH_1:
-		OMAP_HSMMC_WRITE(host->base, CON, con & ~DW8);
-		OMAP_HSMMC_WRITE(host->base, HCTL,
-			OMAP_HSMMC_READ(host->base, HCTL) & ~FOUR_BIT);
+	  OMAP_HSMMC_WRITE(host->base, CON, (con & ~DW8) | (1<<11));
+	  OMAP_HSMMC_WRITE(host->base, HCTL,
+			   (OMAP_HSMMC_READ(host->base, HCTL) & ~FOUR_BIT) | (1 << 24));
 		break;
 	}
 
