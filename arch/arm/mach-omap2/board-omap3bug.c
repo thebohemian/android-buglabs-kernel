@@ -207,7 +207,6 @@ static int __init omap3_bug_i2c_init(void)
 /*
  * For new frame buffer driver based on DSS2 library
  */
-#ifdef CONFIG_OMAP2_DSS
 
 #ifdef CONFIG_FB_OMAP2
 static struct resource omap3bug_vout_resource[3 - CONFIG_FB_OMAP2_NUM_FBS] = {
@@ -287,7 +286,7 @@ err_1:
 
 }
 
-static int omap3_bug_panel_enable_lcd(struct omap_display *display)
+static int omap3_bug_panel_enable_lcd(struct omap_dss_device *display)
 {
 	if (dvi_enabled) {
 		return -EINVAL;
@@ -303,7 +302,7 @@ static int omap3_bug_panel_enable_lcd(struct omap_display *display)
 	return 0;
 }
 
-static void omap3_bug_panel_disable_lcd(struct omap_display *display)
+static void omap3_bug_panel_disable_lcd(struct omap_dss_device *display)
 {
 	if (omap_rev() > OMAP3430_REV_ES1_0) {
 		twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER, 0x0,
@@ -315,131 +314,32 @@ static void omap3_bug_panel_disable_lcd(struct omap_display *display)
 	lcd_enabled = 0;
 }
 
-static struct omap_display_data omap3_bug_display_data = {
+static struct omap_dss_device omap3_bug_lcd_device = {
 	.type = OMAP_DISPLAY_TYPE_DPI,
 	.name = "lcd",
-	.panel_name = "sharp-ls037v7dw01",
-	.u.dpi.data_lines = 18,
+	.driver_name = "sharp-ls037v7dw01",
+	.phy.dpi.data_lines = 18,
 	.panel_enable = omap3_bug_panel_enable_lcd,
 	.panel_disable = omap3_bug_panel_disable_lcd,
 };
 
-static int omap3_bug_panel_enable_tv(struct omap_display *display)
-{
-	twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER,
-			ENABLE_VDAC_DEDICATED, TWL4030_VDAC_DEDICATED);
-	twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER,
-			ENABLE_VDAC_DEV_GRP, TWL4030_VDAC_DEV_GRP);
-	return 0;
-}
-
-static void omap3_bug_panel_disable_tv(struct omap_display *display)
-{
-	twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER, 0x00,
-			TWL4030_VDAC_DEDICATED);
-	twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER, 0x00,
-			TWL4030_VDAC_DEV_GRP);
-}
-
-static struct omap_display_data omap3_bug_display_data_tv = {
-	.type = OMAP_DISPLAY_TYPE_VENC,
-	.name = "tv",
-#if defined(CONFIG_OMAP2_VENC_OUT_TYPE_SVIDEO)
-	.u.venc.type = OMAP_DSS_VENC_TYPE_SVIDEO,
-#elif defined(CONFIG_OMAP2_VENC_OUT_TYPE_COMPOSITE)
-	.u.venc.type = OMAP_DSS_VENC_TYPE_COMPOSITE,
-#endif
-	.panel_enable = omap3_bug_panel_enable_tv,
-	.panel_disable = omap3_bug_panel_disable_tv,
+struct omap_dss_device *omap3_bug_dss_devices[] = {
+  &omap3_bug_lcd_device,
 };
 
-static int omap3_bug_panel_enable_dvi(struct omap_display *display)
-{
-	unsigned char val;
-
-	if (lcd_enabled) {
-		return -EINVAL;
-	}
-
-	if (omap_rev() > OMAP3430_REV_ES1_0) {
-		twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER,
-			ENABLE_VPLL2_DEDICATED, TWL4030_PLL2_DEDICATED);
-		twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER,
-			ENABLE_VPLL2_DEV_GRP, TWL4030_VPLL2_DEV_GRP);
-	}
-	twl4030_i2c_read_u8(TWL4030_MODULE_GPIO, &val,
-			REG_GPIODATADIR1);
-	val |= 0x80;
-	twl4030_i2c_write_u8(TWL4030_MODULE_GPIO, val,
-			REG_GPIODATADIR1);
-	twl4030_i2c_read_u8(TWL4030_MODULE_GPIO, &val,
-			REG_GPIODATAOUT1);
-	val |= 0x80;
-	twl4030_i2c_write_u8(TWL4030_MODULE_GPIO, val,
-			REG_GPIODATAOUT1);
-	dvi_enabled = 1;
-
-	return 0;
-}
-
-static void omap3_bug_panel_disable_dvi(struct omap_display *display)
-{
-	unsigned char val;
-
-	if (omap_rev() > OMAP3430_REV_ES1_0) {
-		twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER, 0x0,
-				TWL4030_PLL2_DEDICATED);
-		twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER, 0x0,
-				TWL4030_VPLL2_DEV_GRP);
-	}
-
-	twl4030_i2c_read_u8(TWL4030_MODULE_GPIO, &val,
-			REG_GPIODATADIR1);
-	val &= ~0x80;
-	twl4030_i2c_write_u8(TWL4030_MODULE_GPIO, val,
-			REG_GPIODATADIR1);
-	twl4030_i2c_read_u8(TWL4030_MODULE_GPIO, &val,
-			REG_GPIODATAOUT1);
-	val &= ~0x80;
-	twl4030_i2c_write_u8(TWL4030_MODULE_GPIO, val,
-			REG_GPIODATAOUT1);
-	dvi_enabled = 0;
-}
-
-static struct omap_display_data omap3_bug_display_data_dvi = {
-	.type = OMAP_DISPLAY_TYPE_DPI,
-	.name = "dvi",
-	.panel_name = "panel-generic",
-	.u.dpi.data_lines = 24,
-	.panel_enable = omap3_bug_panel_enable_dvi,
-	.panel_disable = omap3_bug_panel_disable_dvi,
+static struct omap_dss_board_info omap3_bug_dss_data = {
+	.num_devices	= ARRAY_SIZE(omap3_bug_dss_devices),
+	.devices	= omap3_bug_dss_devices,
+	.default_device	= &omap3_bug_lcd_device,
 };
 
-static struct omap_dss_platform_data omap3_bug_dss_data = {
-	.num_displays = 3,
-	.displays = {
-		&omap3_bug_display_data,
-		&omap3_bug_display_data_dvi,
-		&omap3_bug_display_data_tv,
-	}
-};
 static struct platform_device omap3_bug_dss_device = {
-	.name		= "omap-dss",
+	.name		= "omapdss",
 	.id		= -1,
 	.dev            = {
 		.platform_data = &omap3_bug_dss_data,
 	},
 };
-#else /* CONFIG_OMAP2_DSS */
-static struct platform_device omap3_bug_lcd_device = {
-	.name		= "omap3bug_lcd",
-	.id		= -1,
-};
-static struct omap_lcd_config omap3_bug_lcd_config __initdata = {
-	.ctrl_name	= "internal",
-};
-#endif /* CONFIG_OMAP2_DSS */
-
 
 static struct resource bmi_slot1_resources[] = {
   [0] = {
@@ -593,12 +493,10 @@ static struct omap_board_config_kernel omap3_bug_config[] __initdata = {
 };
 
 static struct platform_device *omap3_bug_devices[] __initdata = {
-#ifdef CONFIG_OMAP2_DSS
+
 	&omap3_bug_dss_device,
 	&omap3bug_vout_device,
-#else /* CONFIG_OMAP2_DSS */
-	&omap3_bug_lcd_device,
-#endif /* CONFIG_OMAP2_DSS */
+
 	&omap3_bug_pwr_switch,
 };
 
