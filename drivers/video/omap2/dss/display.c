@@ -28,7 +28,7 @@
 #include <linux/list.h>
 #include <linux/platform_device.h>
 
-#include <plat/display.h>
+#include <mach/display.h>
 #include "dss.h"
 
 static LIST_HEAD(display_list);

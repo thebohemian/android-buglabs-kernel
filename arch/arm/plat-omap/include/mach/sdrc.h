@@ -44,6 +44,12 @@
 #define SDRC_RFR_CTRL_1		0x0D4
 #define SDRC_MANUAL_1		0x0D8
 
+#define SDRC_POWER_AUTOCOUNT_SHIFT	8
+#define SDRC_POWER_AUTOCOUNT_MASK	(0xffff << SDRC_POWER_AUTOCOUNT_SHIFT)
+#define SDRC_POWER_CLKCTRL_SHIFT	4
+#define SDRC_POWER_CLKCTRL_MASK		(0x3 << SDRC_POWER_CLKCTRL_SHIFT)
+#define SDRC_SELF_REFRESH_ON_AUTOCOUNT	(0x2 << SDRC_POWER_CLKCTRL_SHIFT)
+
 /*
  * These values represent the number of memory clock cycles between
  * autorefresh initiation.  They assume 1 refresh per 64 ms (JEDEC), 8192
@@ -80,15 +86,18 @@
  */
 
 #define OMAP242X_SMS_REGADDR(reg)					\
-			(void __iomem *)OMAP2_IO_ADDRESS(OMAP2420_SMS_BASE + reg)
+		(void __iomem *)OMAP2_L3_IO_ADDRESS(OMAP2420_SMS_BASE + reg)
 #define OMAP243X_SMS_REGADDR(reg)					\
-			(void __iomem *)OMAP2_IO_ADDRESS(OMAP243X_SMS_BASE + reg)
+		(void __iomem *)OMAP2_L3_IO_ADDRESS(OMAP243X_SMS_BASE + reg)
 #define OMAP343X_SMS_REGADDR(reg)					\
-			(void __iomem *)OMAP2_IO_ADDRESS(OMAP343X_SMS_BASE + reg)
+		(void __iomem *)OMAP2_L3_IO_ADDRESS(OMAP343X_SMS_BASE + reg)
 
 /* SMS register offsets - read/write with sms_{read,write}_reg() */
 
-#define SMS_SYSCONFIG		0x010
+#define SMS_SYSCONFIG			0x010
+#define SMS_ROT_CONTROL(context)	(0x180 + 0x10 * context)
+#define SMS_ROT_SIZE(context)		(0x184 + 0x10 * context)
+#define SMS_ROT_PHYSICAL_BA(context)	(0x188 + 0x10 * context)
 /* REVISIT: fill in other SMS registers here */
 
 
@@ -120,6 +129,12 @@ void __init omap2_sdrc_init(struct omap_sdrc_params *sdrc_cs0,
 int omap2_sdrc_get_params(unsigned long r,
 			  struct omap_sdrc_params **sdrc_cs0,
 			  struct omap_sdrc_params **sdrc_cs1);
+void omap2_sms_save_context(void);
+void omap2_sms_restore_context(void);
+
+void omap2_sms_write_rot_control(u32 val, unsigned ctx);
+void omap2_sms_write_rot_size(u32 val, unsigned ctx);
+void omap2_sms_write_rot_physical_ba(u32 val, unsigned ctx);
 
 #ifdef CONFIG_ARCH_OMAP2
 

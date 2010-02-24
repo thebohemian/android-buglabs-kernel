@@ -28,9 +28,9 @@
 #include <linux/omapfb.h>
 #include <linux/vmalloc.h>
 
-#include <plat/display.h>
-#include <plat/vrfb.h>
-#include <plat/vram.h>
+#include <mach/display.h>
+#include <mach/vrfb.h>
+#include <mach/vram.h>
 
 #include "omapfb.h"
 

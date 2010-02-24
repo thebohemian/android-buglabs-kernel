@@ -42,7 +42,7 @@
 #include <mach/common.h>
 #include <mach/mcspi.h>
 #include <mach/mux.h>
-//#include <mach/display.h>
+#include <mach/display.h>
 //#include <mach/pm.h>
 #include <mach/clock.h>
 
@@ -288,15 +288,6 @@ err_1:
 
 static int omap3_bug_panel_enable_lcd(struct omap_dss_device *display)
 {
-	if (dvi_enabled) {
-		return -EINVAL;
-	}
-	if (omap_rev() > OMAP3430_REV_ES1_0) {
-		twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER,
-				ENABLE_VPLL2_DEDICATED, TWL4030_PLL2_DEDICATED);
-		twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER,
-				ENABLE_VPLL2_DEV_GRP, TWL4030_VPLL2_DEV_GRP);
-	}
 	gpio_direction_output(LCD_PANEL_ENABLE_GPIO, 0);
 	lcd_enabled = 1;
 	return 0;
@@ -304,12 +295,6 @@ static int omap3_bug_panel_enable_lcd(struct omap_dss_device *display)
 
 static void omap3_bug_panel_disable_lcd(struct omap_dss_device *display)
 {
-	if (omap_rev() > OMAP3430_REV_ES1_0) {
-		twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER, 0x0,
-				TWL4030_PLL2_DEDICATED);
-		twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER, 0x0,
-				TWL4030_VPLL2_DEV_GRP);
-	}
 	gpio_direction_output(LCD_PANEL_ENABLE_GPIO, 1);
 	lcd_enabled = 0;
 }
@@ -317,10 +302,10 @@ static void omap3_bug_panel_disable_lcd(struct omap_dss_device *display)
 static struct omap_dss_device omap3_bug_lcd_device = {
 	.type = OMAP_DISPLAY_TYPE_DPI,
 	.name = "lcd",
-	.driver_name = "sharp-ls037v7dw01",
+	.driver_name = "sharp-lq025q3dw02",
 	.phy.dpi.data_lines = 18,
-	.panel_enable = omap3_bug_panel_enable_lcd,
-	.panel_disable = omap3_bug_panel_disable_lcd,
+	.platform_enable = omap3_bug_panel_enable_lcd,
+	.platform_disable = omap3_bug_panel_disable_lcd,
 };
 
 struct omap_dss_device *omap3_bug_dss_devices[] = {

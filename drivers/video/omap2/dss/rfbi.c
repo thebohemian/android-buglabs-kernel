@@ -33,7 +33,7 @@
 #include <linux/hrtimer.h>
 #include <linux/seq_file.h>
 
-#include <plat/display.h>
+#include <mach/display.h>
 #include "dss.h"
 
 /*#define MEASURE_PERF*/

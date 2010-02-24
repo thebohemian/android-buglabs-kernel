@@ -33,8 +33,8 @@
 #include <linux/kthread.h>
 #include <linux/wait.h>
 
-#include <plat/display.h>
-#include <plat/clock.h>
+#include <mach/display.h>
+#include <mach/clock.h>
 
 #include "dss.h"
 

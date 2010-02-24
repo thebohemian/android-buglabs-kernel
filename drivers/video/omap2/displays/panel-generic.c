@@ -20,7 +20,7 @@
 #include <linux/module.h>
 #include <linux/delay.h>
 
-#include <plat/display.h>
+#include <mach/display.h>
 
 static struct omap_video_timings generic_panel_timings = {
 	/* 640 x 480 @ 60 Hz  Reduced blanking VESA CVT 0.31M3-R */

@@ -27,7 +27,7 @@
 #define DEBUG
 #endif
 
-#include <plat/display.h>
+#include <mach/display.h>
 
 #ifdef DEBUG
 extern unsigned int omapfb_debug;

@@ -30,7 +30,7 @@
 #include <linux/seq_file.h>
 #include <linux/clk.h>
 
-#include <plat/display.h>
+#include <mach/display.h>
 #include "dss.h"
 
 #define DSS_BASE			0x48050000

@@ -30,8 +30,8 @@
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
 
-#include <plat/display.h>
-#include <plat/cpu.h>
+#include <mach/display.h>
+#include <mach/cpu.h>
 
 #include "dss.h"
 

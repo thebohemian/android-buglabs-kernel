@@ -29,9 +29,9 @@
 #include <linux/platform_device.h>
 #include <linux/omapfb.h>
 
-#include <plat/display.h>
-#include <plat/vram.h>
-#include <plat/vrfb.h>
+#include <mach/display.h>
+#include <mach/vram.h>
+#include <mach/vrfb.h>
 
 #include "omapfb.h"
 

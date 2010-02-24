@@ -33,8 +33,8 @@
 #include <linux/device.h>
 #include <linux/regulator/consumer.h>
 
-#include <plat/display.h>
-#include <plat/clock.h>
+#include <mach/display.h>
+#include <mach/clock.h>
 
 #include "dss.h"
 

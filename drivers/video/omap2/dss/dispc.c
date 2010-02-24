@@ -32,10 +32,10 @@
 #include <linux/delay.h>
 #include <linux/workqueue.h>
 
-#include <plat/sram.h>
-#include <plat/clock.h>
+#include <mach/sram.h>
+#include <mach/clock.h>
 
-#include <plat/display.h>
+#include <mach/display.h>
 
 #include "dss.h"
 
@@ -3060,7 +3060,7 @@ static void _omap_dispc_initial_config(void)
 	/* L3 firewall setting: enable access to OCM RAM */
 	/* XXX this should be somewhere in plat-omap */
 	if (cpu_is_omap24xx())
-		__raw_writel(0x402000b0, OMAP2_L3_IO_ADDRESS(0x680050a0));
+		__raw_writel(0x402000b0, OMAP2_IO_ADDRESS(0x680050a0));
 
 	_dispc_setup_color_conv_coef();
 

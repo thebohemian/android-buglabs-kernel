@@ -32,9 +32,9 @@
 
 #include <asm/setup.h>
 
-#include <plat/sram.h>
-#include <plat/vram.h>
-#include <plat/dma.h>
+#include <mach/sram.h>
+#include <mach/vram.h>
+#include <mach/dma.h>
 
 #ifdef DEBUG
 #define DBG(format, ...) pr_debug("VRAM: " format, ## __VA_ARGS__)

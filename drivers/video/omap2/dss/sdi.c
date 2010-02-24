@@ -24,7 +24,7 @@
 #include <linux/delay.h>
 #include <linux/err.h>
 
-#include <plat/display.h>
+#include <mach/display.h>
 #include "dss.h"
 
 static struct {
