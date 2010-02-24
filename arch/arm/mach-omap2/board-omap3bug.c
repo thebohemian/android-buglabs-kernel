@@ -471,12 +471,6 @@ static void __init omap3_bug_init_irq(void)
 	omap_gpio_init();
 }
 
-static struct omap_board_config_kernel omap3_bug_config[] __initdata = {
-#ifndef CONFIG_OMAP2_DSS
-	{ OMAP_TAG_LCD,		&omap3_bug_lcd_config },
-#endif
-};
-
 static struct platform_device *omap3_bug_devices[] __initdata = {
 
 	&omap3_bug_dss_device,
@@ -722,9 +716,6 @@ static void __init omap3_bug_init(void)
 	omap3_bug_i2c_init();
 
 	platform_add_devices(omap3_bug_devices, ARRAY_SIZE(omap3_bug_devices));
-	omap_board_config = omap3_bug_config;
-	omap_board_config_size = ARRAY_SIZE(omap3_bug_config);
-
 	spi_register_board_info(omap3bug_spi_board_info,
 				ARRAY_SIZE(omap3bug_spi_board_info));
 	omap_serial_init();
