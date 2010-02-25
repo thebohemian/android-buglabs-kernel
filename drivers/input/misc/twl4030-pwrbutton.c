@@ -32,6 +32,7 @@
 #define PWR_PWRON_IRQ (1 << 0)
 
 #define STS_HW_CONDITIONS 0xf
+#define P1_SW_EVENTS      0X10
 
 static irqreturn_t powerbutton_irq(int irq, void *_pwr)
 {
@@ -67,7 +68,13 @@ static int __devinit twl4030_pwrbutton_probe(struct platform_device *pdev)
 	struct input_dev *pwr;
 	int irq = platform_get_irq(pdev, 0);
 	int err;
+	u8 value;
 
+	err = twl4030_i2c_read_u8(TWL4030_MODULE_PM_MASTER, &value, P1_SW_EVENTS);
+	value = value | (0x1 << 6);
+	err = twl4030_i2c_write_u8(TWL4030_MODULE_PM_MASTER, value, P1_SW_EVENTS);
+	if(err)
+	  dev_dbg(&pdev->dev, "Couldn't set 8 Sec PWROFF...\n");
 	pwr = input_allocate_device();
 	if (!pwr) {
 		dev_dbg(&pdev->dev, "Can't allocate power button\n");

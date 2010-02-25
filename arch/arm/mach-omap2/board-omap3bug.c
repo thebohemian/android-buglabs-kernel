@@ -75,6 +75,8 @@ static struct omap_uart_config omap3_bug_uart_config __initdata = {
 };
 */
 
+static struct platform_device omap3_bug_dss_device;
+
 static struct regulator_consumer_supply bug_vmmc1_supply = {
 	.supply			= "vmmc",
 };
@@ -115,6 +117,29 @@ static struct regulator_init_data bug_vaux2 = {
 	.consumer_supplies	= &bug_vaux2_supply,
 };
 
+/* VPLL2 for digital video outputs */
+static struct regulator_consumer_supply bug_vpll2_supplies[] = {
+  {
+    .supply= "vdds_dsi",
+    .dev= &omap3_bug_dss_device.dev,
+  }
+};
+
+static struct regulator_init_data bug_vpll2 = {
+  .constraints = {
+    .name= "VLCD",
+    .min_uV= 1800000,
+    .max_uV= 1800000,
+    .apply_uV= true,
+    .valid_modes_mask= REGULATOR_MODE_NORMAL
+    | REGULATOR_MODE_STANDBY,
+    .valid_ops_mask= REGULATOR_CHANGE_MODE
+    | REGULATOR_CHANGE_STATUS,
+  },
+  .num_consumer_supplies= ARRAY_SIZE(bug_vpll2_supplies),
+  .consumer_supplies= bug_vpll2_supplies,
+};
+
 static struct twl4030_gpio_platform_data omap3bug_gpio_data = {
 	.gpio_base	= OMAP_MAX_GPIO_LINES,
 	.irq_base	= TWL4030_GPIO_IRQ_BASE,
@@ -145,6 +170,7 @@ static struct twl4030_platform_data omap3bug_twldata = {
 	//.power		= GENERIC3430_T2SCRIPTS_DATA,
 	.vmmc1		= &bug_vmmc1,
 	.vaux2		= &bug_vaux2,
+	.vpll2          = &bug_vpll2,
 	.gpio		= &omap3bug_gpio_data,
 };
 
@@ -528,7 +554,7 @@ static struct platform_device leds_gpio = {
 };
 
 
-static int omap3bug_twl_gpio_setup(struct device *dev,
+static int __init omap3bug_twl_gpio_setup(struct device *dev,
                unsigned gpio, unsigned ngpio)
 {
        /* gpio + 0 is "mmc0_cd" (input/IRQ) */
