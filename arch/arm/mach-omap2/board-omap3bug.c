@@ -53,6 +53,7 @@
 //#include "omap3-opp.h"
 #include "board-omap3bug-dc.h"
 #include <linux/regulator/machine.h>
+#include <linux/regulator/fixed.h>
 
 #define OMAP3_BUG_TS_GPIO	175
 
@@ -117,37 +118,45 @@ static struct regulator_init_data bug_vaux2 = {
 	.consumer_supplies	= &bug_vaux2_supply,
 };
 
-/* VPLL2 for digital video outputs */
-static struct regulator_consumer_supply bug_vpll2_supplies[] = {
+/* Supply enable for digital video outputs */
+static struct regulator_consumer_supply bug_disp_supplies[] = {
   {
     .supply= "vdds_dsi",
     .dev= &omap3_bug_dss_device.dev,
   }
 };
 
-static struct regulator_init_data bug_vpll2 = {
+static struct regulator_init_data bug_disp_data = {
   .constraints = {
-    .name= "VLCD",
-    .min_uV= 1800000,
-    .max_uV= 1800000,
-    .apply_uV= true,
-    .valid_modes_mask= REGULATOR_MODE_NORMAL
-    | REGULATOR_MODE_STANDBY,
-    .valid_ops_mask= REGULATOR_CHANGE_MODE
-    | REGULATOR_CHANGE_STATUS,
+    .always_on = 1,
   },
-  .num_consumer_supplies= ARRAY_SIZE(bug_vpll2_supplies),
-  .consumer_supplies= bug_vpll2_supplies,
+  .num_consumer_supplies= ARRAY_SIZE(bug_disp_supplies),
+  .consumer_supplies= bug_disp_supplies,
+
+};
+
+static struct fixed_voltage_config bug_disp_pwr_pdata = {
+	.supply_name = "VLCD",
+	.microvolts = 5000000,
+	.init_data = &bug_disp_data,
+	.gpio = 108,
+};
+
+static struct platform_device bug_disp_pwr = {
+	.name          = "reg-fixed-voltage",
+	.id            = -1,
+	.dev = {
+		.platform_data = &bug_disp_pwr_pdata,
+	},
 };
 
 static struct twl4030_gpio_platform_data omap3bug_gpio_data = {
-	.gpio_base	= OMAP_MAX_GPIO_LINES,
-	.irq_base	= TWL4030_GPIO_IRQ_BASE,
-	.irq_end	= TWL4030_GPIO_IRQ_END,
-        .pulldowns      = BIT(2) | BIT(6) | BIT(8) | BIT(13)
-                                | BIT(16) | BIT(17),
-        .setup          = omap3bug_twl_gpio_setup,
-
+  .gpio_base	= OMAP_MAX_GPIO_LINES,
+  .irq_base	= TWL4030_GPIO_IRQ_BASE,
+  .irq_end	= TWL4030_GPIO_IRQ_END,
+  .pulldowns      = BIT(2) | BIT(6) | BIT(8) | BIT(13)
+  | BIT(16) | BIT(17),
+  .setup          = omap3bug_twl_gpio_setup,
 };
 
 static struct twl4030_usb_data omap3bug_usb_data = {
@@ -170,7 +179,6 @@ static struct twl4030_platform_data omap3bug_twldata = {
 	//.power		= GENERIC3430_T2SCRIPTS_DATA,
 	.vmmc1		= &bug_vmmc1,
 	.vaux2		= &bug_vaux2,
-	.vpll2          = &bug_vpll2,
 	.gpio		= &omap3bug_gpio_data,
 };
 
@@ -499,9 +507,9 @@ static void __init omap3_bug_init_irq(void)
 
 static struct platform_device *omap3_bug_devices[] __initdata = {
 
+  	&bug_disp_pwr,
 	&omap3_bug_dss_device,
 	&omap3bug_vout_device,
-
 	&omap3_bug_pwr_switch,
 };
 
