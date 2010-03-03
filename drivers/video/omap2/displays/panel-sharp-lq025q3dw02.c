@@ -149,7 +149,7 @@ struct sharp_panel_device {
 
 	struct spi_device	*spi;
 	struct mutex		mutex;
-	struct omap_dss_device	*display;
+	struct omap_dss_device	*dssdev;
 };
 
 
@@ -186,56 +186,56 @@ static void sharp_spi_panel_remove(struct omap_dss_device *dssdev)
 {
 }
 
-static int sharp_spi_panel_enable(struct omap_dss_device *display)
+static int sharp_spi_panel_enable(struct omap_dss_device *dssdev)
 {
-	int r,i;
-	u16 data = 0x00;
-	struct lcd_device *md =
-		(struct lcd_device *)display->panel->priv;
+  int r = 0;
+  int i;
+  u16 data = 0x00;
+  struct lcd_device *md = dev_get_drvdata(dssdev->panel->priv);
 
-	DBG("spi_lcd_panel_enable\n");
+  dev_dbg("spi_lcd_panel_enable\n");
 
-	mutex_lock(&md->mutex);
+  mutex_lock(&md->mutex);
 
-	if (display->platform_enable)
+  if (dssdev->platform_enable)
+    {
+      r = dssdev->platform_enable(dssdev);
+      if (r)
 	{
-		r = display->platform_enable(display);
-		if (r < 0)
-		{
-			mutex_unlock(&md->mutex);
-			return 0;
-		}
-		md->spi->bits_per_word = 9;
-		spi_setup (md->spi);
-		//gpio_set_value (93, 1);
-		mdelay (1);
-		gpio_set_value (90, 0);
-		for (i =0; i<81; i++)
-		{
-			data = lcd_init_seq[i];
-			lcd_write (md, (u8 *)&data, 2);
-		}
-	mdelay (1);
-
+	  goto exit;
 	}
-
-	msleep(50); // wait for power up
-
-	if (md->enabled) {
-		mutex_unlock(&md->mutex);
-		return 0;
+      md->spi->bits_per_word = 9;
+      spi_setup (md->spi);
+      //gpio_set_value (93, 1);
+      mdelay (1);
+      gpio_set_value (90, 0);
+      for (i =0; i<81; i++)
+	{
+	  data = lcd_init_seq[i];
+	  lcd_write (md, (u8 *)&data, 2);
 	}
+      mdelay (1);
 
-	md->enabled = 1;
+    }
 
-	mutex_unlock(&md->mutex);
-	return 0;
+  msleep(50); // wait for power up
+
+  if (md->enabled) {
+    mutex_unlock(&md->mutex);
+    return 0;
+  }
+
+  md->enabled = 1;
+
+ exit:
+  mutex_unlock(&md->mutex);
+  return 0;
 }
 
-static void sharp_spi_lcd_disable(struct omap_dss_device *display)
+static void sharp_spi_lcd_disable(struct omap_dss_device *dssdev)
 {
 	struct sharp_panel_device *md =
-		(struct lcd_device *)display->panel->priv;
+		(struct lcd_device *)dssdev->panel->priv;
 
 	DBG("sharp_spi_lcd_disable\n");
 
@@ -249,21 +249,21 @@ static void sharp_spi_lcd_disable(struct omap_dss_device *display)
 	md->enabled = 0;
 
 
-	if (display->hw_config.panel_disable)
-		display->hw_config.panel_disable(display);
+	if (dssdev->hw_config.panel_disable)
+		dssdev->hw_config.panel_disable(dssdev);
 
 	mutex_unlock(&md->mutex);
 }
 
-static int sharp_spi_lcd_init(struct omap_dss_device *display)
+static int sharp_spi_lcd_init(struct omap_dss_device *dssdev)
 {
 	struct sharp_panel_device *md =
-		(struct lcd_device *)display->panel->priv;
+		(struct lcd_device *)dssdev->panel->priv;
 
 	DBG("sharp_spi_lcd_init\n");
 
 	mutex_init(&md->mutex);
-	md->display = display;
+	md->dssdev = dssdev;
 #if 0
 	md->spi->bits_per_word = 9;
 	spi_setup (md->spi);
@@ -280,17 +280,17 @@ static int sharp_spi_lcd_init(struct omap_dss_device *display)
 	return 0;
 }
 
-static int sharp_spi_lcd_suspend (struct omap_dss_device *display)
+static int sharp_spi_lcd_suspend (struct omap_dss_device *dssdev)
 {
 	return 0;
 }
 
-static int sharp_spi_lcd_resume (struct omap_dss_device *display)
+static int sharp_spi_lcd_resume (struct omap_dss_device *dssdev)
 {
 
 	return 0;
 }
-static int sharp_spi_lcd_run_tests(struct omap_dss_device *display, int test_num)
+static int sharp_spi_lcd_run_tests(struct omap_dss_device *dssdev, int test_num)
 {
 	return 0;
 }
