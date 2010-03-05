@@ -205,6 +205,13 @@ config BACKLIGHT_DA903X
 	  If you have a LCD backlight connected to the WLED output of DA9030
 	  or DA9034 WLED output, say Y here to enable this driver.
 
+config BACKLIGHT_BUGBASE2
+        tristate "BUGBASE2 LCD Backlight"
+        depends on BACKLIGHT_CLASS_DEVICE && MACH_OMAP3BUG
+        default y
+        help
+        This driver controls the LCD backlight of BUGBASE2
+
 config BACKLIGHT_MBP_NVIDIA
        tristate "MacBook Pro Nvidia Backlight Driver"
        depends on BACKLIGHT_CLASS_DEVICE && X86
