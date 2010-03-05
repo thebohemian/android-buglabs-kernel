@@ -28,6 +28,7 @@
 #include <mach/sram.h>
 #include <mach/board.h>
 #include <mach/cpu.h>
+#include <mach/vram.h>
 
 #include <mach/control.h>
 
@@ -185,6 +186,13 @@ void __init omap_detect_sram(void)
 				       omap_sram_start + SRAM_BOOTLOADER_SZ,
 				       omap_sram_size - SRAM_BOOTLOADER_SZ);
 	omap_sram_size -= reserved;
+
+	reserved = omap_vram_reserve_sram(omap_sram_start, omap_sram_base,
+			omap_sram_size,
+			omap_sram_start + SRAM_BOOTLOADER_SZ,
+			omap_sram_size - SRAM_BOOTLOADER_SZ);
+	omap_sram_size -= reserved;
+
 	omap_sram_ceil = omap_sram_base + omap_sram_size;
 }
 
