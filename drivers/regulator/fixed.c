@@ -118,9 +118,7 @@ static int regulator_fixed_voltage_probe(struct platform_device *pdev)
 	drvdata->microvolts = config->microvolts;
 	drvdata->gpio = config->gpio;
 
-	printk(KERN_INFO "regulator-fixed: Checking validity of gpio %d ..\n", config->gpio);
 	if (gpio_is_valid(config->gpio)) {
-	  printk(KERN_INFO "regulator-fixed: gpio valid...\n");
 		drvdata->enable_high = config->enable_high;
 		
 		/* FIXME: Remove below print warning
