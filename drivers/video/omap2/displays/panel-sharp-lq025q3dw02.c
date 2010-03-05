@@ -11,6 +11,7 @@
 #include <linux/sched.h>
 #include <linux/backlight.h>
 #include <linux/fb.h>
+#include <linux/device.h>
 
 #include <mach/display.h>
 #include <mach/dma.h>
@@ -156,13 +157,15 @@ struct sharp_panel_device {
 static inline void panel_write(struct spi_device *spi,
 			       const u8 *buf, int len)
 {
+  int r;
 	struct spi_transfer t;
 
 	t.bits_per_word = 9;	
 	t.tx_buf = buf;
 	t.len = len;
 
-	if (spi_write (spi, buf, len) < 0)
+	r = spi_write (spi, buf, len);
+	if (r < 0)
 	{
 		printk ("SPI transfer failed for LCD\n");
 		return ;
@@ -173,12 +176,11 @@ static inline void panel_write(struct spi_device *spi,
 
 static int sharp_spi_panel_probe(struct omap_dss_device *dssdev)
 {
-
 	dssdev->panel.config = OMAP_DSS_LCD_TFT|OMAP_DSS_LCD_IVS|OMAP_DSS_LCD_IHS|OMAP_DSS_LCD_IPC;
 	dssdev->panel.acb = 0x0;
-	dssdev->panel.recommended_bpp = 18;
+	dssdev->panel.recommended_bpp = 16;
 	dssdev->panel.timings = sharp_spi_timings;
-
+	//	md->dssdev = dssdev;
 	return 0;
 }
 
@@ -191,9 +193,10 @@ static int sharp_spi_panel_enable(struct omap_dss_device *dssdev)
   int r = 0;
   int i;
   u16 data = 0x00;
-  struct lcd_device *md = dev_get_drvdata(dssdev->panel->priv);
+  int nreset_gpio = dssdev->reset_gpio;
+  struct sharp_panel_device *md = dev_get_drvdata(&dssdev->dev);
 
-  dev_dbg("spi_lcd_panel_enable\n");
+  dev_info(&dssdev->dev, "spi_lcd_panel_enable\n");
 
   mutex_lock(&md->mutex);
 
@@ -206,13 +209,15 @@ static int sharp_spi_panel_enable(struct omap_dss_device *dssdev)
 	}
       md->spi->bits_per_word = 9;
       spi_setup (md->spi);
-      //gpio_set_value (93, 1);
+
       mdelay (1);
-      gpio_set_value (90, 0);
+      if (gpio_is_valid(nreset_gpio))
+	dev_info(&dssdev->dev, "taking lcd out of reset..");
+	gpio_set_value(nreset_gpio, 0);
       for (i =0; i<81; i++)
 	{
-	  data = lcd_init_seq[i];
-	  lcd_write (md, (u8 *)&data, 2);
+	  data = panel_init_seq[i];
+	  panel_write (md->spi, (u8 *)&data, 2);
 	}
       mdelay (1);
 
@@ -232,12 +237,11 @@ static int sharp_spi_panel_enable(struct omap_dss_device *dssdev)
   return 0;
 }
 
-static void sharp_spi_lcd_disable(struct omap_dss_device *dssdev)
+static void sharp_spi_panel_disable(struct omap_dss_device *dssdev)
 {
-	struct sharp_panel_device *md =
-		(struct lcd_device *)dssdev->panel->priv;
+	struct sharp_panel_device *md = dev_get_drvdata(&dssdev->dev);
 
-	DBG("sharp_spi_lcd_disable\n");
+	dev_info(&dssdev->dev, "sharp_spi_lcd_disable\n");
 
 	mutex_lock(&md->mutex);
 
@@ -248,54 +252,24 @@ static void sharp_spi_lcd_disable(struct omap_dss_device *dssdev)
 
 	md->enabled = 0;
 
-
-	if (dssdev->hw_config.panel_disable)
-		dssdev->hw_config.panel_disable(dssdev);
+	if (dssdev->platform_disable)
+		dssdev->platform_disable(dssdev);
 
 	mutex_unlock(&md->mutex);
 }
 
-static int sharp_spi_lcd_init(struct omap_dss_device *dssdev)
-{
-	struct sharp_panel_device *md =
-		(struct lcd_device *)dssdev->panel->priv;
-
-	DBG("sharp_spi_lcd_init\n");
-
-	mutex_init(&md->mutex);
-	md->dssdev = dssdev;
-#if 0
-	md->spi->bits_per_word = 9;
-	spi_setup (md->spi);
-	//gpio_set_value (93, 1);
-	mdelay (1);
-	gpio_set_value (90, 0);
-	for (i =0; i<81; i++)
-	{
-		data = lcd_init_seq[i];
-		lcd_write (md, (u8 *)&data, 2);
-	}
-	mdelay (1);
-#endif
-	return 0;
-}
-
-static int sharp_spi_lcd_suspend (struct omap_dss_device *dssdev)
+static int sharp_spi_panel_suspend (struct omap_dss_device *dssdev)
 {
 	return 0;
 }
 
-static int sharp_spi_lcd_resume (struct omap_dss_device *dssdev)
+static int sharp_spi_panel_resume (struct omap_dss_device *dssdev)
 {
 
 	return 0;
 }
-static int sharp_spi_lcd_run_tests(struct omap_dss_device *dssdev, int test_num)
-{
-	return 0;
-}
 
-static struct omap_dss_driver sharp_spi_lcd_driver = {
+static struct omap_dss_driver sharp_spi_panel_driver = {
 	.probe		= sharp_spi_panel_probe,
 	.remove		= sharp_spi_panel_remove,
 
@@ -312,22 +286,28 @@ static struct omap_dss_driver sharp_spi_lcd_driver = {
 
 static int spi_lcd_probe(struct spi_device *spi)
 {
-	struct sharp_panel_device *md;
+  struct omap_dss_device *dssdev = spi->dev.platform_data;
+  struct sharp_panel_device *md;
 
-	DBG("spi_lcd_probe\n");
+	dev_info(&spi->dev, "spi_lcd_probe\n");
+
+	if (dssdev == NULL) {
+		dev_err(&spi->dev, "missing dssdev\n");
+		return -ENODEV;
+	}
 
 	md = kzalloc(sizeof(*md), GFP_KERNEL);
 	if (md == NULL) {
 		dev_err(&spi->dev, "out of memory\n");
 		return -ENOMEM;
 	}
-
+	
+	mutex_init(&md->mutex);
 	md->spi = spi;
 	dev_set_drvdata(&spi->dev, md);
-	md->panel = spi_lcd_panel;
-	spi_lcd_panel.priv = md;
+	dev_set_drvdata(&dssdev->dev, md);
 
-	omap_dss_register_driver(&sharp_panel_driver);
+	omap_dss_register_driver(&sharp_spi_panel_driver);
 
 	return 0;
 }
@@ -336,9 +316,9 @@ static int spi_lcd_remove(struct spi_device *spi)
 {
 	struct sharp_panel_device *md = dev_get_drvdata(&spi->dev);
 
-	DBG("spi_lcd_remove\n");
+	dev_info(&spi->dev, "spi_lcd_remove\n");
 
-	omap_dss_unregister_driver(&sharp_panel_driver);
+	omap_dss_unregister_driver(&sharp_spi_panel_driver);
 
 	kfree(md);
 
@@ -357,13 +337,11 @@ static struct spi_driver lcd_spi_driver = {
 
 static int __init spi_lcd_init(void)
 {
-	DBG("spi_lcd_init\n");
 	return spi_register_driver(&lcd_spi_driver);
 }
 
 static void __exit spi_lcd_exit(void)
 {
-	DBG("spi_lcd_exit\n");
 	spi_unregister_driver(&lcd_spi_driver);
 }
 

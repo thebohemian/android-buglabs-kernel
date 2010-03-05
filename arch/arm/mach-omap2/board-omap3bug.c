@@ -77,6 +77,7 @@ static struct omap_uart_config omap3_bug_uart_config __initdata = {
 */
 
 static struct platform_device omap3_bug_dss_device;
+static struct omap_dss_device omap3_bug_lcd_device;
 
 static struct regulator_consumer_supply bug_vmmc1_supply = {
 	.supply			= "vmmc",
@@ -139,7 +140,7 @@ static struct fixed_voltage_config bug_disp_pwr_pdata = {
 	.supply_name = "VLCD",
 	.microvolts = 5000000,
 	.init_data = &bug_disp_data,
-	.gpio = 108,
+	.gpio = -1,
 };
 
 static struct platform_device bug_disp_pwr = {
@@ -197,6 +198,15 @@ static struct spi_board_info __initdata omap3bug_spi_board_info[] = {
     .max_speed_hz = 2000000,
     .platform_data = &omap3bug_spi_uart_data,
   },
+  {
+    .modalias			= "spi-lcd",
+    .bus_num			= 3,
+    .chip_select		= 0,
+    .max_speed_hz		= 1000000,
+    .controller_data		= NULL,
+    .platform_data 		= &omap3_bug_lcd_device, //&lcd_mcspi_config,
+    .mode			= SPI_MODE_0,
+  },
 };
 
 static struct pca953x_platform_data omap3bug_ioexp_data = {
@@ -238,6 +248,8 @@ static int __init omap3_bug_i2c_init(void)
 			ARRAY_SIZE(omap3bug_i2c2_boardinfo));
 	return 0;
 }
+
+
 /*
  * For new frame buffer driver based on DSS2 library
  */
@@ -259,7 +271,7 @@ static struct platform_device omap3bug_vout_device = {
 #define LCD_PANEL_LR		2
 #define LCD_PANEL_UD		3
 #define LCD_PANEL_INI		152
-#define LCD_PANEL_ENABLE_GPIO	153
+#define LCD_PANEL_ENABLE_GPIO	232
 #define LCD_PANEL_QVGA		154
 #define LCD_PANEL_RESB		155
 
@@ -322,7 +334,17 @@ err_1:
 
 static int omap3_bug_panel_enable_lcd(struct omap_dss_device *display)
 {
+  	omap_cfg_reg (LCD_MCSPI3_CLK);
+	omap_cfg_reg (LCD_MCSPI3_SIMO);
+	omap_cfg_reg (LCD_SHUTDOWN);
+	omap_cfg_reg (LCD_MCSPI3_CS);
+	omap_cfg_reg (ACC_RESET);
+	omap_cfg_reg (LCD_TP_RESET);
+	omap_cfg_reg (ACC_INT);
 	gpio_direction_output(LCD_PANEL_ENABLE_GPIO, 0);
+	gpio_direction_output(227, 1);
+	gpio_direction_output(232, 0);
+
 	lcd_enabled = 1;
 	return 0;
 }
@@ -336,19 +358,20 @@ static void omap3_bug_panel_disable_lcd(struct omap_dss_device *display)
 static struct omap_dss_device omap3_bug_lcd_device = {
 	.type = OMAP_DISPLAY_TYPE_DPI,
 	.name = "lcd",
-	.driver_name = "sharp-lq025q3dw02",
+	.driver_name = "sharp_spi_panel",
 	.phy.dpi.data_lines = 18,
+	.reset_gpio = 90,
 	.platform_enable = omap3_bug_panel_enable_lcd,
 	.platform_disable = omap3_bug_panel_disable_lcd,
 };
 
-struct omap_dss_device *omap3_bug_dss_devices[] = {
+struct omap_dss_device *omap3_bug_display_devices[] = {
   &omap3_bug_lcd_device,
 };
 
 static struct omap_dss_board_info omap3_bug_dss_data = {
-	.num_devices	= ARRAY_SIZE(omap3_bug_dss_devices),
-	.devices	= omap3_bug_dss_devices,
+	.num_devices	= ARRAY_SIZE(omap3_bug_display_devices),
+	.devices	= omap3_bug_display_devices,
 	.default_device	= &omap3_bug_lcd_device,
 };
 
@@ -729,8 +752,8 @@ void gen_gpio_settings(void)
 
 static struct ehci_hcd_omap_platform_data ehci_pdata __initconst = {
 
-	.port_mode[0] = EHCI_HCD_OMAP_MODE_PHY,
-	.port_mode[1] = EHCI_HCD_OMAP_MODE_PHY,
+	.port_mode[0] = EHCI_HCD_OMAP_MODE_UNKNOWN,
+	.port_mode[1] = EHCI_HCD_OMAP_MODE_UNKNOWN,
 	.port_mode[2] = EHCI_HCD_OMAP_MODE_UNKNOWN,
 
 	.chargepump = false,
@@ -746,13 +769,13 @@ static void __init omap3_bug_init(void)
 
 	/* Get BUG board version and save it */
 //	omap3bug_board_rev();
-
+  printk(KERN_INFO "BUGBASE: Init i2c..\n");
 	omap3_bug_i2c_init();
-
-	platform_add_devices(omap3_bug_devices, ARRAY_SIZE(omap3_bug_devices));
+  printk(KERN_INFO "BUGBASE: Init spi..\n");
 	spi_register_board_info(omap3bug_spi_board_info,
 				ARRAY_SIZE(omap3bug_spi_board_info));
 	omap_serial_init();
+	platform_add_devices(omap3_bug_devices, ARRAY_SIZE(omap3_bug_devices));
 //      omap_init_twl4030();
 	usb_gpio_settings();
 	usb_musb_init();

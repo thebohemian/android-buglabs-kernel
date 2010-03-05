@@ -34,8 +34,8 @@ static void bl_power_on(struct bmi_slot* slot)
     
     break;
   case 1:
-    gpio_direction_output(227,1);
-    gpio_direction_output(224,0);
+    //    gpio_direction_output(227,1);
+    //    gpio_direction_output(232,0);
     break;
   case 2:
     gpio_direction_output(228,1);
@@ -59,8 +59,8 @@ static void bl_power_off(struct bmi_slot* slot)
     gpio_direction_output(225,1);
     break;
   case 1:
-    gpio_direction_output(227,0);
-    gpio_direction_output(224,1);
+    //    gpio_direction_output(227,0);
+    //    gpio_direction_output(232,1);
     break;
   case 2:
     gpio_direction_output(228,0);
@@ -194,6 +194,7 @@ static int omapbmi_slot_gpio_req(short * gpios)
   int i;
   int res;
 
+  
   for (i = 0; i < 4; i++) {
     if (gpios[i] < 0)
       break;
