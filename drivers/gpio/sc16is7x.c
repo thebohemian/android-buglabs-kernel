@@ -242,9 +242,10 @@ static struct spi_driver sc16is7x_driver = {
 
 static __init int sc16is7x_init(void)
 {
+  printk(KERN_INFO "SC16IS7X Initcall...\n");
 	return spi_register_driver(&sc16is7x_driver);
 }
-module_init(sc16is7x_init);
+subsys_initcall(sc16is7x_init);
 
 static __exit void sc16is7x_exit(void)
 {
