@@ -341,9 +341,10 @@ static int omap3_bug_panel_enable_lcd(struct omap_dss_device *display)
 	omap_cfg_reg (ACC_RESET);
 	omap_cfg_reg (LCD_TP_RESET);
 	omap_cfg_reg (ACC_INT);
-	gpio_direction_output(LCD_PANEL_ENABLE_GPIO, 0);
 	gpio_direction_output(227, 1);
 	gpio_direction_output(232, 0);
+	gpio_direction_output(90,1);
+	//gpio_direction_output(93,0);	
 
 	lcd_enabled = 1;
 	return 0;

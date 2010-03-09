@@ -202,9 +202,11 @@ static int sharp_spi_panel_enable(struct omap_dss_device *dssdev)
 
   if (dssdev->platform_enable)
     {
+      dev_info(&dssdev->dev, "Attempting platform enable..\n");
       r = dssdev->platform_enable(dssdev);
       if (r)
 	{
+	  dev_warn(&dssdev->dev, "Platform enable failed..\n");
 	  goto exit;
 	}
       md->spi->bits_per_word = 9;
@@ -212,8 +214,11 @@ static int sharp_spi_panel_enable(struct omap_dss_device *dssdev)
 
       mdelay (1);
       if (gpio_is_valid(nreset_gpio))
-	dev_info(&dssdev->dev, "taking lcd out of reset..");
-	gpio_set_value(nreset_gpio, 0);
+	dev_info(&dssdev->dev, "taking lcd out of reset..%d",nreset_gpio);
+	gpio_direction_output(93, 1);
+	udelay(100);
+	gpio_direction_output(90,0);
+	udelay(100);
       for (i =0; i<81; i++)
 	{
 	  data = panel_init_seq[i];
