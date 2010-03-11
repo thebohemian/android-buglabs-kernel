@@ -283,6 +283,7 @@ struct bus_type bmi_bus_type = {
 	.remove	  = bmi_device_remove,
 	.shutdown = bmi_device_shutdown,
 	.suspend  = bmi_device_suspend,
+	.dev_attrs = bmi_dev_attrs,
 	//	.suspend_late = bmi_device_suspend_late,
 	//	.resume_early = bmi_device_resume_early,
 	.resume = bmi_device_resume,
