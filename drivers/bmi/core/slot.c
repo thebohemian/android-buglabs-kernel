@@ -285,7 +285,7 @@ static void bmi_slot_work_handler(struct work_struct * work)
   struct bmi_slot *slot;
   struct bmi_device *bdev;
   int ret;
-  struct bmi_eeprom_data data;
+  struct bmi_eeprom_data *data;
   unsigned char* cdat;
 
   slot = work_to_slot(work);
@@ -298,34 +298,34 @@ static void bmi_slot_work_handler(struct work_struct * work)
       bmi_slot_power_on(slot->slotnum);
 
       slot->eeprom = i2c_new_device(slot->adap, &at24c02_info);
-      
-      ret = bmi_slot_read_eeprom(slot, (u8*)&data);
+      data = kmalloc(sizeof(struct bmi_eeprom_data), GFP_KERNEL);
+      ret = bmi_slot_read_eeprom(slot, (u8*)data);
  
       if (ret < 0)
 	{
 	  printk(KERN_INFO "BMI: EEPROM Trouble on Slot %d...\n",slot->slotnum);
-
-	  goto irqenbl;
+	  
+	  goto del_eeprom;
 	}
       //Testing stuff here...get rid of this...
       else
 	printk(KERN_INFO "BMI: EEPROM Found...\n");
       cdat = (char*)&data;  
-      printk(KERN_INFO "SLOTS: Vendor:  0x%x\n",(data.vendor_msb<<8) | (data.vendor_lsb));
-      printk(KERN_INFO "SLOTS: Product  0x%x\n",(data.product_msb<<8) | (data.product_lsb));
-      printk(KERN_INFO "SLOTS: Revision 0x%x\n",(data.revision_msb<<8) | (data.revision_lsb));
+      printk(KERN_INFO "SLOTS: Vendor:  0x%x\n",(data->vendor_msb<<8) | (data->vendor_lsb));
+      printk(KERN_INFO "SLOTS: Product  0x%x\n",(data->product_msb<<8) | (data->product_lsb));
+      printk(KERN_INFO "SLOTS: Revision 0x%x\n",(data->revision_msb<<8) | (data->revision_lsb));
       
       //Do new device allocation and hand it over to BMI...
       bdev = bmi_alloc_dev(slot);
-      bdev->vendor = (data.vendor_msb<<8) | (data.vendor_lsb);
-      bdev->product = (data.product_msb<<8) | (data.product_lsb);
-      bdev->revision = (data.revision_msb<<8) | (data.revision_lsb);
-
+      bdev->vendor = (data->vendor_msb<<8) | (data->vendor_lsb);
+      bdev->product = (data->product_msb<<8) | (data->product_lsb);
+      bdev->revision = (data->revision_msb<<8) | (data->revision_lsb);
+      bdev->ident = data;
       //Report module plugin so that udev can load appropriate drivers
       ret = device_add(&bdev->dev);
       if (ret) {
 	printk(KERN_ERR "SLOTS: Failed to add device...%d\n",ret);
-	goto irqenbl; //TODO: Memory allocated for by bmi_alloc_dev 
+	goto del_eeprom; //TODO: Memory allocated for by bmi_alloc_dev 
       }
       slot->bdev = bdev;
     }
@@ -336,6 +336,7 @@ static void bmi_slot_work_handler(struct work_struct * work)
   else { 
     if (slot->present) {
       slot->present = 0;
+      data = slot->bdev->ident;
       printk(KERN_INFO "BMI: Module removed from slot %d...\n", slot->slotnum);
       if (slot->bdev == NULL) {
 	printk(KERN_ERR "SLOTS: BMI Device NULL...\n");
@@ -352,6 +353,7 @@ static void bmi_slot_work_handler(struct work_struct * work)
   return;
  del_eeprom:
   i2c_unregister_device(slot->eeprom);
+  kfree(data);
   slot->bdev = NULL;
   slot->eeprom = NULL;
   goto irqenbl;

@@ -84,7 +84,7 @@ struct bmi_device {
 
   struct bmi_slot *slot;
 
-  struct bmi_eeprom_data ident;
+  struct bmi_eeprom_data *ident;
   unsigned short vendor;
   unsigned short product;
   unsigned short revision;
