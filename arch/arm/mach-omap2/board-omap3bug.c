@@ -29,6 +29,7 @@
 #include <linux/i2c/pca953x.h>
 #include <linux/mmc/host.h>
 #include <linux/bmi/omap_bmi.h>
+#include <linux/leds_pwm.h>
 
 #include <mach/hardware.h>
 #include <asm/mach-types.h>
@@ -520,13 +521,49 @@ static struct platform_device omap3_bug_pwr_switch = {
   .resource = omap3_bug_pwr_switch_resources,
 };
 
+static struct platform_device omap3_bug_pwm_a = {
+  .name = "twl4030_pwm",
+  .id = 0,
+};
 
+static struct platform_device omap3_bug_pwm_b = {
+  .name = "twl4030_pwm",
+  .id = 1,
+};
+
+static struct led_pwm led_pwms[] =
+{
+		{
+				.name = "omap3bug:blue:power",
+				.default_trigger = "default-on",
+				.pwm_id = 0,
+				.active_low = false,
+				.max_brightness = 128,
+				.pwm_period_ns = 128,
+		},
+};
+
+static struct led_pwm_platform_data led_pwm_info =
+{
+		.leds = led_pwms,
+		.num_leds = ARRAY_SIZE(led_pwms),
+};
+
+static struct platform_device leds_pwm =
+{
+		.name = "leds_pwm",
+		.id = -1,
+		.dev =
+		{
+				.platform_data = &led_pwm_info,
+		},
+};
 
 static void __init omap3_bug_init_irq(void)
 {
   omap2_init_common_hw(mt46h32m32lf6_sdrc_params, NULL);
-	omap_init_irq();
-	omap_gpio_init();
+  omap_init_irq();
+  omap_gpio_init();
 }
 
 static struct platform_device *omap3_bug_devices[] __initdata = {
@@ -535,6 +572,9 @@ static struct platform_device *omap3_bug_devices[] __initdata = {
 	&omap3_bug_dss_device,
 	&omap3bug_vout_device,
 	&omap3_bug_pwr_switch,
+	&omap3_bug_pwm_a,
+	&omap3_bug_pwm_b,
+	&leds_pwm
 };
 
 
