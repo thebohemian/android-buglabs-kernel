@@ -310,9 +310,7 @@ static void bmi_slot_work_handler(struct work_struct * work)
       //Testing stuff here...get rid of this...
       else
 	printk(KERN_INFO "BMI: EEPROM Found...\n");
-      cdat = (char*)&data;
-      /*for (i = 0; i < 20; i++) 
-	printk(KERN_INFO "0x%x\n", cdat[i]);*/
+      cdat = (char*)&data;  
       printk(KERN_INFO "SLOTS: Vendor:  0x%x\n",(data.vendor_msb<<8) | (data.vendor_lsb));
       printk(KERN_INFO "SLOTS: Product  0x%x\n",(data.product_msb<<8) | (data.product_lsb));
       printk(KERN_INFO "SLOTS: Revision 0x%x\n",(data.revision_msb<<8) | (data.revision_lsb));
@@ -324,20 +322,12 @@ static void bmi_slot_work_handler(struct work_struct * work)
       bdev->revision = (data.revision_msb<<8) | (data.revision_lsb);
 
       //Report module plugin so that udev can load appropriate drivers
-      //kobject_uevent (&bdev->dev.kobj, KOBJ_ADD);
       ret = device_add(&bdev->dev);
       if (ret) {
 	printk(KERN_ERR "SLOTS: Failed to add device...%d\n",ret);
 	goto irqenbl; //TODO: Memory allocated for by bmi_alloc_dev 
       }
       slot->bdev = bdev;
-      /*
-      ret = device_attach(&bdev->dev);
-      if (ret != 1) {
-	printk(KERN_ERR "SLOTS: Failed to attach device...%d\n",ret);
-	goto irqenbl; //TODO: Memory allocated for by bmi_alloc_dev must be freed
-      }
-      */
     }
     else
       //spurious insertion event..

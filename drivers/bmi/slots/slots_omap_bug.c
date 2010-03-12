@@ -271,6 +271,7 @@ static int omapbmi_slot_probe(struct platform_device *pdev)
     printk(KERN_ERR "slots_bug: Trouble instantiating slot...%d\n", ret);
     goto err_release;
   }
+  schedule_delayed_work(&slot->work, msecs_to_jiffies(100));
   return 0;
  err_release:
   kfree(slot->slot_data);
