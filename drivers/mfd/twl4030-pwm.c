@@ -32,6 +32,10 @@
 #define PWMOFF		0x1
 #define LED_EN		0X0
 
+//Contants for PWM generator.
+#define COUNT_LENGTH	128
+#define	CLOCK_TIME		330
+
 
 struct pwm_device {
 	struct list_head	node;
@@ -51,10 +55,7 @@ int pwm_config(struct pwm_device *pwm, int duty_ns, int period_ns)
     return -EINVAL;
 
   dat_on = 0x7f & (duty_ns);
-  dat_off = 0x7f & (period_ns - duty_ns);
-
-  dev_info(&pwm->pdev->dev, "0x%x\n",dat_on);
-  dev_info(&pwm->pdev->dev, "0x%x\n",dat_off);
+  dat_off = 0x7f & (period_ns - duty_ns) * COUNT_LENGTH * CLOCK_TIME;
 
   switch(pwm->pwm_id) {
   case 0:
@@ -70,6 +71,7 @@ int pwm_config(struct pwm_device *pwm, int duty_ns, int period_ns)
   }  
   return 0;
 }
+
 EXPORT_SYMBOL(pwm_config);
 
 int pwm_enable(struct pwm_device *pwm)

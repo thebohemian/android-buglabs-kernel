@@ -531,15 +531,91 @@ static struct platform_device omap3_bug_pwm_b = {
   .id = 1,
 };
 
+static void __init omap3_bug_init_irq(void)
+{
+  omap2_init_common_hw(mt46h32m32lf6_sdrc_params, NULL);
+  omap_init_irq();
+  omap_gpio_init();
+}
+
+/*
+ * Defines LEDs available on BUGbase.
+ */
+static struct gpio_led gpio_leds[] = {
+		{
+			.name				= "omap3bug:red:battery",
+			.default_trigger	= "default-on",
+			.gpio				= 55,
+			.active_low         = false,
+			.default_state      = LEDS_GPIO_DEFSTATE_OFF,
+		},
+		{
+			.name				= "omap3bug:green:battery",
+			.default_trigger	= "default-on",
+			.gpio				= 53,
+			.active_low         = false,
+			.default_state      = LEDS_GPIO_DEFSTATE_OFF,
+		},
+		{
+			.name				= "omap3bug:blue:battery",
+			.default_trigger	= "default-on",
+			.gpio				= 54,
+			.active_low         = false,
+			.default_state      = LEDS_GPIO_DEFSTATE_OFF,
+		},
+		{
+			.name				= "omap3bug:red:wlan",
+			.default_trigger	= "default-on",
+			.gpio				= 39,
+			.active_low         = false,
+			.default_state      = LEDS_GPIO_DEFSTATE_OFF,
+		},
+		{
+			.name				= "omap3bug:green:wlan",
+			.default_trigger	= "default-on",
+			.gpio				= 40,
+			.active_low         = false,
+			.default_state      = LEDS_GPIO_DEFSTATE_OFF,
+		},
+		{
+			.name				= "omap3bug:blue:wlan",
+			.default_trigger	= "default-on",
+			.gpio				= 41,
+			.active_low         = false,
+			.default_state      = LEDS_GPIO_DEFSTATE_OFF,
+		},
+};
+
+static struct gpio_led_platform_data gpio_led_info = {
+       .leds           = gpio_leds,
+       .num_leds       = ARRAY_SIZE(gpio_leds),
+};
+
+static struct platform_device leds_gpio = {
+       .name   = "leds-gpio",
+       .id     = -1,
+       .dev    = {
+               .platform_data  = &gpio_led_info,
+       },
+};
+
 static struct led_pwm led_pwms[] =
 {
 		{
-				.name = "omap3bug:blue:power",
-				.default_trigger = "default-on",
-				.pwm_id = 0,
-				.active_low = false,
-				.max_brightness = 128,
-				.pwm_period_ns = 128,
+			.name = "omap3bug:blue:power",
+			.default_trigger = "default-on",
+			.pwm_id = 0,
+			.active_low = false,
+			.max_brightness = 128,
+			.pwm_period_ns = 128,
+		},
+		{
+			.name = "omap3bug:blue:bt",
+			.default_trigger = "default-on",
+			.pwm_id = 1,
+			.active_low = false,
+			.max_brightness = 128,
+			.pwm_period_ns = 128,
 		},
 };
 
@@ -559,13 +635,6 @@ static struct platform_device leds_pwm =
 		},
 };
 
-static void __init omap3_bug_init_irq(void)
-{
-  omap2_init_common_hw(mt46h32m32lf6_sdrc_params, NULL);
-  omap_init_irq();
-  omap_gpio_init();
-}
-
 static struct platform_device *omap3_bug_devices[] __initdata = {
 
   	&bug_disp_pwr,
@@ -574,7 +643,8 @@ static struct platform_device *omap3_bug_devices[] __initdata = {
 	&omap3_bug_pwr_switch,
 	&omap3_bug_pwm_a,
 	&omap3_bug_pwm_b,
-	&leds_pwm
+	&leds_pwm,
+	&leds_gpio
 };
 
 
@@ -602,28 +672,6 @@ static struct twl4030_hsmmc_info mmc[] __initdata = {
 	{}	/* Terminator */
 };
 
-static struct gpio_led gpio_leds[] = {
-       {
-               .name                   = "omap3bug::ledb",
-               /* normally not visible (board underside) */
-               .default_trigger        = "default-on",
-               .gpio                   = -EINVAL,      /* gets replaced */
-               .active_low             = true,
-       },
-};
-
-static struct gpio_led_platform_data gpio_led_info = {
-       .leds           = gpio_leds,
-       .num_leds       = ARRAY_SIZE(gpio_leds),
-};
-
-static struct platform_device leds_gpio = {
-       .name   = "leds-gpio",
-       .id     = -1,
-       .dev    = {
-               .platform_data  = &gpio_led_info,
-       },
-};
 
 
 static int __init omap3bug_twl_gpio_setup(struct device *dev,
@@ -636,11 +684,6 @@ static int __init omap3bug_twl_gpio_setup(struct device *dev,
        /* Most GPIOs are for USB OTG.  Some are mostly sent to
         * the P2 connector; notably LEDA for the LCD backlight.
         */
-
-       /* TWL4030_GPIO_MAX + 1 == ledB (out, active low LED) */
-       gpio_leds[2].gpio = gpio + TWL4030_GPIO_MAX + 1;
-
-       platform_device_register(&leds_gpio);
 
        return 0;
 }
