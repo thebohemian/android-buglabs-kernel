@@ -84,12 +84,6 @@ config LEDS_OMAP
 	help
 	  This option enables support for the LEDs on OMAP processors.
 
-config LEDS_BUG
-	tristate "LED Support for BUG GPIO LEDs"
-	depends on LEDS_CLASS && ARCH_OMAP
-	help
-	  This option enables support for the LEDs on Bug Labs BUG.
-
 config LEDS_OMAP_PWM
 	tristate "LED Support for OMAP PWM-controlled LEDs"
 	depends on LEDS_CLASS && ARCH_OMAP && OMAP_DM_TIMER

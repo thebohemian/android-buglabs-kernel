@@ -672,71 +672,6 @@ static struct twl4030_hsmmc_info mmc[] __initdata = {
 	{}	/* Terminator */
 };
 
-<<<<<<< HEAD:arch/arm/mach-omap2/board-omap3bug.c
-=======
-/*
- * Defines LEDs available on BUGbase.
- */
-static struct gpio_led gpio_leds[] = {
-		{
-			.name				= "omap3bug:red:battery",
-			.default_trigger	= "default-on",
-			.gpio				= 55,
-			.active_low         = false,
-			.default_state      = LEDS_GPIO_DEFSTATE_OFF,
-		},
-		{
-			.name				= "omap3bug:green:battery",
-			.default_trigger	= "default-on",
-			.gpio				= 53,
-			.active_low         = false,
-			.default_state      = LEDS_GPIO_DEFSTATE_OFF,
-		},
-		{
-			.name				= "omap3bug:blue:battery",
-			.default_trigger	= "default-on",
-			.gpio				= 54,
-			.active_low         = false,
-			.default_state      = LEDS_GPIO_DEFSTATE_OFF,
-		},
-		{
-			.name				= "omap3bug:red:wlan",
-			.default_trigger	= "default-on",
-			.gpio				= 39,
-			.active_low         = false,
-			.default_state      = LEDS_GPIO_DEFSTATE_OFF,
-		},
-		{
-			.name				= "omap3bug:green:wlan",
-			.default_trigger	= "default-on",
-			.gpio				= 40,
-			.active_low         = false,
-			.default_state      = LEDS_GPIO_DEFSTATE_OFF,
-		},
-		{
-			.name				= "omap3bug:blue:wlan",
-			.default_trigger	= "default-on",
-			.gpio				= 41,
-			.active_low         = false,
-			.default_state      = LEDS_GPIO_DEFSTATE_OFF,
-		},
-};
-
-static struct gpio_led_platform_data gpio_led_info = {
-       .leds           = gpio_leds,
-       .num_leds       = ARRAY_SIZE(gpio_leds),
-};
-
-static struct platform_device leds_gpio = {
-       .name   = "leds-gpio",
-       .id     = -1,
-       .dev    = {
-               .platform_data  = &gpio_led_info,
-       },
-};
->>>>>>> bee4b363dc08d81ddd0f20f202295a3f03305a87:arch/arm/mach-omap2/board-omap3bug.c
-
-
 static int __init omap3bug_twl_gpio_setup(struct device *dev,
                unsigned gpio, unsigned ngpio)
 {
@@ -748,18 +683,6 @@ static int __init omap3bug_twl_gpio_setup(struct device *dev,
         * the P2 connector; notably LEDA for the LCD backlight.
         */
 
-<<<<<<< HEAD:arch/arm/mach-omap2/board-omap3bug.c
-=======
-       /* TWL4030_GPIO_MAX + 1 == ledB (out, active low LED) */
-       //gpio_leds[2].gpio = gpio + TWL4030_GPIO_MAX + 1;
-
-     /*  gpio_direction_output(53, 1);
-       gpio_direction_output(54, 1);
-       gpio_direction_output(55, 1);*/
-
-       platform_device_register(&leds_gpio);
-
->>>>>>> bee4b363dc08d81ddd0f20f202295a3f03305a87:arch/arm/mach-omap2/board-omap3bug.c
        return 0;
 }
 
@@ -925,11 +848,8 @@ static void __init omap3_bug_init(void)
 	spi_register_board_info(omap3bug_spi_board_info,
 				ARRAY_SIZE(omap3bug_spi_board_info));
 	omap_serial_init();
-<<<<<<< HEAD:arch/arm/mach-omap2/board-omap3bug.c
 	platform_add_devices(omap3_bug_devices, ARRAY_SIZE(omap3_bug_devices));
-//      omap_init_twl4030();
-=======
->>>>>>> bee4b363dc08d81ddd0f20f202295a3f03305a87:arch/arm/mach-omap2/board-omap3bug.c
+	//      omap_init_twl4030();
 	usb_gpio_settings();
 	usb_musb_init();
 	usb_ehci_init(&ehci_pdata);

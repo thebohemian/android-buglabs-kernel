@@ -14,7 +14,6 @@ obj-$(CONFIG_LEDS_AMS_DELTA)		+= leds-ams-delta.o
 obj-$(CONFIG_LEDS_NET48XX)		+= leds-net48xx.o
 obj-$(CONFIG_LEDS_WRAP)			+= leds-wrap.o
 obj-$(CONFIG_LEDS_OMAP)			+= leds-omap.o
-obj-$(CONFIG_LEDS_BUG)			+= leds-bug.o
 obj-$(CONFIG_LEDS_OMAP_PWM)		+= leds-omap-pwm.o
 obj-$(CONFIG_LEDS_ALIX2)		+= leds-alix2.o
 obj-$(CONFIG_LEDS_H1940)		+= leds-h1940.o
