@@ -46,6 +46,8 @@
 
 #define MAX_ROWS		8 /* TWL4030 hardlimit */
 
+#define ROWCOL_MASK 		0xFF000000
+
 /* Global variables */
 
 struct omap_keypad {
