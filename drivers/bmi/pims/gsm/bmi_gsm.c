@@ -128,7 +128,6 @@ int cntl_ioctl(struct inode *inode, struct file *filp, unsigned int cmd,
 		   unsigned long arg)
 {
   struct bmi_gsm *gsmod;
-  unsigned char temp = 0;
   int slot;
 
 
@@ -140,19 +139,18 @@ int cntl_ioctl(struct inode *inode, struct file *filp, unsigned int cmd,
   slot = gsmod->bdev->slot->slotnum;
   
   // ioctl's
-  temp = bmi_slot_gpio_get(slot);
   switch (cmd) {
   case BMI_GSM_RLEDOFF:
-    bmi_slot_gpio_set(slot, temp & (~RED_LED)); // Red LED=OFF
+    bmi_slot_gpio_set_value(slot, RED_LED, 1); // Red LED=OFF
     break;
   case BMI_GSM_RLEDON:
-    bmi_slot_gpio_set(slot, temp | RED_LED); // Red LED=ON
+    bmi_slot_gpio_set_value(slot, RED_LED, 0); // Red LED=ON
     break;
   case BMI_GSM_GLEDOFF:
-    bmi_slot_gpio_set(slot, temp & (~GREEN_LED)); // Green LED=OFF
+    bmi_slot_gpio_set_value(slot, GREEN_LED, 1); // Green LED=OFF
     break;
   case BMI_GSM_GLEDON:
-    bmi_slot_gpio_set(slot, temp | GREEN_LED); // Green LED=ON
+    bmi_slot_gpio_set_value(slot, GREEN_LED, 0); // Green LED=ON
     break;
   }
   return 0;
@@ -172,7 +170,6 @@ int bmi_gsm_probe(struct bmi_device *bdev)
 {	
   int slot;
   int status;
-  int temp = 0;
   dev_t dev_id;
   struct cdev *cdev;
   struct class *bmi_class;
@@ -205,20 +202,21 @@ int bmi_gsm_probe(struct bmi_device *bdev)
   // configure GPIO
   
   // set GPIO direction
-  bmi_slot_gpio_configure (slot, RED_LED | GREEN_LED | GPIO_0);
+  bmi_slot_gpio_direction_out(slot, RED_LED, 0);
+  bmi_slot_gpio_direction_out(slot, GREEN_LED, 0);
+  bmi_slot_gpio_direction_out(slot, GPIO_0, 1);
   
   // turn LED's on
-  bmi_slot_gpio_set (slot, ~(RED_LED | GREEN_LED | GPIO_0));
   mdelay(500);
   // turn LED's off
-  bmi_slot_gpio_set (slot, (RED_LED | GREEN_LED));
+  bmi_slot_gpio_set_value(slot, RED_LED, 1);
+  bmi_slot_gpio_set_value(slot, GREEN_LED, 1);
 
   // Check if SIM is present...
   // gpio_reg = bmi_read_gpio_data_reg(slot);
   // turn mini-card on
   printk(KERN_INFO "Turning Sierra Wireless Card On...\n");
-  temp = bmi_slot_gpio_get(slot);
-  bmi_slot_gpio_set(slot, temp & (~GPIO_0));
+  bmi_slot_gpio_set_value(slot, GPIO_0, 0);
 
   // set up bdev/pbmi_gsm pointers
   gsmod->bdev = bdev;
@@ -231,6 +229,7 @@ int bmi_gsm_probe(struct bmi_device *bdev)
 void bmi_gsm_remove(struct bmi_device *bdev)
 {	
   int slot;
+  int i;
   struct bmi_gsm *gsmod;
   struct class *bmi_class;
   
@@ -238,8 +237,9 @@ void bmi_gsm_remove(struct bmi_device *bdev)
 
   gsmod = &bmi_gsm_priv[slot];
       
-  bmi_slot_gpio_configure(slot, 0);
-  
+  for (i = 0; i < 4; i++)
+    bmi_slot_gpio_direction_in(slot, i);  
+
   bmi_class = bmi_get_class ();
   device_destroy (bmi_class, MKDEV(major, slot));
   

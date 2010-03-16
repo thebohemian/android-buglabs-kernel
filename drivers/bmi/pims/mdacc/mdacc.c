@@ -191,8 +191,11 @@ int bmi_mdacc_probe(struct bmi_device *bdev)
 
 	// Setup GPIOs for this slot
 
-	bmi_slot_gpio_configure(slot, RED_LED | GREEN_LED | GPIO_1 | GPIO_0);	 //Red   LED: On	
-	bmi_slot_gpio_set(slot, GPIO_0);
+	bmi_slot_gpio_direction_out(slot, RED_LED, 0);
+	bmi_slot_gpio_direction_out(slot, GREEN_LED, 0);
+	bmi_slot_gpio_direction_out(slot, GPIO_1, 0);
+	bmi_slot_gpio_direction_out(slot, GPIO_0, 0);	 //Red   LED: On	
+	bmi_slot_gpio_set_value(slot, GPIO_0, 1);
 
 	bmi_slot_spi_enable(slot);
 
@@ -201,7 +204,7 @@ int bmi_mdacc_probe(struct bmi_device *bdev)
 
 
 	//Take AVR out of reset
-	bmi_slot_gpio_set(slot, GPIO_1 | GPIO_0);
+	bmi_slot_gpio_set_value(slot, GPIO_0, 1);
 
 	//AVR Reset Recovery time
 
@@ -241,9 +244,7 @@ int bmi_mdacc_probe(struct bmi_device *bdev)
 		printk (KERN_ERR "bmi_mdacc_probe() - ctl_probe() failed.\n");
 		goto exit4;
       	}
-
-	tmp = bmi_slot_gpio_get(slot);
-	bmi_slot_gpio_set (slot, tmp | RED_LED); //Red + Green LEDs Off
+	bmi_slot_gpio_set_value (slot, RED_LED, 1); //Red + Green LEDs Off
 	return 0;
 
 exit4:
@@ -258,8 +259,7 @@ exit1:
 	bmi_device_set_drvdata (bdev, 0);
 	pim->bdev = 0;
 	//	bmi_slot_gpio_write_bit (slot, 2, 1); //Green LED Off
-	tmp = bmi_slot_gpio_get(slot);
-	bmi_slot_gpio_set (slot, tmp | GREEN_LED);
+	bmi_slot_gpio_set_value (slot, GREEN_LED, 1);
 	return -1;
 }
 

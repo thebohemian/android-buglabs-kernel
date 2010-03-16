@@ -6,6 +6,7 @@
 #include <linux/spi/spi.h>
 #include <linux/gpio.h>
 #include <linux/irq.h>
+#include <linux/interrupt.h>
 #include <linux/bmi.h>
 #include <linux/bmi/omap_bmi.h>
 #include <mach/board.h>
@@ -76,48 +77,36 @@ static void bl_power_off(struct bmi_slot* slot)
   return;
 }
 
-static void bl_gpio_config(struct bmi_slot* slot, int mask)	/*Configure gpios as inputs/ouputs*/
-{
-  int i;
+static void bl_gpio_direction_out(struct bmi_slot* slot, unsigned gpio, int value)	/*Configure gpios as inputs/ouputs*/
+{  
+  unsigned char *gpios = (unsigned char*) slot->slot_data;
   
-  unsigned char *gpio = (unsigned char*) slot->slot_data;
-  
-  for (i = 0; i < 4 ; i++)
-    {
-      if ((mask >> i) & 0x1)
-	gpio_direction_output(gpio[i], 0);
-      else
-	gpio_direction_input(gpio[i]);
-    }
+  gpio_direction_output(gpios[gpio], value);
   return;
 }
 
-static int bl_gpio_get(struct bmi_slot* slot)
+static void bl_gpio_direction_in(struct bmi_slot* slot, unsigned gpio)
 {
-  int i;
-  unsigned char *gpio = (unsigned char*) slot->slot_data;
+  unsigned char *gpios = (unsigned char*) slot->slot_data;
+  
+  gpio_direction_input(gpios[gpio]);
+  return;
+}
+
+static int bl_gpio_get_value(struct bmi_slot* slot, unsigned gpio)
+{
+  unsigned char *gpios = (unsigned char*) slot->slot_data;
   unsigned char ret = 0;
   
-  for (i = 3; i > -1 ; i--)
-    {
-      ret = (ret << 1) | gpio_get_value(gpio[i]);
-    }
-  
+  ret = gpio_get_value(gpios[gpio]);
   return ret;
 }
 
-static void bl_gpio_set(struct bmi_slot* slot, int mask)
+static void bl_gpio_set_value(struct bmi_slot* slot, unsigned gpio, int value)
 {
-  int i;
-  unsigned char *gpio = (unsigned char*) slot->slot_data;
+  unsigned char *gpios = (unsigned char*) slot->slot_data;
 
-  for (i = 0; i < 4 ; i++)
-    {
-      if ((mask >> i) & 0x1)
-	gpio_set_value(gpio[i], 1);
-      else
-	gpio_set_value(gpio[i], 0);
-    }
+  gpio_set_value(gpios[gpio], value);
   return;
 }
 
@@ -166,9 +155,10 @@ struct slot_actions bl_actions = {
   .present = bl_present,
   .power_on = bl_power_on,
   .power_off = bl_power_off,
-  .gpio_config = bl_gpio_config,
-  .gpio_get = bl_gpio_get,
-  .gpio_set = bl_gpio_set,
+  .gpio_direction_in = bl_gpio_direction_in,
+  .gpio_direction_out = bl_gpio_direction_out,
+  .gpio_get_value = bl_gpio_get_value,
+  .gpio_set_value = bl_gpio_set_value,
   .uart_enable = bl_uart_enable,
   .uart_disable = bl_uart_disable,
   .spi_enable = bl_spi_enable,
@@ -271,6 +261,8 @@ static int omapbmi_slot_probe(struct platform_device *pdev)
     printk(KERN_ERR "slots_bug: Trouble instantiating slot...%d\n", ret);
     goto err_release;
   }
+  
+  disable_irq_nosync(slot->present_irq);
   schedule_delayed_work(&slot->work, msecs_to_jiffies(100));
   return 0;
  err_release:

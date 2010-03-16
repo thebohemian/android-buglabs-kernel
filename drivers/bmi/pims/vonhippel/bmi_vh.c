@@ -253,7 +253,6 @@ static int WriteByte_DAC (struct i2c_client *client, unsigned char w1, unsigned 
 	return ret;
 }
 
-
 /*
  *	control device operations
  */
@@ -315,29 +314,28 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
 	switch (cmd) {
 
 	case BMI_VH_RLEDOFF:
-		bmi_slot_gpio_set (slot, ~VH_GPIO_RED_LED); // Red LED=OFF 
+	  bmi_slot_gpio_set_value (slot, VH_GPIO_RED_LED, 1); // Red LED=OFF 
 		break;
 
 	case BMI_VH_RLEDON:
-		bmi_slot_gpio_set (slot, VH_GPIO_RED_LED); // Red LED=ON 
+	  bmi_slot_gpio_set_value (slot, VH_GPIO_RED_LED, 0); // Red LED=ON 
 		break;
 
 	case BMI_VH_GLEDOFF:
-		bmi_slot_gpio_set (slot, ~VH_GPIO_GREEN_LED); // Green LED=OFF 
-		break;
+	  bmi_slot_gpio_set_value (slot, ~VH_GPIO_GREEN_LED, 1); // Green LED=OFF 
+	  break;
 
 	case BMI_VH_GLEDON:
-		bmi_slot_gpio_set (slot, VH_GPIO_GREEN_LED); // Green LED=ON
-		break;
+	  bmi_slot_gpio_set_value (slot, VH_GPIO_GREEN_LED, 0); // Green LED=ON
+	  break;
 
 	case BMI_VH_GETSTAT:
 		{
 			int read_data;
 	
 			if (ReadByte_IOX (vh->iox, IOX_INPUT_REG, &iox_data))
-				return -ENODEV;
-		
-			read_data = iox_data | (bmi_slot_gpio_get(slot) << 8);
+				return -ENODEV;			
+			read_data = iox_data | (bmi_slot_gpio_get_all(slot) << 8);
 
 			if (put_user (read_data, (int __user *) arg))
 				return -EFAULT;
@@ -347,25 +345,25 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
 	case BMI_VH_MKGPIO_OUT:
 		if ((arg < VH_GPIO_0) || (arg > VH_GPIO_RED_LED))
 			return -EINVAL;
-		//bmi_set_module_gpio_dir (slot, arg, BMI_GPIO_OUT);
+		bmi_slot_gpio_direction_out (slot, arg, 1);
 		break;
 
 	case BMI_VH_MKGPIO_IN:
 		if ((arg < VH_GPIO_0) || (arg > VH_GPIO_RED_LED))
 			return -EINVAL;
-		//bmi_set_module_gpio_dir (slot, arg, BMI_GPIO_IN);
+		bmi_slot_gpio_direction_in (slot, arg);
 		break;
 
 	case BMI_VH_SETGPIO:
 		if ((arg < VH_GPIO_0) || (arg > VH_GPIO_RED_LED))
 			return -EINVAL;
-		//bmi_set_module_gpio_data (slot, arg, 0x1);
+		bmi_slot_gpio_set_value (slot, arg, 0x1);
 		break;
 
 	case BMI_VH_CLRGPIO:
 		if ((arg < VH_GPIO_0) || (arg > VH_GPIO_RED_LED))
 			return -EINVAL;
-		//bmi_set_module_gpio_data (slot, arg, 0x0);
+		bmi_slot_gpio_set_value (slot, arg, 0x0);
 		break;
 
 	case BMI_VH_MKIOX_OUT:
@@ -778,25 +776,21 @@ int bmi_vh_probe(struct bmi_device *bdev)
 
 	  
 	// Initialize GPIOs (turn LED's on)
-	if (factory_test) {
-		bmi_slot_gpio_configure  (slot, VH_GPIO_RED_LED);			// (test I2S)
-		bmi_slot_gpio_configure  (slot, VH_GPIO_GREEN_LED);			// (test I2S)
-		bmi_slot_gpio_configure  (slot, VH_GPIO_1); 				// (test I2S)
-		bmi_slot_gpio_configure (slot, VH_GPIO_0 | VH_GPIO_1);			// (test interrupt)
-	} else {
-		bmi_slot_gpio_configure (slot, RED_LED |GREEN_LED );	// Red LED=ON
-		bmi_slot_gpio_set (slot, ~(RED_LED | GREEN_LED));
-		mdelay(200);
+	bmi_slot_gpio_direction_out (slot, RED_LED, 0);	// Red LED=ON
+	bmi_slot_gpio_direction_out (slot, GREEN_LED, 0);	// Red LED=ON
 	
-		// turn LED's off
-		bmi_slot_gpio_set (slot, (RED_LED | GREEN_LED));		// Red, Green LED=OFF 		
+	mdelay(200);
+	
+	// turn LED's off
+	bmi_slot_gpio_set_value (slot, RED_LED, 1);
+	bmi_slot_gpio_set_value (slot, GREEN_LED, 1);		// Red, Green LED=OFF 		
 
-		if (WriteByte_IOX(vh->iox, IOX_OUTPUT_REG, 0x70) < 0) {  // USB power on, IOX[3:0] low, other outputs high
-			printk (KERN_ERR "bmi_vh.c: probe() - write IOX failed\n");
-			//bmi_device_spi_cleanup(bdev);
-			goto err1;
-		}
+	if (WriteByte_IOX(vh->iox, IOX_OUTPUT_REG, 0x70) < 0) {  // USB power on, IOX[3:0] low, other outputs high
+	  printk (KERN_ERR "bmi_vh.c: probe() - write IOX failed\n");
+	  //bmi_device_spi_cleanup(bdev);
+	  goto err1;
 	}
+	
 
 	// request PIM interrupt
 	irq = bdev->slot->status_irq;
@@ -842,6 +836,7 @@ void bmi_vh_remove(struct bmi_device *bdev)
 	struct bmi_vh *vh;
 	struct class *bmi_class;
 	int irq;
+	int i;
 
 	printk(KERN_INFO "bmi_vh: Module Removed...\n");
 	slot = bdev->slot->slotnum;
@@ -864,8 +859,8 @@ void bmi_vh_remove(struct bmi_device *bdev)
 	irq = bdev->slot->status_irq;
 	free_irq (irq, vh);
 
-	bmi_slot_gpio_configure(slot, 0);
-	//bmi_device_spi_cleanup(bdev);
+	for (i = 0; i < 4; i++)
+	  bmi_slot_gpio_direction_in(slot, i);
 
 	bmi_class = bmi_get_class ();
 	device_destroy (bmi_class, MKDEV(major, slot));

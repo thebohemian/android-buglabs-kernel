@@ -143,26 +143,22 @@ static int ctl_ioctl (struct inode *inode, struct file *file, unsigned int cmd, 
 	switch (cmd) {
 
 	case BMI_MDACC_CTL_RED_LED_OFF:
-	 tmp = bmi_slot_gpio_get(slot);
-	 bmi_slot_gpio_set (slot, tmp | RED_LED);
+	  bmi_slot_gpio_set_value (slot, RED_LED, 1);
 	 //bmi_slot_gpio_write_bit (slot, 3, 1); //Red LED Off
 	 break;
 
 	case BMI_MDACC_CTL_RED_LED_ON:
-	  tmp = bmi_slot_gpio_get(slot);
-	  bmi_slot_gpio_set (slot, tmp & ~RED_LED);
+	  bmi_slot_gpio_set_value (slot, RED_LED, 0);
 	  //bmi_slot_gpio_write_bit (slot, 3, 0); //Red LED On
 	  break;
 
 	case BMI_MDACC_CTL_GREEN_LED_OFF:
-	  tmp = bmi_slot_gpio_get(slot);
-	  bmi_slot_gpio_set (slot, tmp | GREEN_LED);
+	  bmi_slot_gpio_set_value (slot, GREEN_LED, 1);
 	  //bmi_slot_gpio_write_bit (slot, 2, 1); //Green LED Off
 	  break;
 
 	case BMI_MDACC_CTL_GREEN_LED_ON:
-	  tmp = bmi_slot_gpio_get(slot);
-	  bmi_slot_gpio_set (slot, tmp & ~GREEN_LED);
+	  bmi_slot_gpio_set_value (slot, GREEN_LED, 0);
 	  //bmi_slot_gpio_write_bit (slot, 2, 0); //Green LED On
 	  break;
 		

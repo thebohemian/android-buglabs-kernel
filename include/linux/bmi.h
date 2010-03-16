@@ -14,10 +14,10 @@
 /* BMI bus device table constants */
 #define BMI_ANY					0x0
 
-#define RED_LED		8
-#define GREEN_LED	4
-#define GPIO_1		2
-#define GPIO_0		1
+#define RED_LED		3
+#define GREEN_LED	2
+#define GPIO_1		1
+#define GPIO_0		0
 
 extern struct device_attribute bmi_dev_attrs[];
 struct bmi_slot;
@@ -26,9 +26,10 @@ struct slot_actions {
   int (*present)(struct bmi_slot*);
   void (*power_on)(struct bmi_slot*);
   void (*power_off)(struct bmi_slot*);
-  void (*gpio_config)(struct bmi_slot*, int mask);	/*Configure gpios as inputs/ouputs*/
-  int (*gpio_get)(struct bmi_slot*);
-  void (*gpio_set)(struct bmi_slot*, int mask);
+  void (*gpio_direction_out)(struct bmi_slot*, unsigned gpio, int value);	/*Configure gpios as inputs/ouputs*/
+  void (*gpio_direction_in)(struct bmi_slot*, unsigned gpio);
+  int (*gpio_get_value)(struct bmi_slot*, unsigned gpio);
+  void (*gpio_set_value)(struct bmi_slot*, unsigned gpio, int value);
   void (*uart_enable)(struct bmi_slot*);
   void (*uart_disable)(struct bmi_slot*);
   void (*spi_enable)(struct bmi_slot*);
@@ -64,8 +65,7 @@ struct bmi_slot {
   struct delayed_work  work;
   struct slot_actions* actions;
   
-  void* slot_data;
-  
+  void* slot_data;  
 };
 
 

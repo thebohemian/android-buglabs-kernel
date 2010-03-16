@@ -25,11 +25,9 @@
 #include <linux/delay.h>
 #include <linux/i2c.h>
 #include <asm/uaccess.h>
-//#include <mach/mxc_i2c.h>
 #include <linux/bmi.h>
-//#include <linux/bmi/bmi-control.h>
+
 #include <linux/bmi/bmi_gps.h>
-//#include <mach/mx31bug_cpld.h>
 
 //MTW
 #include <linux/cdev.h>
@@ -185,22 +183,21 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
 	adap = gps->bdev->slot->adap;
 
 		// ioctl's
-	gpio_mask = bmi_slot_gpio_get(slot);
 	switch (cmd) {
 	case BMI_GPS_RLEDOFF:
-	  bmi_slot_gpio_set (slot, (gpio_mask | RED_LED)); // Red LED=OFF 
+	  bmi_slot_gpio_set_value (slot, RED_LED, 1); // Red LED=OFF 
 		break;
 
 	case BMI_GPS_RLEDON:
-	  bmi_slot_gpio_set (slot, (gpio_mask & ~RED_LED)); // Red LED=ON 
+	  bmi_slot_gpio_set_value (slot, RED_LED, 0); // Red LED=ON 
 		break;
 
 	case BMI_GPS_GLEDOFF:
-		bmi_slot_gpio_set (slot, (gpio_mask | GREEN_LED)); // Greem LED=OFF 
+	  bmi_slot_gpio_set_value (slot, GREEN_LED, 1); // Greem LED=OFF 
 		break;
 
 	case BMI_GPS_GLEDON:
-		bmi_slot_gpio_set (slot, (gpio_mask & ~GREEN_LED)); // Greem LED=ON
+	  bmi_slot_gpio_set_value (slot, GREEN_LED, 0); // Greem LED=ON
 		break;
 
 	case BMI_GPS_SETBOOT:
@@ -246,12 +243,12 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
 		break;
 
 	case BMI_GPS_SETRST:
-		bmi_slot_gpio_set (slot, (gpio_mask & ~GPIO_1)); // RST = 0;
+	  bmi_slot_gpio_set_value (slot, GPIO_1, 0); // RST = 0;
 
 		break;
 
 	case BMI_GPS_CLRRST:
-		bmi_slot_gpio_set (slot, (gpio_mask | GPIO_1)); // RST=tristate 
+	  bmi_slot_gpio_set_value (slot, GPIO_1, 1); // RST=tristate 
 		break;
 
 	case BMI_GPS_GETSTAT:
@@ -261,7 +258,7 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
 		if(ReadByte_IOX (gps->iox, IOX_INPUT_REG, &iox_data))
 			return -ENODEV;
 		
-		read_data = iox_data | (bmi_slot_gpio_get(slot) << 8);
+		read_data = iox_data | (bmi_slot_gpio_get_all(slot) << 8);
 
 		if(put_user(read_data, (int __user *) arg))
 			return -EFAULT;
@@ -372,8 +369,9 @@ int bmi_gps_probe(struct bmi_device *bdev)
 
 //	bmi_slot_gpio_configure_as_output (int slot, int gpio, int data)  
 
-	bmi_slot_gpio_configure(slot, RED_LED | GREEN_LED | GPIO_1); // Red, Green LEDS and GPIO_1 outputs
-	bmi_slot_gpio_set(slot, 0);
+	bmi_slot_gpio_direction_out(slot, RED_LED, 0);
+	bmi_slot_gpio_direction_out(slot, GREEN_LED, 0);
+	bmi_slot_gpio_direction_out(slot, GPIO_1, 0); // Red, Green LEDS and GPIO_1 outputs
 
 	//Enable uart transceiver
 	bmi_slot_uart_enable (slot);
@@ -381,7 +379,9 @@ int bmi_gps_probe(struct bmi_device *bdev)
 	mdelay(275);
 
 	// release reset to J32 device
-	bmi_slot_gpio_set ( slot, RED_LED | GREEN_LED | GPIO_1); 	// reset high, Red, Green LEDS off 
+	bmi_slot_gpio_set_value(slot, RED_LED, 1);
+	bmi_slot_gpio_set_value(slot,GREEN_LED, 1);
+	bmi_slot_gpio_set_value(slot, GPIO_1, 1); 	// reset high, Red, Green LEDS off 
 
 	return 0;
 }
@@ -390,6 +390,7 @@ int bmi_gps_probe(struct bmi_device *bdev)
 void bmi_gps_remove(struct bmi_device *bdev)
 {	
 	int slot;
+	int i;
 	struct bmi_gps *gps;
 	struct class *bmi_class;
 
@@ -398,7 +399,9 @@ void bmi_gps_remove(struct bmi_device *bdev)
 
 	//Disable uart transceiver
 	bmi_slot_uart_disable (slot);
-	bmi_slot_gpio_configure(slot, 0);
+
+	for (i = 0; i < 4; i++)
+	  bmi_slot_gpio_direction_in(slot, i);
 
 	bmi_class = bmi_get_class ();
 	device_destroy(bmi_class, MKDEV(major, slot));

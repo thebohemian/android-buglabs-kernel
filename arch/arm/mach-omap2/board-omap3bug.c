@@ -335,6 +335,8 @@ err_1:
 
 static int omap3_bug_panel_enable_lcd(struct omap_dss_device *display)
 {
+  int r;
+
   	omap_cfg_reg (LCD_MCSPI3_CLK);
 	omap_cfg_reg (LCD_MCSPI3_SIMO);
 	omap_cfg_reg (LCD_SHUTDOWN);
@@ -342,10 +344,31 @@ static int omap3_bug_panel_enable_lcd(struct omap_dss_device *display)
 	omap_cfg_reg (ACC_RESET);
 	omap_cfg_reg (LCD_TP_RESET);
 	omap_cfg_reg (ACC_INT);
+	
+	r = gpio_request(227, "lcd_power");
+	if (r) {
+	  dev_warn(&display->dev, "gpio request failed...\n");
+	   return -1;
+	 }
+	r = gpio_request(232, "lcd_level_shifter");
+	if (r) {
+	  dev_warn(&display->dev, "gpio reuqest failed...\n");
+	   return -1;
+	 }
+	r = gpio_request(90, "lcd_shutdown");
+	if (r) {
+	  dev_warn(&display->dev, "gpio request failed...\n");
+	   return -1;
+	 }
+	r = gpio_request(93, "lcd_reset");
+	if (r) {
+	  dev_warn(&display->dev, "gpio reuqest failed...\n");
+	   return -1;
+	 }
+
 	gpio_direction_output(227, 1);
 	gpio_direction_output(232, 0);
 	gpio_direction_output(90,1);
-	//gpio_direction_output(93,0);	
 
 	lcd_enabled = 1;
 	return 0;

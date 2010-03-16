@@ -90,7 +90,7 @@ void bmi_slot_power_off (int num)
   return;    
 }
 
-void bmi_slot_gpio_configure (int num, int gpio)
+void bmi_slot_gpio_direction_out (int num, unsigned gpio, int value)
 {
   struct bmi_slot *slot = bmi_get_slot(num);
 
@@ -99,16 +99,34 @@ void bmi_slot_gpio_configure (int num, int gpio)
     return;
   }
   
-  if (slot->actions->gpio_config)
-    slot->actions->gpio_config(slot, gpio);
+  if (slot->actions->gpio_direction_out)
+    slot->actions->gpio_direction_out(slot, gpio, value);
   else
     printk(KERN_INFO "BMI: Slot GPIO not configurable...\n");
   return;    
 
 }
-EXPORT_SYMBOL(bmi_slot_gpio_configure);
+EXPORT_SYMBOL(bmi_slot_gpio_direction_out);
 
-int bmi_slot_gpio_get(int num)
+void bmi_slot_gpio_direction_in (int num, unsigned gpio)
+{
+  struct bmi_slot *slot = bmi_get_slot(num);
+
+  if (!slot) {
+    printk(KERN_ERR "BMI: Slot %d doesn't exist...\n", num);
+    return;
+  }
+  
+  if (slot->actions->gpio_direction_in)
+    slot->actions->gpio_direction_in(slot, gpio);
+  else
+    printk(KERN_INFO "BMI: Slot GPIO not configurable...\n");
+  return;    
+
+}
+EXPORT_SYMBOL(bmi_slot_gpio_direction_in);
+
+int bmi_slot_gpio_get_value(int num, unsigned gpio)
 {
   struct bmi_slot *slot = bmi_get_slot(num);
 
@@ -117,15 +135,15 @@ int bmi_slot_gpio_get(int num)
     return -ENODEV;
   }
   
-  if (slot->actions->gpio_get)
-    return slot->actions->gpio_get(slot);
+  if (slot->actions->gpio_get_value)
+    return slot->actions->gpio_get_value(slot, gpio);
   
   printk(KERN_INFO "BMI: Slot GPIO not writable...\n");
   return -EIO;    
 }
-EXPORT_SYMBOL(bmi_slot_gpio_get);
+EXPORT_SYMBOL(bmi_slot_gpio_get_value);
 
-void bmi_slot_gpio_set(int num, int data)
+void bmi_slot_gpio_set_value(int num, unsigned gpio, int value)
 {
   struct bmi_slot *slot = bmi_get_slot(num);
 
@@ -134,29 +152,28 @@ void bmi_slot_gpio_set(int num, int data)
     return;
   }
   
-  if (slot->actions->gpio_set)
-    slot->actions->gpio_set(slot, data);
+  if (slot->actions->gpio_set_value)
+    slot->actions->gpio_set_value(slot, gpio, value);
   else
     printk(KERN_INFO "BMI: Slot GPIO not writable...\n");
   return;    
 }
-EXPORT_SYMBOL(bmi_slot_gpio_set);
+EXPORT_SYMBOL(bmi_slot_gpio_set_value);
 
-void bmi_slot_gpio_write_bit(int num, int gpio, int data)
+int bmi_slot_gpio_get_all (int num)
 {
-  return;
+  struct bmi_slot *slot = bmi_get_slot(num);
+  int i;
+  int ret = 0;
+  unsigned char *gpio = (unsigned char*) slot->slot_data;
+
+  for (i = 3; i > -1 ; i--)
+    {      
+      ret = (ret << 1) | slot->actions->gpio_get_value(slot, gpio[i]);     
+    }  
 }
 
-int bmi_slot_gpio_read_bit (int num, int gpio)
-{
-	int gpdat;
-	int bit; 
-
-	gpdat = bmi_slot_gpio_get(num);
-	bit = (gpdat & (1 << gpio)) ? 1 : 0;
-	return bit;
-}
-
+EXPORT_SYMBOL(bmi_slot_gpio_get_all);
 
 // NOTE: When a plug-in module is removed, the gpios should be returned to inputs.
 // All requested slot resourece should be released.
@@ -395,8 +412,6 @@ static int bmi_register_slot(struct bmi_slot *slot)
   }
 
   //Request IRQ
-  INIT_DELAYED_WORK(&slot->work, bmi_slot_work_handler);
-
   printk(KERN_ERR "SLOT: Requesting IRQ...\n");
   res = request_irq(slot->present_irq, bmi_slot_irq_handler, IRQF_TRIGGER_FALLING | IRQF_TRIGGER_RISING , slot->name, (void*)slot);
 
@@ -405,6 +420,7 @@ static int bmi_register_slot(struct bmi_slot *slot)
     goto unlist;
   }
 
+  INIT_DELAYED_WORK(&slot->work, bmi_slot_work_handler);
  unlock:
     mutex_unlock(&slot_lock);
     return res;
