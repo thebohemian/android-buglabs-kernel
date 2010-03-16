@@ -170,12 +170,25 @@ static struct twl4030_madc_platform_data omap3bug_madc_data = {
 	.irq_line	= 1,
 };
 
+static int omap3bug_keymap[] = {
+	KEY(0, 0, KEY_VIDEO_PREV),
+};
+
+
+static struct twl4030_keypad_data omap3bug_kp_data = {
+	.rows		= 1,
+	.cols		= 1,
+	.keymap		= omap3bug_keymap,
+	.keymapsize	= ARRAY_SIZE(omap3bug_keymap),
+	.rep		= 1,
+};
+
 static struct twl4030_platform_data omap3bug_twldata = {
 	.irq_base	= TWL4030_IRQ_BASE,
 	.irq_end	= TWL4030_IRQ_END,
 
 	/* platform_data for children goes here */
-	//	.keypad		= &omap3bug_kp_data,
+	.keypad		= &omap3bug_kp_data,
 	.madc		= &omap3bug_madc_data,
 	.usb		= &omap3bug_usb_data,
 	//.power		= GENERIC3430_T2SCRIPTS_DATA,

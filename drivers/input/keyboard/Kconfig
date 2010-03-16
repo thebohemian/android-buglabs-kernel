@@ -349,6 +349,12 @@ config KEYBOARD_TOSA_USE_EXT_KEYCODES
 
 	  Say Y only if you know, what you are doing!
 
+config KEYBOARD_TWL4030
+       	bool "Texas Instruments TWL4030/TPS659x0 Keypad Support"
+	depends on TWL4030_CORE
+	help
+	  TWL4030 Keypad
+
 config KEYBOARD_XTKBD
 	tristate "XT keyboard"
 	select SERIO
