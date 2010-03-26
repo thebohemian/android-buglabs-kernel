@@ -106,7 +106,6 @@ static void bl_gpio_set_value(struct bmi_slot* slot, unsigned gpio, int value)
 {
   unsigned char *gpios = (u8*) slot->slot_data;
 
-  printk(KERN_INFO "slots_omap_bug: Setting GPIO: 0x%x\n", gpios[gpio]);
   gpio_set_value(gpios[gpio], value);
   return;
 }
