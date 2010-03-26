@@ -333,7 +333,7 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
 		{
 			int read_data;
 	
-			if (ReadByte_IOX (vh->iox, IOX_INPUT_REG, &iox_data))
+			if (ReadByte_IOX (vh->iox, IOX_INPUT_REG, &iox_data) < 0)
 				return -ENODEV;			
 			read_data = iox_data | (bmi_slot_gpio_get_all(slot) << 8);
 
@@ -372,12 +372,12 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
 		{
 			unsigned char read_data;
 	
-			if (ReadByte_IOX (vh->iox, IOX_CONTROL, &iox_data))
+			if (ReadByte_IOX (vh->iox, IOX_CONTROL, &iox_data) < 0)
 				return -ENODEV;
 		
 			read_data = iox_data & ~(0x1 << arg);
 
-			if (WriteByte_IOX (vh->iox, IOX_CONTROL, read_data))
+			if (WriteByte_IOX (vh->iox, IOX_CONTROL, read_data) < 0)
 				return -ENODEV;
 		}
 		break;
@@ -388,12 +388,12 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
 		{
 			unsigned char read_data;
 	
-			if (ReadByte_IOX (vh->iox, IOX_CONTROL, &iox_data))
+			if (ReadByte_IOX (vh->iox, IOX_CONTROL, &iox_data) < 0)
 				return -ENODEV;
 		
 			read_data = iox_data & (0x1 << arg);
 
-			if (WriteByte_IOX (vh->iox, IOX_CONTROL, read_data))
+			if (WriteByte_IOX (vh->iox, IOX_CONTROL, read_data) < 0)
 				return -ENODEV;
 		}
 		break;
@@ -404,12 +404,12 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
 		{
 			unsigned char read_data;
 	
-			if (ReadByte_IOX (vh->iox, IOX_OUTPUT_REG, &iox_data))
+			if (ReadByte_IOX (vh->iox, IOX_OUTPUT_REG, &iox_data) < 0)
 				return -ENODEV;
 		
 			read_data = iox_data | (0x1 << arg);
 
-			if (WriteByte_IOX (vh->iox, IOX_OUTPUT_REG, read_data))
+			if (WriteByte_IOX (vh->iox, IOX_OUTPUT_REG, read_data) < 0)
 				return -ENODEV;
 		}
 		break;
@@ -420,12 +420,12 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
 		{
 			unsigned char read_data;
 	
-			if (ReadByte_IOX (vh->iox, IOX_OUTPUT_REG, &iox_data))
+			if (ReadByte_IOX (vh->iox, IOX_OUTPUT_REG, &iox_data) < 0)
 				return -ENODEV;
 		
 			read_data = iox_data & ~(0x1 << arg);
 
-			if (WriteByte_IOX (vh->iox, IOX_OUTPUT_REG, read_data))
+			if (WriteByte_IOX (vh->iox, IOX_OUTPUT_REG, read_data) < 0)
 				return -ENODEV;
 		}
 		break;
@@ -433,17 +433,17 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
 	case BMI_VH_SETRDAC:
 		rdac_data = (unsigned char) (arg & 0xFF);
 
-		if (WriteByte_RDAC (vh->rdac, VH_RD_CMD_RDAC, rdac_data, 1))
+		if (WriteByte_RDAC (vh->rdac, VH_RD_CMD_RDAC, rdac_data, 1) < 0)
 			return -ENODEV;
 
-		if (WriteByte_RDAC (vh->rdac, VH_RD_CMD_EE, rdac_data, 1))
+		if (WriteByte_RDAC (vh->rdac, VH_RD_CMD_EE, rdac_data, 1) < 0)
 			return -ENODEV;
 
 		break;
 
 	case BMI_VH_RDRDAC:
 
-		if (ReadByte_RDAC (vh->rdac, VH_RD_CMD_RDAC, &rdac_data))
+		if (ReadByte_RDAC (vh->rdac, VH_RD_CMD_RDAC, &rdac_data) < 0)
 			return -ENODEV;
 
 		if(copy_to_user((unsigned int *) arg, &rdac_data, sizeof(int)))
@@ -463,7 +463,7 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
 				kfree (adc_wr);
 				return -EFAULT;
 			}
-			if (WriteByte_ADC (vh->adc, adc_wr->w1, adc_wr->w2)) {
+			if (WriteByte_ADC (vh->adc, adc_wr->w1, adc_wr->w2) < 0) {
 				kfree (adc_wr);
 				return -ENODEV;
 			}
@@ -476,7 +476,7 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
 			unsigned char adc_data[3];
 			unsigned int ret_data;
 
-			if (ReadByte_ADC(vh->adc, adc_data))	// read ADC conversion
+			if (ReadByte_ADC(vh->adc, adc_data) < 0)	// read ADC conversion
 				return -ENODEV;
 	
 			ret_data = (unsigned int) ((adc_data[0] << 16) | (adc_data[1] << 8) | adc_data[2]);
@@ -499,12 +499,12 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
 				return -EFAULT;
 			}
 			if (dac_wr->w1 == VH_DAC_W1_UALL) {
-				if (WriteByte_DAC (vh->dac, dac_wr->w1, dac_wr->w2, 0)) {
+				if (WriteByte_DAC (vh->dac, dac_wr->w1, dac_wr->w2, 0) < 0) {
 					kfree (dac_wr);
 					return -ENODEV;
 				}
 			} else {
-				if (WriteByte_DAC (vh->dac, dac_wr->w1, dac_wr->w2, 1)) {
+				if (WriteByte_DAC (vh->dac, dac_wr->w1, dac_wr->w2, 1) < 0) {
 					kfree (dac_wr);
 					return -ENODEV;
 				}
@@ -527,7 +527,7 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
 				return -EINVAL;
 			}
 
-			if (ReadByte_DAC(vh->dac, (unsigned char) command, dac_data)) { // read DAC value
+			if (ReadByte_DAC(vh->dac, (unsigned char) command, dac_data) < 0) { // read DAC value
 				return -ENODEV;
 			}
 	
