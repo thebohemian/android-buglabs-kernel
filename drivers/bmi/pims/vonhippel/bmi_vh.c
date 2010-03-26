@@ -322,7 +322,7 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
 		break;
 
 	case BMI_VH_GLEDOFF:
-	  bmi_slot_gpio_set_value (slot, ~VH_GPIO_GREEN_LED, 1); // Green LED=OFF 
+	  bmi_slot_gpio_set_value (slot, VH_GPIO_GREEN_LED, 1); // Green LED=OFF 
 	  break;
 
 	case BMI_VH_GLEDON:
@@ -811,7 +811,6 @@ int bmi_vh_probe(struct bmi_device *bdev)
 		fcc_timer.function = ftimer;
 		add_timer (&fcc_timer);			
 	}
-
 
 	return 0;
 

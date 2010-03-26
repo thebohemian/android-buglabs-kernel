@@ -119,8 +119,6 @@ static int bmi_device_match(struct device *dev, struct device_driver *driver)
 
   if (found_id)
     return 1;
-  
-  printk(KERN_INFO "BMI: No matching Driver...\n");
   return 0;
 }
 
@@ -193,6 +191,7 @@ __bmi_probe(struct bmi_driver *driver, struct bmi_device *bmi_dev)
   if (!bmi_dev->driver && driver->probe) {
 
     error = driver->probe(bmi_dev);
+    dev_info(&bmi_dev->dev, "Probe returned: 0x%x\n", error);
     if (error >= 0) {
       // bmi_device -> bmi_driver (bmi-bus level )
       bmi_dev->driver = driver;
@@ -231,21 +230,22 @@ static int bmi_device_probe (struct device *dev)
 
 static int bmi_device_remove (struct device *dev)
 {
-  	struct bmi_device * bmi_dev;
-	struct bmi_driver * driver;
+  struct bmi_device * bmi_dev;
+  struct bmi_driver * driver;
 
-	bmi_dev = to_bmi_device(dev);
-	driver = bmi_dev->driver;
+  bmi_dev = to_bmi_device(dev);
+  driver = bmi_dev->driver;
 
-	if (driver) {
-		if (driver->remove)
-			driver->remove(bmi_dev);
-		bmi_dev->driver = NULL;
-	}
+  printk(KERN_INFO "Device removal called...\n ");
+  if (driver) {
+    if (driver->remove)
+      driver->remove(bmi_dev);
+    bmi_dev->driver = NULL;
+  }
 
-	kobject_uevent(&dev->kobj, KOBJ_REMOVE);
-	bmi_dev_put(bmi_dev);
-	return 0;
+  kobject_uevent(&dev->kobj, KOBJ_REMOVE);
+  bmi_dev_put(bmi_dev);
+  return 0;
 }
 
 static void bmi_device_shutdown(struct device * dev)

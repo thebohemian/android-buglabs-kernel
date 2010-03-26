@@ -92,7 +92,7 @@ static struct bmi_driver bmi_gps_driver =
 #define IOX_CONTROL		0x3
 
 static struct i2c_board_info iox_info = {
-  I2C_BOARD_INFO("VH_IOX", BMI_IOX_I2C_ADDRESS),
+  I2C_BOARD_INFO("GPS_IOX", BMI_IOX_I2C_ADDRESS),
 };
 
 // read byte from I2C IO expander
@@ -169,7 +169,6 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
 	struct i2c_adapter *adap;
 	unsigned char iox_data;
 	
-	unsigned char gpio_mask;
 	struct bmi_gps *gps;
 	int slot;
 
@@ -321,7 +320,6 @@ int bmi_gps_probe(struct bmi_device *bdev)
 	adap = bdev->slot->adap;
 	gps = &bmi_gps[slot];
 
-
 	gps->bdev = 0;
 	gps->open_flag = 0;
 	
@@ -332,7 +330,7 @@ int bmi_gps_probe(struct bmi_device *bdev)
 	dev_id = MKDEV(major, slot); 
 	err = cdev_add(cdev, dev_id, 1);
 	if (err) {
-		return err;
+	  return err;
 	}
 
 	//Create class device 
@@ -343,7 +341,8 @@ int bmi_gps_probe(struct bmi_device *bdev)
 		printk(KERN_ERR "Unable to create "                  
 		       "class_device for bmi_gps_m%i; errno = %ld\n",
 		       slot+1, PTR_ERR(gps->class_dev));             
-		gps->class_dev = NULL;                               
+		gps->class_dev = NULL;
+		cdev_del (&gps->cdev);         
 	}                                                            
 
 	//bind driver and bmi_device 
@@ -357,11 +356,13 @@ int bmi_gps_probe(struct bmi_device *bdev)
 	gps->iox = i2c_new_device(bdev->slot->adap, &iox_info);
 	if (gps->iox == NULL)
 	  printk(KERN_ERR "IOX NULL...\n");
-	if(WriteByte_IOX(gps->iox, IOX_OUTPUT_REG, 0x40)) {  // 
-		return -ENODEV;
+	if(WriteByte_IOX(gps->iox, IOX_OUTPUT_REG, 0x40) < 0) {  // 
+	  device_destroy(bmi_class, MKDEV(major, slot));
+	  goto err_lbl;
 	}
-	if(WriteByte_IOX(gps->iox, IOX_CONTROL, 0x3F)) {     // IOX[4:3]=OUT, IOX[7:5,2:0]=IN
-		return -ENODEV;
+	if(WriteByte_IOX(gps->iox, IOX_CONTROL, 0x3F) < 0) {     // IOX[4:3]=OUT, IOX[7:5,2:0]=IN
+	  device_destroy(bmi_class, MKDEV(major, slot));	  
+	  goto err_lbl;
 	}
 
 
@@ -384,6 +385,13 @@ int bmi_gps_probe(struct bmi_device *bdev)
 	bmi_slot_gpio_set_value(slot, GPIO_1, 1); 	// reset high, Red, Green LEDS off 
 
 	return 0;
+
+ err_lbl:
+	gps->class_dev = NULL;
+	cdev_del (&gps->cdev);
+	bmi_device_set_drvdata (bdev, 0);
+	i2c_unregister_device(gps->iox);
+	return -ENODEV;
 }
 
 
@@ -397,16 +405,17 @@ void bmi_gps_remove(struct bmi_device *bdev)
 	slot = bdev->slot->slotnum;	
 	gps = &bmi_gps[slot];
 
+	dev_info(&bdev->dev, "gps removed..\n");
 	//Disable uart transceiver
 	bmi_slot_uart_disable (slot);
-
+	i2c_unregister_device(gps->iox);
 	for (i = 0; i < 4; i++)
 	  bmi_slot_gpio_direction_in(slot, i);
 
 	bmi_class = bmi_get_class ();
 	device_destroy(bmi_class, MKDEV(major, slot));
 
-	gps->class_dev = 0;
+	gps->class_dev = NULL;
 
 	cdev_del (&gps->cdev);
 
