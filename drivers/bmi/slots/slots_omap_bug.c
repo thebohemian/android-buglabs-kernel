@@ -31,6 +31,7 @@ static void bl_power_on(struct bmi_slot* slot)
   case 0:
     //power
     gpio_direction_output(226,1);
+    gpio_direction_output(225,0);
     //spi + uart + gpio line buffer
     
     break;
@@ -96,7 +97,7 @@ static void bl_gpio_direction_in(struct bmi_slot* slot, unsigned gpio)
 static int bl_gpio_get_value(struct bmi_slot* slot, unsigned gpio)
 {
   unsigned char *gpios = (unsigned char*) slot->slot_data;
-  unsigned char ret = 0;
+  unsigned int ret = 0;
   
   ret = gpio_get_value(gpios[gpio]);
   return ret;
@@ -179,7 +180,7 @@ static int omapbmi_slot_resume(struct platform_device *pdev)
   return 0;
 }
 
-static int omapbmi_slot_gpio_req(short * gpios)
+static int omapbmi_slot_gpio_req(u8 * gpios)
 {
   int i;
   int res;

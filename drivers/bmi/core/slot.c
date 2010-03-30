@@ -164,13 +164,14 @@ int bmi_slot_gpio_get_all (int num)
 {
   struct bmi_slot *slot = bmi_get_slot(num);
   int i;
-  int ret = 0;
-  unsigned char *gpio = (unsigned char*) slot->slot_data;
+  int res = 0;
+  // unsigned char *gpio = (unsigned char*) slot->slot_data;
 
   for (i = 3; i > -1 ; i--)
-    {      
-      ret = (ret << 1) | slot->actions->gpio_get_value(slot, gpio[i]);     
-    }  
+    { 
+      res = (res << 1) | slot->actions->gpio_get_value(slot, i);
+    }
+  return res;
 }
 
 EXPORT_SYMBOL(bmi_slot_gpio_get_all);
