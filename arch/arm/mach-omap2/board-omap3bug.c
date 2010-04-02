@@ -403,14 +403,54 @@ static struct omap_dss_device omap3_bug_lcd_device = {
 	.platform_disable = omap3_bug_panel_disable_lcd,
 };
 
+static int omap3_bug_panel_enable_dvi(struct omap_dss_device *display)
+{
+	if (lcd_enabled) {
+		return -EINVAL;
+	}
+	/*
+	if (vga_enabled)
+		return -EINVAL;
+	*/
+	if (dvi_enabled)
+		return 0;
+	omap_cfg_reg (DSS_DATA_18);
+	omap_cfg_reg (DSS_DATA_19);
+	omap_cfg_reg (DSS_DATA_20);
+	omap_cfg_reg (DSS_DATA_21);
+	omap_cfg_reg (DSS_DATA_22);
+	omap_cfg_reg (DSS_DATA_23);
+	omap_cfg_reg (GPIO_10);
+
+	dvi_enabled = 1;
+	return 0;
+}
+
+static void omap3_bug_panel_disable_dvi(struct omap_dss_device *display)
+{
+	dvi_enabled = 0;
+	return;
+}
+
+static struct omap_dss_device omap3_bug_dvi_device = {
+	.type = OMAP_DISPLAY_TYPE_DPI,
+	.name = "dvi",
+	.driver_name = "generic_panel",
+	.phy.dpi.data_lines = 24,
+	//	.reset_gpio = 90,
+	.platform_enable = omap3_bug_panel_enable_dvi,
+	.platform_disable = omap3_bug_panel_disable_dvi,
+};
+
 struct omap_dss_device *omap3_bug_display_devices[] = {
   &omap3_bug_lcd_device,
+  &omap3_bug_dvi_device,
 };
 
 static struct omap_dss_board_info omap3_bug_dss_data = {
 	.num_devices	= ARRAY_SIZE(omap3_bug_display_devices),
 	.devices	= omap3_bug_display_devices,
-	.default_device	= &omap3_bug_lcd_device,
+	.default_device	= &omap3_bug_dvi_device,
 };
 
 static struct platform_device omap3_bug_dss_device = {
@@ -854,6 +894,14 @@ void gen_gpio_settings(void)
     return;
   }
   gpio_direction_output(42, 1);
+
+
+  r =   gpio_request(109, "twl_msecure");
+  if (r) {
+    printk(KERN_ERR "gen_gpio: failed to get twl_msecure...\n");
+    return;
+  }
+  gpio_direction_output(109, 1);
 
   return;
   
