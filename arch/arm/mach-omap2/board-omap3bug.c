@@ -903,6 +903,20 @@ void gen_gpio_settings(void)
   }
   gpio_direction_output(109, 1);
 
+  r =   gpio_request(35, "mmc1_enable");
+  if (r) {
+    printk(KERN_ERR "gen_gpio: failed to get mmc1_enable...\n");
+    return;
+  }
+  gpio_direction_output(35, 1);
+
+  r =   gpio_request(108, "audio_mute");
+  if (r) {
+    printk(KERN_ERR "gen_gpio: failed to get audio_mute...\n");
+    return;
+  }
+  gpio_direction_output(108, 1);
+
   return;
   
 }
