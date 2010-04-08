@@ -252,6 +252,7 @@ static struct i2c_board_info __initdata omap3bug_i2c3_boardinfo[] = {
 	},
 };
 
+
 static int __init omap3_bug_i2c_init(void)
 {
 	omap_register_i2c_bus(1, 2600, omap3bug_i2c1_boardinfo,
@@ -300,54 +301,32 @@ static int dvi_enabled;
 static void __init omap3_bug_display_init(void)
 {
 	int r;
-	r = gpio_request(LCD_PANEL_LR, "lcd_panel_lr");
-	if (r) {
-		printk(KERN_ERR "failed to get LCD_PANEL_LR\n");
-		return;
-	}
-	r = gpio_request(LCD_PANEL_UD, "lcd_panel_ud");
-	if (r) {
-		printk(KERN_ERR "failed to get LCD_PANEL_UD\n");
-		goto err_1;
-	}
 
-	r = gpio_request(LCD_PANEL_INI, "lcd_panel_ini");
+	printk(KERN_INFO "omap3_display_int...\n");
+	r = gpio_request(227, "lcd_power");
 	if (r) {
-		printk(KERN_ERR "failed to get LCD_PANEL_INI\n");
-		goto err_2;
-	}
-	r = gpio_request(LCD_PANEL_RESB, "lcd_panel_resb");
+	  printk(KERN_INFO "gpio request failed...\n");
+	 }
+	r = gpio_request(232, "lcd_level_shifter");
 	if (r) {
-		printk(KERN_ERR "failed to get LCD_PANEL_RESB\n");
-		goto err_3;
-	}
-	r = gpio_request(LCD_PANEL_QVGA, "lcd_panel_qvga");
+	  printk(KERN_INFO "gpio reuqest failed...\n");
+	 }
+	r = gpio_request(90, "lcd_shutdown");
 	if (r) {
-		printk(KERN_ERR "failed to get LCD_PANEL_QVGA\n");
-		goto err_4;
-	}
-
-	gpio_direction_output(LCD_PANEL_RESB, 1);
-	gpio_direction_output(LCD_PANEL_INI, 1);
-	gpio_direction_output(LCD_PANEL_QVGA, 0);
-	gpio_direction_output(LCD_PANEL_LR, 1);
-	gpio_direction_output(LCD_PANEL_UD, 1);
+	  printk(KERN_INFO "gpio request failed...\n");
+	 }
+	r = gpio_request(93, "lcd_reset");
+	if (r) {
+	  printk(KERN_INFO "gpio reuqest failed...\n");
+	 }
 
 	return;
-
-err_4:
-	gpio_free(LCD_PANEL_RESB);
-err_3:
-	gpio_free(LCD_PANEL_INI);
-err_2:
-	gpio_free(LCD_PANEL_UD);
-err_1:
-	gpio_free(LCD_PANEL_LR);
 
 }
 
 static int omap3_bug_panel_enable_lcd(struct omap_dss_device *display)
 {
+  
   int r;
 
   	omap_cfg_reg (LCD_MCSPI3_CLK);
@@ -357,32 +336,12 @@ static int omap3_bug_panel_enable_lcd(struct omap_dss_device *display)
 	omap_cfg_reg (ACC_RESET);
 	omap_cfg_reg (LCD_TP_RESET);
 	omap_cfg_reg (ACC_INT);
-	
-	r = gpio_request(227, "lcd_power");
-	if (r) {
-	  dev_warn(&display->dev, "gpio request failed...\n");
-	   return -1;
-	 }
-	r = gpio_request(232, "lcd_level_shifter");
-	if (r) {
-	  dev_warn(&display->dev, "gpio reuqest failed...\n");
-	   return -1;
-	 }
-	r = gpio_request(90, "lcd_shutdown");
-	if (r) {
-	  dev_warn(&display->dev, "gpio request failed...\n");
-	   return -1;
-	 }
-	r = gpio_request(93, "lcd_reset");
-	if (r) {
-	  dev_warn(&display->dev, "gpio reuqest failed...\n");
-	   return -1;
-	 }
 
 	gpio_direction_output(227, 1);
 	gpio_direction_output(232, 0);
 	gpio_direction_output(90,1);
 
+	
 	lcd_enabled = 1;
 	return 0;
 }
@@ -422,6 +381,9 @@ static int omap3_bug_panel_enable_dvi(struct omap_dss_device *display)
 	omap_cfg_reg (DSS_DATA_23);
 	omap_cfg_reg (GPIO_10);
 
+	gpio_direction_output(227, 1);
+	gpio_direction_output(232, 0);
+	gpio_direction_output(10,1);
 	dvi_enabled = 1;
 	return 0;
 }
@@ -450,7 +412,7 @@ struct omap_dss_device *omap3_bug_display_devices[] = {
 static struct omap_dss_board_info omap3_bug_dss_data = {
 	.num_devices	= ARRAY_SIZE(omap3_bug_display_devices),
 	.devices	= omap3_bug_display_devices,
-	.default_device	= &omap3_bug_dvi_device,
+	.default_device	= &omap3_bug_lcd_device,
 };
 
 static struct platform_device omap3_bug_dss_device = {
@@ -792,8 +754,9 @@ static int omap3bug_ioexp_gpio_teardown(struct i2c_client *client,
 static int omap3bug_spi_uart_gpio_setup(struct spi_device *spi, unsigned gpio, unsigned ngpio, void *context)
 {
   int r;
-
+  
   printk(KERN_INFO "spi_uart_gpio: Setting up gpios...\n");
+  omap3_bug_display_init();
   r =   gpio_request(gpio + 4, "wifi_en");  
   if (r) {
     printk(KERN_ERR "spi_uart_gpio: failed to get wifi_en...\n");
@@ -953,20 +916,6 @@ static void __init omap3_bug_init(void)
 	usb_ehci_init(&ehci_pdata);
 	gen_gpio_settings();
 	omap3bug_flash_init();
-//	ads7846_dev_init();
-#ifdef CONFIG_OMAP2_DSS
-//	omap3_bug_display_init();
-#endif /* CONFIG_OMAP2_DSS */
-#if 0
-	if (get_omap3bug_board_rev() >= OMAP3BUG_BOARD_GEN_2) {
-		dec_i2c_id = 0x5C;
-		is_dec_onboard = 1;
-	} else {
-		dec_i2c_id = 0x5D;
-		is_dec_onboard = 0;
-	}
-	omap3bugdc_init(is_dec_onboard, 3, dec_i2c_id);
-#endif
 	omap_init_bmi_slots();
 }
 

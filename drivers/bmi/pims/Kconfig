@@ -35,24 +35,10 @@ source "drivers/bmi/pims/mdacc/Kconfig"
 
 config VIDEO_BMI_LCD
 	tristate "BMI Bus LCD Module support"
-	depends on FB_MXC && MACH_BUG
+	depends on BMI_PIMS
 	default n
 	---help---
 	  This is the BMI bus driver for the LCD Plug-In Module.
-
-config VIDEO_BMI_LCD_S320X240
-	tristate "BMI support for Sharp 320x240 module"
-	depends on FB_MXC && MACH_BUG && VIDEO_BMI_LCD
-	default n
-	---help---
-	  This is the BMI LCD driver for the Sharp 320x240 LCD Plug-In Module.
-
-config VIDEO_BMI_PROJECTOR
-	tristate "BMI Bus PROJECTOR Module support"
-	depends on FB_MXC_PROJECTOR && MACH_BUG
-	default n
-	---help---
-	  This is the BMI bus driver for the PROJECTOR Plug-In Module.
 
 config BMI_AUDIO
 	tristate "BMI Bus Audio Module support"
