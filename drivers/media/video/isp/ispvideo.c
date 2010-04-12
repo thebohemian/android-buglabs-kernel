@@ -959,11 +959,8 @@ isp_video_streamoff(struct file *file, void *fh, enum v4l2_buf_type type)
 	spin_unlock_irqrestore(&video->pipe->lock, flags);
 
 	/* Stop the stream. */
-	if (video->ops->stream_off)
-		video->ops->stream_off(video);
-	else
-		isp_pipeline_set_stream(video->isp, video->pipe->output,
-					ISP_PIPELINE_STREAM_STOPPED);
+	isp_pipeline_set_stream(video->isp, video->pipe->output,
+				ISP_PIPELINE_STREAM_STOPPED);
 
 	isp_video_queue_streamoff(&vfh->queue);
 	video->pipe = NULL;
@@ -1056,15 +1053,6 @@ static int isp_video_open(struct file *file)
 			ret = -EBUSY;
 			goto done;
 		}
-
-		if (video->ops->init) {
-			ret = video->ops->init(video);
-			if (ret < 0) {
-				isp_put(video->isp);
-				goto done;
-			}
-		}
-
 	}
 
 	isp_video_queue_init(&handle->queue, video->type, &isp_video_queue_ops,
@@ -1105,11 +1093,8 @@ static int isp_video_release(struct file *file)
 	file->private_data = NULL;
 
 	/* If this was the last user, clean up the pipeline. */
-	if (atomic_dec_return(&video->users) == 0) {
-		if (video->ops->cleanup)
-			video->ops->cleanup(video);
+	if (atomic_dec_return(&video->users) == 0)
 		isp_put(video->isp);
-	}
 
 	return 0;
 }
