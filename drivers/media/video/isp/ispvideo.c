@@ -1002,19 +1002,6 @@ isp_video_s_input(struct file *file, void *fh, unsigned int input)
 	return input == 0 ? 0 : -EINVAL;
 }
 
-static long
-isp_video_ioctl_default(struct file *file, void *fh, int cmd, void *arg)
-{
-	struct isp_video *video = video_drvdata(file);
-	int ret;
-
-	mutex_lock(&video->mutex);
-	ret = isp_handle_private(video->isp, cmd, arg);
-	mutex_unlock(&video->mutex);
-
-	return ret;
-}
-
 static const struct v4l2_ioctl_ops isp_video_ioctl_ops = {
 	.vidioc_querycap		= isp_video_querycap,
 	.vidioc_enum_fmt_vid_cap	= isp_video_enum_formats,
@@ -1044,7 +1031,6 @@ static const struct v4l2_ioctl_ops isp_video_ioctl_ops = {
 	.vidioc_enum_input		= isp_video_enum_input,
 	.vidioc_g_input			= isp_video_g_input,
 	.vidioc_s_input			= isp_video_s_input,
-	.vidioc_default			= isp_video_ioctl_default,
 };
 
 /* -----------------------------------------------------------------------------

@@ -33,8 +33,6 @@
 #include <plat/iommu.h>
 #include <plat/iovmm.h>
 
-struct isp_interface_config;
-
 #include "ispstat.h"
 #include "ispccdc.h"
 #include "ispreg.h"
@@ -45,13 +43,6 @@ struct isp_interface_config;
 #include "ispccp2.h"
 
 #define IOMMU_FLAG (IOVMF_ENDIAN_LITTLE | IOVMF_ELSZ_8)
-
-#define OMAP_ISP_CCDC		(1 << 0)
-#define OMAP_ISP_PREVIEW	(1 << 1)
-#define OMAP_ISP_RESIZER	(1 << 2)
-#define OMAP_ISP_AEWB		(1 << 3)
-#define OMAP_ISP_AF		(1 << 4)
-#define OMAP_ISP_HIST		(1 << 5)
 
 #define ISP_TOK_TERM		0xFFFFFFFF	/*
 						 * terminating token for ISP
@@ -277,8 +268,6 @@ void isphist_dma_done(struct isp_device *isp);
 
 void isp_flush(struct isp_device *isp);
 
-void isp_stop(struct isp_device *isp, struct isp_video *video);
-
 int isp_pipeline_set_stream(struct isp_device *isp, struct isp_video *node,
 			    enum isp_pipeline_stream_state state);
 void isp_select_bridge_input(struct isp_device *isp,
@@ -290,8 +279,6 @@ void isp_set_pixel_clock(struct isp_device *isp, unsigned int pixelclk);
 
 struct isp_device *isp_get(struct isp_device *isp);
 void isp_put(struct isp_device *isp);
-
-int isp_handle_private(struct isp_device *isp, int cmd, void *arg);
 
 void isp_save_context(struct isp_device *isp, struct isp_reg *);
 
