@@ -551,9 +551,7 @@ isp_video_set_format(struct file *file, void *fh, struct v4l2_format *format)
 {
 	struct isp_video_fh *vfh = to_isp_video_fh(fh);
 	struct isp_video *video = video_drvdata(file);
-	const struct v4l2_ioctl_ops *ops = video->ioctl_ops;
 	struct v4l2_mbus_framefmt fmt;
-	int ret = 0;
 
 	if (format->type != video->type)
 		return -EINVAL;
@@ -566,27 +564,16 @@ isp_video_set_format(struct file *file, void *fh, struct v4l2_format *format)
 	isp_video_pix_to_mbus(&format->fmt.pix, &fmt);
 	isp_video_mbus_to_pix(video, &fmt, &format->fmt.pix);
 
-	/* For legacy video nodes, set the format directly. New video nodes just
-	 * store the format in the file handle and verify it at stream on time.
-	 */
-	if (ops != NULL && ops->vidioc_s_fmt_vid_cap != NULL) {
-		ret = ops->vidioc_s_fmt_vid_cap(file, fh, format);
-		if (ret < 0)
-			goto done;
-	}
-
 	vfh->format = *format;
 
-done:
 	mutex_unlock(&video->mutex);
-	return ret;
+	return 0;
 }
 
 static int
 isp_video_try_format(struct file *file, void *fh, struct v4l2_format *format)
 {
 	struct isp_video *video = video_drvdata(file);
-	const struct v4l2_ioctl_ops *ops = video->ioctl_ops;
 	struct v4l2_mbus_framefmt fmt;
 	struct v4l2_subdev *subdev;
 	u32 pad;
@@ -594,12 +581,6 @@ isp_video_try_format(struct file *file, void *fh, struct v4l2_format *format)
 
 	if (format->type != video->type)
 		return -EINVAL;
-
-	/* Try the legacy ioctl operation if available or the subdev pad
-	 * operation otherwise.
-	 */
-	if (ops != NULL && ops->vidioc_try_fmt_vid_cap != NULL)
-		return ops->vidioc_try_fmt_vid_cap(file, fh, format);
 
 	subdev = isp_video_remote_subdev(video, &pad);
 	if (subdev == NULL)
@@ -614,58 +595,6 @@ isp_video_try_format(struct file *file, void *fh, struct v4l2_format *format)
 
 	isp_video_mbus_to_pix(video, &fmt, &format->fmt.pix);
 	return 0;
-}
-
-static int
-isp_video_query_control(struct file *file, void *fh,
-			struct v4l2_queryctrl *query)
-{
-	struct isp_video *video = video_drvdata(file);
-	const struct v4l2_ioctl_ops *ops = video->ioctl_ops;
-
-	if (ops == NULL || ops->vidioc_queryctrl == NULL)
-		return -EINVAL;
-
-	return ops->vidioc_queryctrl(file, fh, query);
-}
-
-static int
-isp_video_get_controls(struct file *file, void *fh,
-		       struct v4l2_ext_controls *ctrls)
-{
-	struct isp_video *video = video_drvdata(file);
-	const struct v4l2_ioctl_ops *ops = video->ioctl_ops;
-
-	if (ops == NULL || ops->vidioc_g_ext_ctrls == NULL)
-		return -EINVAL;
-
-	return ops->vidioc_g_ext_ctrls(file, fh, ctrls);
-}
-
-static int
-isp_video_set_controls(struct file *file, void *fh,
-		       struct v4l2_ext_controls *ctrls)
-{
-	struct isp_video *video = video_drvdata(file);
-	const struct v4l2_ioctl_ops *ops = video->ioctl_ops;
-
-	if (ops == NULL || ops->vidioc_s_ext_ctrls == NULL)
-		return -EINVAL;
-
-	return ops->vidioc_s_ext_ctrls(file, fh, ctrls);
-}
-
-static int
-isp_video_query_menu(struct file *file, void *fh,
-		     struct v4l2_querymenu *query)
-{
-	struct isp_video *video = video_drvdata(file);
-	const struct v4l2_ioctl_ops *ops = video->ioctl_ops;
-
-	if (ops == NULL || ops->vidioc_querymenu == NULL)
-		return -EINVAL;
-
-	return ops->vidioc_querymenu(file, fh, query);
 }
 
 static int
@@ -1010,10 +939,6 @@ static const struct v4l2_ioctl_ops isp_video_ioctl_ops = {
 	.vidioc_g_fmt_vid_out		= isp_video_get_format,
 	.vidioc_s_fmt_vid_out		= isp_video_set_format,
 	.vidioc_try_fmt_vid_out		= isp_video_try_format,
-	.vidioc_queryctrl		= isp_video_query_control,
-	.vidioc_g_ext_ctrls		= isp_video_get_controls,
-	.vidioc_s_ext_ctrls		= isp_video_set_controls,
-	.vidioc_querymenu		= isp_video_query_menu,
 	.vidioc_cropcap			= isp_video_cropcap,
 	.vidioc_g_crop			= isp_video_get_crop,
 	.vidioc_s_crop			= isp_video_set_crop,
