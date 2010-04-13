@@ -260,7 +260,7 @@ static int __init omap3_bug_i2c_init(void)
 	omap_register_i2c_bus(2, 400, omap3bug_i2c2_boardinfo,
 			ARRAY_SIZE(omap3bug_i2c2_boardinfo));
 	omap_register_i2c_bus(3, 100, omap3bug_i2c3_boardinfo, 
-			ARRAY_SIZE(omap3bug_i2c2_boardinfo));
+			ARRAY_SIZE(omap3bug_i2c3_boardinfo));
 	return 0;
 }
 
@@ -319,7 +319,10 @@ static void __init omap3_bug_display_init(void)
 	if (r) {
 	  printk(KERN_INFO "gpio reuqest failed...\n");
 	 }
-
+	r = gpio_request(10, "dvi_reset");
+	if (r) {
+	  printk(KERN_INFO "gpio reuqest failed...\n");
+	 }
 	return;
 
 }
@@ -383,7 +386,8 @@ static int omap3_bug_panel_enable_dvi(struct omap_dss_device *display)
 
 	gpio_direction_output(227, 1);
 	gpio_direction_output(232, 0);
-	gpio_direction_output(10,1);
+
+	//	gpio_direction_output(10,0);
 	dvi_enabled = 1;
 	return 0;
 }

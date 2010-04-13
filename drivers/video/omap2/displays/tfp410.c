@@ -1,6 +1,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/delay.h>
+#include <mach/gpio.h>
 #include <linux/i2c.h>
 
 
@@ -25,21 +26,29 @@ static int tfp410p_probe(struct i2c_client *client,
   int err = 0;
   u8 value;
 
-	value = 0xbd;
-	err |= WriteByte_TFP(client, 0x08, value);
-	mdelay (1);
-	
-	value = 0x98;
-	err |= WriteByte_TFP(client, 0x09, value);
-	mdelay (1);
-	value = 0x30;
-	err |= WriteByte_TFP(client, 0x33, value);
-	mdelay (1);
-	if (err < 0) {
-	  dev_err(&client->dev, "%s: Error during init\n", __func__);
-		return -EINVAL;
-	}
-	return 0;
+  gpio_direction_output(10, 0);
+  gpio_set_value (10, 1);
+  mdelay (1);
+  gpio_set_value (10, 0);
+  mdelay (1);
+  //  gpio_set_value (10, 1);
+
+
+  value = 0xbd;
+  err |= WriteByte_TFP(client, 0x08, value);
+  mdelay (1);
+  
+  value = 0x98;
+  err |= WriteByte_TFP(client, 0x09, value);
+  mdelay (1);
+  value = 0x30;
+  err |= WriteByte_TFP(client, 0x33, value);
+  mdelay (1);
+  if (err < 0) {
+    dev_err(&client->dev, "%s: Error during init\n", __func__);
+    return -EINVAL;
+  }
+  return 0;
 }
 
 static int tfp410p_remove(struct i2c_client *client)
