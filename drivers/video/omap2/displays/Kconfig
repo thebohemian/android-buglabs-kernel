@@ -19,10 +19,10 @@ config PANEL_SHARP_LQ043T1DG01
         help
           LCD Panel used in TI's OMAP3517 EVM boards
 
-config PANEL_SHARP_SPI_LCD                                                                
-        tristate "Sharp SPI LCD Panel"                                                    
-        default y                                                                         
-        help                                                                              
+config PANEL_SHARP_SPI_LCD
+        tristate "Sharp SPI LCD Panel"
+        default y
+        help
           LCD Panel used in bugbase2 boards
 
 config PANEL_TAAL
@@ -42,5 +42,11 @@ config PANEL_TPO_TD043MTEA1
         depends on OMAP2_DSS && I2C
         help
           LCD Panel used in OMAP3 Pandora
+
+config TFP410
+       tristate "TFP410 I2C Support"
+       depends on I2C
+       help
+         TFP410 I2C support
 
 endmenu

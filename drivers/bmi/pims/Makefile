@@ -6,6 +6,7 @@ obj-$(CONFIG_BUG_FACTORY_TEST)	+= factory_test/
 obj-$(CONFIG_BMI_GPS)		+= gps/
 obj-$(CONFIG_BMI_MDACC)		+= mdacc/
 obj-$(CONFIG_VIDEO_BMI_LCD)	+= lcd/
+obj-$(CONFIG_VIDEO_BMI_DVI)	+= video/
 obj-$(CONFIG_BMI_CAMERA)	+= camera/
 obj-$(CONFIG_BMI_AUDIO)		+= sound/
 obj-$(CONFIG_BMI_VH)		+= vonhippel/

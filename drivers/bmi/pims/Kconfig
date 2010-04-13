@@ -40,6 +40,13 @@ config VIDEO_BMI_LCD
 	---help---
 	  This is the BMI bus driver for the LCD Plug-In Module.
 
+config VIDEO_BMI_DVI
+	tristate "BMI DVI/VGA Module support"
+	depends on BMI_PIMS
+	default n
+	---help---
+	  This is the BMI bus driver for the LCD Plug-In Module.
+
 config BMI_AUDIO
 	tristate "BMI Bus Audio Module support"
 	depends on BMI_PIMS
