@@ -254,9 +254,13 @@ EXPORT_SYMBOL(bmi_slot_battery_disable);
 int bmi_slot_module_present (int num)
 {
   struct bmi_slot *slot = bmi_get_slot(num);
+  int ret;
   // slot->actions->gpio_set
   if (slot->actions->present != NULL)
-    return slot->actions->present(slot);
+    {
+      ret = slot->actions->present(slot);
+      return ret;
+    }
   else
     printk(KERN_INFO "BMI: Slot Driver incomplete. No presence detection...\n");
   return 0;  
@@ -292,7 +296,7 @@ static irqreturn_t bmi_slot_irq_handler(int irq, void *dev_id)
 {
   struct bmi_slot *slot = dev_id;
   
-  disable_irq_nosync(irq);
+  //disable_irq_nosync(irq);
   printk(KERN_INFO " BMI: IRQ Triggered on slot: %d\n", slot->slotnum);
   schedule_delayed_work(&slot->work, DEBOUNCE_DELAY);
   return IRQ_HANDLED;
@@ -347,27 +351,25 @@ static void bmi_slot_work_handler(struct work_struct * work)
       }
       slot->bdev = bdev;
     }
-    else
-      //spurious insertion event..
-      printk(KERN_INFO "SLOTS: Spurious insertion on Slot %d...\n",slot->slotnum);
   }
   else { 
     if (slot->present) {
-      slot->present = 0;
-      data = slot->bdev->ident;
+      slot->present = 0;      
       printk(KERN_INFO "BMI: Module removed from slot %d...\n", slot->slotnum);
       if (slot->bdev == NULL) {
 	printk(KERN_ERR "SLOTS: BMI Device NULL...\n");
-	goto del_eeprom;
+	goto irqenbl;
       }
       //Call BMI device removal stuff here...
+      data = slot->bdev->ident;
+      slot->bdev->ident = NULL;
       device_del(&slot->bdev->dev);
       goto del_eeprom;
     }
   }
  irqenbl:
   mutex_unlock(&slot->pres_mutex);
-  enable_irq(slot->present_irq);
+  //enable_irq(slot->present_irq);
   return;
  del_eeprom:
   i2c_unregister_device(slot->eeprom);

@@ -263,7 +263,7 @@ static int omapbmi_slot_probe(struct platform_device *pdev)
     goto err_release;
   }
   
-  disable_irq_nosync(slot->present_irq);
+  //  disable_irq_nosync(slot->present_irq);
   schedule_delayed_work(&slot->work, msecs_to_jiffies(100));
   return 0;
  err_release:
