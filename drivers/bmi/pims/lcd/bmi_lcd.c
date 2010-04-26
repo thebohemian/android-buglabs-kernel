@@ -45,11 +45,28 @@
 /*
  * 	Global variables
  */
+static int tsc2004_init(void)
+{
+  int res;
 
+  res = gpio_direction_input(10);
+  
+  omap_set_gpio_debounce(10, 1);
+  omap_set_gpio_debounce_time(10, 0xa);
+	
+  return 1;
+}
+
+static int tsc2004_get_pendown_state(void)
+{
+  return !gpio_get_value(10);
+}
 
 static struct tsc2004_platform_data tsc_platform_data= {
   .model = 2004,
   .x_plate_ohms = 180,
+  .get_pendown_state = tsc2004_get_pendown_state,
+  .init_platform_hw = tsc2004_init,
 };
 
 static struct i2c_board_info tsc_info = {
