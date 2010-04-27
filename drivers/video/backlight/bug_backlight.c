@@ -153,34 +153,48 @@ static int omapbl_probe(struct platform_device *pdev)
        omapbl_device->props.max_brightness     = OMAPBL_MAX_INTENSITY;
        omapbl_device->props.brightness         = OMAPBL_DEF_INTENSITY;
 
+       /* Enable PWM1 and PWM1_CLK in GPBR */
        twl4030_i2c_read_u8(TWL4030_MODULE_INTBR, &c, 0x0c);
        c |= (1 << 3) | (1 << 1);
        twl4030_i2c_write_u8 (TWL4030_MODULE_INTBR, c, 0x0c);
 
+       /* Select PWM1 output in PMBR1 */
        twl4030_i2c_read_u8(TWL4030_MODULE_INTBR, &c, 0x0d);
        c |= 0x30;
        twl4030_i2c_write_u8 (TWL4030_MODULE_INTBR, c, 0x0d);
 
        omapbl_set_intensity(omapbl_device);
 
-       printk(KERN_INFO "omap-backlight: driver initialized.\n");
+       printk(KERN_INFO "omap-backlight: device initialized.\n");
 
        return 0;
 }
 
 static int omapbl_remove(struct platform_device *pdev)
 {
-       struct backlight_device *bd = platform_get_drvdata(pdev);
-
-       omapbl_props.power = 0;
-       omapbl_props.brightness = 0;
-       backlight_update_status(bd);
-
-       backlight_device_unregister(bd);
-
-       printk(KERN_INFO "omap-backlight: driver unloaded.\n");
-
-       return 0;
+  u8 c;
+  struct backlight_device *bd = platform_get_drvdata(pdev);
+  
+  omapbl_props.power = 0;
+  omapbl_props.brightness = 0;
+  backlight_update_status(bd);
+  
+  
+  /* Disableable PWM1 and PWM1_CLK in GPBR */
+  twl4030_i2c_read_u8(TWL4030_MODULE_INTBR, &c, 0x0c);
+  c &= ~((1 << 3) | (1 << 1));
+  twl4030_i2c_write_u8 (TWL4030_MODULE_INTBR, c, 0x0c);
+  
+  /* Restore default/gpio output in PMBR1 */
+  twl4030_i2c_read_u8(TWL4030_MODULE_INTBR, &c, 0x0d);
+  c &= ~(0x30);
+  twl4030_i2c_write_u8 (TWL4030_MODULE_INTBR, c, 0x0d);
+    
+  backlight_device_unregister(bd);
+  
+  printk(KERN_INFO "omap-backlight: device unloaded.\n");
+  
+  return 0;
 }
 
 #ifdef CONFIG_PM
@@ -227,21 +241,6 @@ static struct platform_device *omap_backlight_dev;
 static int __init omapbl_init(void)
 {
        int ret = platform_driver_register(&omap_backlight_drv);
-
-       if (!ret) {
-               omap_backlight_dev = platform_device_alloc(OMAPBL_DEVNAME, -1);
-
-               if (!omap_backlight_dev)
-                       return -ENOMEM;
-               
-	       ret = platform_device_add(omap_backlight_dev);
-		
-               if (ret) {
-                       platform_device_put(omap_backlight_dev);
-                       platform_driver_unregister(&omap_backlight_drv);
-               }
-       }
-
        return ret;
 }
 

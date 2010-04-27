@@ -29,6 +29,7 @@
 #include <linux/jiffies.h>
 #include <linux/timer.h>
 #include <linux/gpio.h>
+#include <linux/platform_device.h>
 
 #include <asm/uaccess.h>
 #include <asm/io.h>
@@ -45,6 +46,16 @@
 /*
  * 	Global variables
  */
+
+/*
+static struct platform_device bl_backlight_dev = {
+  .name = "omap-backlight",
+  .id = -1,
+};
+*/
+
+static struct platform_device *bl_backlight_dev;
+
 static int tsc2004_init(void)
 {
   int res;
@@ -169,10 +180,17 @@ int bmi_lcd_probe(struct bmi_device *bdev)
 	lcd->tsc = i2c_new_device(bdev->slot->adap, &tsc_info);
 	if (lcd->tsc == NULL)
 	  printk(KERN_ERR "TSC NULL...\n");
+	
+	bl_backlight_dev = platform_device_alloc("omap-backlight", -1);
+	err = platform_device_add(bl_backlight_dev);
+	if (err) {
+	  platform_device_put(bl_backlight_dev);
+	  printk(KERN_INFO "Backlight driver failed to load...");
+	}	  
 
 	bmi_device_set_drvdata (bdev, lcd);
 
-	printk (KERN_INFO "bmi_lcd.c: probe...\n");	
+	printk (KERN_INFO "bmi_lcd.c: probe...\n");
 
 	// request PIM interrupt
 	irq = bdev->slot->status_irq;
@@ -200,10 +218,9 @@ void bmi_lcd_remove(struct bmi_device *bdev)
 	lcd = &bmi_lcd;
 	i2c_unregister_device(lcd->tsc);
 	irq = bdev->slot->status_irq;
-
-	for (i = 0; i < 4; i++)
-	  bmi_slot_gpio_direction_in(slot, i);
-
+	
+	platform_device_unregister(bl_backlight_dev);
+	
 	bmi_class = bmi_get_class ();
 	device_destroy (bmi_class, MKDEV(major, slot));
 
