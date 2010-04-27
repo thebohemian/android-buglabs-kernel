@@ -194,8 +194,9 @@ config INPUT_CM109
 	  called cm109.
 
 config INPUT_TWL4030_PWRBUTTON
-	tristate "TWL4030 Power button Driver"
-	depends on TWL4030_CORE && APM_EMULATION
+	bool "TWL4030 Power button Driver"
+	select APM_EMULATION
+	depends on TWL4030_CORE
 	help
 	  Say Y here if you want to enable power key reporting via the
 	  TWL4030 family of chips.
