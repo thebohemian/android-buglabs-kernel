@@ -63,7 +63,7 @@ static int tsc2004_init(void)
   res = gpio_direction_input(10);
   
   omap_set_gpio_debounce(10, 1);
-  omap_set_gpio_debounce_time(10, 0xa);
+  omap_set_gpio_debounce_time(10, 0xff);
 	
   return 1;
 }
