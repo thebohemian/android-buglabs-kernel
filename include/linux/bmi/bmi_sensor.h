@@ -18,9 +18,6 @@
 #define SENSOR_GPIO_PDOUT	1	// input - aproximity detector state
 #define SENSOR_GPIO_MOT_DET	0	// input - motion detector state
 
-#define SENSOR_GPIO_LED_ON		0
-#define SENSOR_GPIO_LED_OFF		1
-
 // I2C
 // I2C Slave Addresses
 #define BMI_MEE_I2C_ADDRESS	0x51	// 7-bit address - Module specific EEPROM
