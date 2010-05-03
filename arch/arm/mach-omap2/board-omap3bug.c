@@ -244,6 +244,9 @@ static struct i2c_board_info __initdata omap3bug_i2c2_boardinfo[] = {
 	  //.irq = gpio_to_irq(63),
 	  .platform_data = &omap3bug_ioexp_data,
 	},
+	{
+	  I2C_BOARD_INFO("bq27200", 0x55),
+	},
 };
 
 static struct i2c_board_info __initdata omap3bug_i2c3_boardinfo[] = {
@@ -257,7 +260,7 @@ static int __init omap3_bug_i2c_init(void)
 {
 	omap_register_i2c_bus(1, 2600, omap3bug_i2c1_boardinfo,
 			ARRAY_SIZE(omap3bug_i2c1_boardinfo));
-	omap_register_i2c_bus(2, 400, omap3bug_i2c2_boardinfo,
+	omap_register_i2c_bus(2, 100, omap3bug_i2c2_boardinfo,
 			ARRAY_SIZE(omap3bug_i2c2_boardinfo));
 	omap_register_i2c_bus(3, 100, omap3bug_i2c3_boardinfo, 
 			ARRAY_SIZE(omap3bug_i2c3_boardinfo));
@@ -329,9 +332,6 @@ static void __init omap3_bug_display_init(void)
 
 static int omap3_bug_panel_enable_lcd(struct omap_dss_device *display)
 {
-  
-  int r;
-
   	omap_cfg_reg (LCD_MCSPI3_CLK);
 	omap_cfg_reg (LCD_MCSPI3_SIMO);
 	omap_cfg_reg (LCD_SHUTDOWN);
