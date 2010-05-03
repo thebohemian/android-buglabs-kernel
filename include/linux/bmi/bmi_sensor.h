@@ -26,7 +26,7 @@
 #define BMI_PL_I2C_ADDRESS	0x44	// 7-bit address - digital proximity/light
 #define BMI_DLIGHT_I2C_ADDRESS	0x44	// 7-bit address - digital light
 #define BMI_TEMP_I2C_ADDRESS	0x4C	// 7-bit address - temperature
-#define BMI_ACCEL_I2C_ADDRESS	0x1D	// 7-bit address - accelerometer
+#define BMI_ACC_I2C_ADDRESS	0x1D	// 7-bit address - accelerometer
 #define BMI_DCOMP_I2C_ADDRESS	0x1C	// 7-bit address - digital compass
 
 // I2C IOX register addresses
@@ -88,7 +88,7 @@ struct sensor_eeprom_raw
 	__u8 sound_present;		/* byte 0x13  - 0x1 == present */ // discrete components
 	__u8 temperature_present;	/* byte 0x14  - 0x1 == present */ // National LM95235
 	__u8 motion_present;		/* byte 0x15  - 0x1 == present */ // Panasonic AMN44121
-	__u8 accel_present;		/* byte 0x16  - 0x1 == present */ // Analog Devices ADXL345
+	__u8 acc_present;		/* byte 0x16  - 0x1 == present */ // Analog Devices ADXL345
 	__u8 dcompass_present;		/* byte 0x17  - 0x1 == present */ // AsahiKASEI AK8973
 	__u8 aproximity_present;	/* byte 0x18  - 0x1 == present */ // Avago APDS-9700
 	__u8 alight_present;		/* byte 0x19 - 0x1 == present */  // Avago APDS-9002
