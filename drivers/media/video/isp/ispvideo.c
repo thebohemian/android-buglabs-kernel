@@ -1078,15 +1078,6 @@ int isp_video_init(struct isp_video *video, const char *name)
 	if (ret < 0)
 		return ret;
 
-	/* FIXME Those three fields are initialized in video_register_device,
-	 * but we need them earlier to setup links before all video device nodes
-	 * are registered. The removal of legacy nodes in omap34xxcam will
-	 * alleviate this constraint.
-	 */
-	video->video.entity.type = MEDIA_ENTITY_TYPE_NODE;
-	video->video.entity.subtype = MEDIA_NODE_TYPE_V4L;
-	video->video.entity.name = video->video.name;
-
 	mutex_init(&video->mutex);
 	atomic_set(&video->active, 0);
 	atomic_set(&video->users, 0);
