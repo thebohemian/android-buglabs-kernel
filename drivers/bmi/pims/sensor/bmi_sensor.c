@@ -491,11 +491,11 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
     {
         int read_data;
 
-        if(ReadByte_IOX(sensor->iox_i2c_client, IOX_INPUT0_REG, &iox_data))
+        if(ReadByte_IOX(sensor->iox_i2c_client, IOX_INPUT0_REG, &iox_data) < 0)
             return -ENODEV;
         read_data = iox_data;
 
-        if(ReadByte_IOX(sensor->iox_i2c_client, IOX_INPUT1_REG, &iox_data))
+        if(ReadByte_IOX(sensor->iox_i2c_client, IOX_INPUT1_REG, &iox_data) < 0)
             return -ENODEV;
         read_data |= (iox_data << 8) | (bmi_slot_gpio_get_all(slot) << 16);
 
@@ -512,7 +512,7 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
             return -ENODEV;
 
         adc_data = (unsigned char) (arg & 0xFF);
-        if(WriteByte_ADC(sensor->adc_i2c_client, adc_data))
+        if(WriteByte_ADC(sensor->adc_i2c_client, adc_data) < 0)
             return -ENODEV;
     }
     break;
@@ -525,7 +525,7 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
         if(sensor->eeprom.adc_present != SENSOR_DEVICE_PRESENT)
             return -ENODEV;
 
-        if(ReadByte_ADC(sensor->adc_i2c_client, adc_data))
+        if(ReadByte_ADC(sensor->adc_i2c_client, adc_data) < 0)
             return -ENODEV;
         read_data = ((adc_data[0] & SENSOR_ADC_DATA_MSB) << 8) | adc_data[1];
 
@@ -542,12 +542,12 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
         if(sensor->eeprom.humidity_present != SENSOR_DEVICE_PRESENT)
             return -ENODEV;
 
-        if(WriteByte_ADC(sensor->adc_i2c_client, SENSOR_ADC_HUMIDITY | SENSOR_ADC_PD_OFF))
+        if(WriteByte_ADC(sensor->adc_i2c_client, SENSOR_ADC_HUMIDITY | SENSOR_ADC_PD_OFF) < 0)
             return -ENODEV;
 
         mdelay(1);
 
-        if(ReadByte_ADC(sensor->adc_i2c_client, adc_data))
+        if(ReadByte_ADC(sensor->adc_i2c_client, adc_data) < 0)
             return -ENODEV;
         read_data = ((adc_data[0] & SENSOR_ADC_DATA_MSB) << 8) | adc_data[1];
 
@@ -561,17 +561,17 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
         if(sensor->eeprom.acompass_present != SENSOR_DEVICE_PRESENT)
             return -ENODEV;
 
-        if(ReadByte_IOX(sensor->iox_i2c_client, IOX_INPUT0_REG, &iox_data))
+        if(ReadByte_IOX(sensor->iox_i2c_client, IOX_INPUT0_REG, &iox_data) < 0)
             return -ENODEV;
 
         iox_data &= ~(0x1 << SENSOR_IOX_COMP_RS_N);
-        if(WriteByte_IOX(sensor->iox_i2c_client, IOX_OUTPUT0_REG, iox_data))
+        if(WriteByte_IOX(sensor->iox_i2c_client, IOX_OUTPUT0_REG, iox_data) < 0)
             return -ENODEV;
 
         mdelay(5);
 
         iox_data |= (0x1 << SENSOR_IOX_COMP_RS_N);
-        if(WriteByte_IOX(sensor->iox_i2c_client, IOX_OUTPUT0_REG, iox_data))
+        if(WriteByte_IOX(sensor->iox_i2c_client, IOX_OUTPUT0_REG, iox_data) < 0)
             return -ENODEV;
     }
     break;
@@ -584,12 +584,12 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
         if(sensor->eeprom.acompass_present != SENSOR_DEVICE_PRESENT)
             return -ENODEV;
 
-        if(WriteByte_ADC(sensor->adc_i2c_client, SENSOR_ADC_ACOMPASS_X | SENSOR_ADC_PD_OFF))
+        if(WriteByte_ADC(sensor->adc_i2c_client, SENSOR_ADC_ACOMPASS_X | SENSOR_ADC_PD_OFF) < 0)
             return -ENODEV;
 
         mdelay(1);
 
-        if(ReadByte_ADC(sensor->adc_i2c_client, adc_data))
+        if(ReadByte_ADC(sensor->adc_i2c_client, adc_data) < 0)
             return -ENODEV;
         read_data = ((adc_data[0] & SENSOR_ADC_DATA_MSB) << 8) | adc_data[1];
 
@@ -606,12 +606,12 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
         if(sensor->eeprom.acompass_present != SENSOR_DEVICE_PRESENT)
             return -ENODEV;
 
-        if(WriteByte_ADC(sensor->adc_i2c_client, SENSOR_ADC_ACOMPASS_Y | SENSOR_ADC_PD_OFF))
+        if(WriteByte_ADC(sensor->adc_i2c_client, SENSOR_ADC_ACOMPASS_Y | SENSOR_ADC_PD_OFF) < 0)
             return -ENODEV;
 
         mdelay(1);
 
-        if(ReadByte_ADC(sensor->adc_i2c_client, adc_data))
+        if(ReadByte_ADC(sensor->adc_i2c_client, adc_data) < 0)
             return -ENODEV;
         read_data = ((adc_data[0] & SENSOR_ADC_DATA_MSB) << 8) | adc_data[1];
 
@@ -628,12 +628,12 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
         if(sensor->eeprom.acompass_present != SENSOR_DEVICE_PRESENT)
             return -ENODEV;
 
-        if(WriteByte_ADC(sensor->adc_i2c_client, SENSOR_ADC_ACOMPASS_Z | SENSOR_ADC_PD_OFF))
+        if(WriteByte_ADC(sensor->adc_i2c_client, SENSOR_ADC_ACOMPASS_Z | SENSOR_ADC_PD_OFF) < 0)
             return -ENODEV;
 
         mdelay(1);
 
-        if(ReadByte_ADC(sensor->adc_i2c_client, adc_data))
+        if(ReadByte_ADC(sensor->adc_i2c_client, adc_data) < 0)
             return -ENODEV;
         read_data = ((adc_data[0] & SENSOR_ADC_DATA_MSB) << 8) | adc_data[1];
 
@@ -658,37 +658,37 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
         }
 
         pl_data = pl->cmd1;
-        if(WriteByte_PL(sensor->pl_i2c_client, SENSOR_PL_CMD1, pl_data)) {
+        if(WriteByte_PL(sensor->pl_i2c_client, SENSOR_PL_CMD1, pl_data) < 0) {
             kfree(pl);
             return -ENODEV;
         }
 
         pl_data = pl->cmd2;
-        if(WriteByte_PL(sensor->pl_i2c_client, SENSOR_PL_CMD2, pl_data)) {
+        if(WriteByte_PL(sensor->pl_i2c_client, SENSOR_PL_CMD2, pl_data) < 0) {
             kfree(pl);
             return -ENODEV;
         }
 
         pl_data = pl->int_lt_lsb;
-        if(WriteByte_PL(sensor->pl_i2c_client, SENSOR_PL_INT_LT_LSB, pl_data)) {
+        if(WriteByte_PL(sensor->pl_i2c_client, SENSOR_PL_INT_LT_LSB, pl_data) < 0) {
             kfree(pl);
             return -ENODEV;
         }
 
         pl_data = pl->int_lt_msb;
-        if(WriteByte_PL(sensor->pl_i2c_client, SENSOR_PL_INT_LT_MSB, pl_data)) {
+        if(WriteByte_PL(sensor->pl_i2c_client, SENSOR_PL_INT_LT_MSB, pl_data) < 0) {
             kfree(pl);
             return -ENODEV;
         }
 
         pl_data = pl->int_ht_lsb;
-        if(WriteByte_PL(sensor->pl_i2c_client, SENSOR_PL_INT_HT_LSB, pl_data)) {
+        if(WriteByte_PL(sensor->pl_i2c_client, SENSOR_PL_INT_HT_LSB, pl_data) < 0) {
             kfree(pl);
             return -ENODEV;
         }
 
         pl_data = pl->int_ht_msb;
-        if(WriteByte_PL(sensor->pl_i2c_client, SENSOR_PL_INT_HT_MSB, pl_data)) {
+        if(WriteByte_PL(sensor->pl_i2c_client, SENSOR_PL_INT_HT_MSB, pl_data) < 0) {
             kfree(pl);
             return -ENODEV;
         }
@@ -708,19 +708,19 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
         if ((pl = kmalloc(sizeof(struct sensor_pl_rw), GFP_KERNEL)) == NULL)
             return -ENOMEM;
 
-        if(ReadByte_PL(sensor->pl_i2c_client, SENSOR_PL_CMD1, &pl_data)) {
+        if(ReadByte_PL(sensor->pl_i2c_client, SENSOR_PL_CMD1, &pl_data) < 0) {
             kfree(pl);
             return -ENODEV;
         }
         pl->cmd1 = pl_data;
 
-        if(ReadByte_PL(sensor->pl_i2c_client, SENSOR_PL_DATA_MSB, &pl_data)) {
+        if(ReadByte_PL(sensor->pl_i2c_client, SENSOR_PL_DATA_MSB, &pl_data) < 0) {
             kfree(pl);
             return -ENODEV;
         }
         pl->dm = pl_data;
 
-        if(ReadByte_PL(sensor->pl_i2c_client, SENSOR_PL_DATA_LSB, &pl_data)) {
+        if(ReadByte_PL(sensor->pl_i2c_client, SENSOR_PL_DATA_LSB, &pl_data) < 0) {
             kfree(pl);
             return -ENODEV;
         }
@@ -740,7 +740,7 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
         if(sensor->eeprom.light_proximity_present != SENSOR_DEVICE_PRESENT)
             return -ENODEV;
 
-        if(WriteByte_PL_SYNC(sensor->pl_i2c_client))
+        if(WriteByte_PL_SYNC(sensor->pl_i2c_client) < 0)
             return -ENODEV;
     }
     break;
@@ -761,37 +761,37 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
         }
 
         pl_data = pl->cmd1;
-        if(WriteByte_PL(sensor->pl_i2c_client, SENSOR_PL_CMD1, pl_data)) {
+        if(WriteByte_PL(sensor->pl_i2c_client, SENSOR_PL_CMD1, pl_data) < 0) {
             kfree(pl);
             return -ENODEV;
         }
 
         pl_data = pl->cmd2;
-        if(WriteByte_PL(sensor->pl_i2c_client, SENSOR_PL_CMD2, pl_data)) {
+        if(WriteByte_PL(sensor->pl_i2c_client, SENSOR_PL_CMD2, pl_data) < 0) {
             kfree(pl);
             return -ENODEV;
         }
 
         pl_data = pl->int_lt_lsb;
-        if(WriteByte_PL(sensor->pl_i2c_client, SENSOR_PL_INT_LT_LSB, pl_data)) {
+        if(WriteByte_PL(sensor->pl_i2c_client, SENSOR_PL_INT_LT_LSB, pl_data) < 0) {
             kfree(pl);
             return -ENODEV;
         }
 
         pl_data = pl->int_lt_msb;
-        if(WriteByte_PL(sensor->pl_i2c_client, SENSOR_PL_INT_LT_MSB, pl_data)) {
+        if(WriteByte_PL(sensor->pl_i2c_client, SENSOR_PL_INT_LT_MSB, pl_data) < 0) {
             kfree(pl);
             return -ENODEV;
         }
 
         pl_data = pl->int_ht_lsb;
-        if(WriteByte_PL(sensor->pl_i2c_client, SENSOR_PL_INT_HT_LSB, pl_data)) {
+        if(WriteByte_PL(sensor->pl_i2c_client, SENSOR_PL_INT_HT_LSB, pl_data) < 0) {
             kfree(pl);
             return -ENODEV;
         }
 
         pl_data = pl->int_ht_msb;
-        if(WriteByte_PL(sensor->pl_i2c_client, SENSOR_PL_INT_HT_MSB, pl_data)) {
+        if(WriteByte_PL(sensor->pl_i2c_client, SENSOR_PL_INT_HT_MSB, pl_data) < 0) {
             kfree(pl);
             return -ENODEV;
         }
@@ -804,19 +804,19 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
         if(ret)
             return ret;
 
-        if(ReadByte_PL(sensor->pl_i2c_client, SENSOR_PL_CMD1, &pl_data)) {
+        if(ReadByte_PL(sensor->pl_i2c_client, SENSOR_PL_CMD1, &pl_data) < 0) {
             kfree(pl);
             return -ENODEV;
         }
         pl->cmd1 = pl_data;
 
-        if(ReadByte_PL(sensor->pl_i2c_client, SENSOR_PL_DATA_MSB, &pl_data)) {
+        if(ReadByte_PL(sensor->pl_i2c_client, SENSOR_PL_DATA_MSB, &pl_data) < 0) {
             kfree(pl);
             return -ENODEV;
         }
         pl->dm = pl_data;
 
-        if(ReadByte_PL(sensor->pl_i2c_client, SENSOR_PL_DATA_LSB, &pl_data)) {
+        if(ReadByte_PL(sensor->pl_i2c_client, SENSOR_PL_DATA_LSB, &pl_data) < 0) {
             kfree(pl);
             return -ENODEV;
         }
@@ -839,12 +839,12 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
         if(sensor->eeprom.sound_present != SENSOR_DEVICE_PRESENT)
             return -ENODEV;
 
-        if(WriteByte_ADC(sensor->adc_i2c_client, SENSOR_ADC_SOUND_AVG | SENSOR_ADC_PD_OFF))
+        if(WriteByte_ADC(sensor->adc_i2c_client, SENSOR_ADC_SOUND_AVG | SENSOR_ADC_PD_OFF) < 0)
             return -ENODEV;
 
         mdelay(1);
 
-        if(ReadByte_ADC(sensor->adc_i2c_client, adc_data))
+        if(ReadByte_ADC(sensor->adc_i2c_client, adc_data) < 0)
             return -ENODEV;
         read_data = ((adc_data[0] & SENSOR_ADC_DATA_MSB) << 8) | adc_data[1];
 
@@ -863,27 +863,27 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
             return -ENODEV;
 
         // read peak
-        if(WriteByte_ADC(sensor->adc_i2c_client, SENSOR_ADC_SOUND_PEAK | SENSOR_ADC_PD_OFF))
+        if(WriteByte_ADC(sensor->adc_i2c_client, SENSOR_ADC_SOUND_PEAK | SENSOR_ADC_PD_OFF) < 0)
             return -ENODEV;
 
         mdelay(1);
 
-        if(ReadByte_ADC(sensor->adc_i2c_client, adc_data))
+        if(ReadByte_ADC(sensor->adc_i2c_client, adc_data) < 0)
             return -ENODEV;
         read_data = ((adc_data[0] & SENSOR_ADC_DATA_MSB) << 8) | adc_data[1];
 
         // clear peak
-        if(ReadByte_IOX(sensor->iox_i2c_client, IOX_INPUT1_REG, &iox_data))
+        if(ReadByte_IOX(sensor->iox_i2c_client, IOX_INPUT1_REG, &iox_data) < 0)
             return -ENODEV;
 
         iox_data &= ~(0x1 << SENSOR_IOX_S_PK_CLR_N);
-        if(WriteByte_IOX(sensor->iox_i2c_client, IOX_OUTPUT1_REG, iox_data))
+        if(WriteByte_IOX(sensor->iox_i2c_client, IOX_OUTPUT1_REG, iox_data) < 0)
             return -ENODEV;
 
         mdelay(1);
 
         iox_data |= (0x1 << SENSOR_IOX_S_PK_CLR_N);
-        if(WriteByte_IOX(sensor->iox_i2c_client, IOX_OUTPUT1_REG, iox_data))
+        if(WriteByte_IOX(sensor->iox_i2c_client, IOX_OUTPUT1_REG, iox_data) < 0)
             return -ENODEV;
 
         if(cmd == BMI_SENSOR_SNDPRD) {
@@ -893,12 +893,12 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
         } else {
 
             // read peak
-            if(WriteByte_ADC(sensor->adc_i2c_client, SENSOR_ADC_SOUND_PEAK | SENSOR_ADC_PD_OFF))
+            if(WriteByte_ADC(sensor->adc_i2c_client, SENSOR_ADC_SOUND_PEAK | SENSOR_ADC_PD_OFF) < 0)
                 return -ENODEV;
 
             mdelay(1);
 
-            if(ReadByte_ADC(sensor->adc_i2c_client, adc_data))
+            if(ReadByte_ADC(sensor->adc_i2c_client, adc_data) < 0)
                 return -ENODEV;
             read_data = ((adc_data[0] & SENSOR_ADC_DATA_MSB) << 8) | adc_data[1];
 
@@ -928,7 +928,7 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
 
         temp_addr = temp->address;
         temp_data = temp->d1;
-        if(WriteByte_TEMP(sensor->temp_i2c_client, temp_addr, temp_data)) {
+        if(WriteByte_TEMP(sensor->temp_i2c_client, temp_addr, temp_data) < 0) {
             kfree(temp);
             return -ENODEV;
         }
@@ -954,7 +954,7 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
         }
 
         temp_addr = temp->address;
-        if(ReadByte_TEMP(sensor->temp_i2c_client, temp_addr, &temp_data)) {
+        if(ReadByte_TEMP(sensor->temp_i2c_client, temp_addr, &temp_data) < 0) {
             kfree(temp);
             return -ENODEV;
         }
@@ -978,11 +978,11 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
         if(sensor->eeprom.temperature_present != SENSOR_DEVICE_PRESENT)
             return -ENODEV;
 
-        if(ReadByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_LOC_MSB, &temp_datam)) {
+        if(ReadByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_LOC_MSB, &temp_datam) < 0) {
             return -ENODEV;
         }
 
-        if(ReadByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_LOC_LSB, &temp_datal)) {
+        if(ReadByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_LOC_LSB, &temp_datal) < 0) {
             return -ENODEV;
         }
 
@@ -1002,11 +1002,11 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
         if(sensor->eeprom.temperature_present != SENSOR_DEVICE_PRESENT)
             return -ENODEV;
 
-        if(ReadByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_REM_MSB, &temp_datam)) {
+        if(ReadByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_REM_MSB, &temp_datam) < 0) {
             return -ENODEV;
         }
 
-        if(ReadByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_REM_LSB, &temp_datal)) {
+        if(ReadByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_REM_LSB, &temp_datal) < 0) {
             return -ENODEV;
         }
 
@@ -1026,11 +1026,11 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
         if(sensor->eeprom.temperature_present != SENSOR_DEVICE_PRESENT)
             return -ENODEV;
 
-        if(ReadByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_UREM_MSB, &temp_datam)) {
+        if(ReadByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_UREM_MSB, &temp_datam) < 0) {
             return -ENODEV;
         }
 
-        if(ReadByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_UREM_LSB, &temp_datal)) {
+        if(ReadByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_UREM_LSB, &temp_datal) < 0) {
             return -ENODEV;
         }
 
@@ -1107,7 +1107,7 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
             return -EFAULT;
         }
 
-        if(WriteByte_ACC(sensor->acc_i2c_client, acc)) {
+        if(WriteByte_ACC(sensor->acc_i2c_client, acc) < 0) {
             kfree(acc);
             return -ENODEV;
         }
@@ -1131,7 +1131,7 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
             return -EFAULT;
         }
 
-        if(ReadByte_ACC(sensor->acc_i2c_client, acc)) {
+        if(ReadByte_ACC(sensor->acc_i2c_client, acc) < 0) {
             kfree(acc);
             return -ENODEV;
         }
@@ -1158,7 +1158,7 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
             acc->address = SENSOR_ACC_DX0;
             acc->count = 2;
 
-            if(ReadByte_ACC(sensor->acc_i2c_client, acc)) {
+            if(ReadByte_ACC(sensor->acc_i2c_client, acc) < 0) {
                 kfree(acc);
                 return -ENODEV;
             }
@@ -1175,7 +1175,7 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
             acc->address = SENSOR_A3_OUTX;
             acc->count = 1;
 
-            if(ReadByte_ACC(sensor->acc_i2c_client, acc)) {
+            if(ReadByte_ACC(sensor->acc_i2c_client, acc) < 0) {
                 kfree(acc);
                 return -ENODEV;
             }
@@ -1205,7 +1205,7 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
             acc->address = SENSOR_ACC_DY0;
             acc->count = 2;
 
-            if(ReadByte_ACC(sensor->acc_i2c_client, acc)) {
+            if(ReadByte_ACC(sensor->acc_i2c_client, acc) < 0) {
                 kfree(acc);
                 return -ENODEV;
             }
@@ -1222,7 +1222,7 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
             acc->address = SENSOR_A3_OUTY;
             acc->count = 1;
 
-            if(ReadByte_ACC(sensor->acc_i2c_client, acc)) {
+            if(ReadByte_ACC(sensor->acc_i2c_client, acc) < 0) {
                 kfree(acc);
                 return -ENODEV;
             }
@@ -1252,7 +1252,7 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
             acc->address = SENSOR_ACC_DZ0;
             acc->count = 2;
 
-            if(ReadByte_ACC(sensor->acc_i2c_client, acc)) {
+            if(ReadByte_ACC(sensor->acc_i2c_client, acc) < 0) {
                 kfree(acc);
                 return -ENODEV;
             }
@@ -1269,7 +1269,7 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
             acc->address = SENSOR_A3_OUTZ;
             acc->count = 1;
 
-            if(ReadByte_ACC(sensor->acc_i2c_client, acc)) {
+            if(ReadByte_ACC(sensor->acc_i2c_client, acc) < 0) {
                 kfree(acc);
                 return -ENODEV;
             }
@@ -1334,7 +1334,7 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
 
         ee_addr = ee->address;
         ee_data = ee->data;
-        if(WriteByte_EE(sensor->mee_i2c_client, ee_addr, ee_data)) {
+        if(WriteByte_EE(sensor->mee_i2c_client, ee_addr, ee_data) < 0) {
             kfree(ee);
             return -ENODEV;
         }
@@ -1357,7 +1357,7 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
         }
 
         ee_addr = ee->address;
-        if(ReadByte_EE(sensor->mee_i2c_client, ee_addr, &ee_data)) {
+        if(ReadByte_EE(sensor->mee_i2c_client, ee_addr, &ee_data) < 0) {
             kfree(ee);
             return -ENODEV;
         }
@@ -1377,7 +1377,7 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
         if(sensor->eeprom.motion_present != SENSOR_DEVICE_PRESENT)
             return -ENODEV;
 
-        if(ReadByte_IOX(sensor->iox_i2c_client, IOX_OUTPUT0_REG, &iox_data))
+        if(ReadByte_IOX(sensor->iox_i2c_client, IOX_OUTPUT0_REG, &iox_data) < 0)
             return -ENODEV;
 
         if(arg == BMI_SENSOR_ON)
@@ -1385,7 +1385,7 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
         else
             iox_data &= ~(0x1 << SENSOR_IOX_MOT_EN);
 
-        if(WriteByte_IOX(sensor->iox_i2c_client, IOX_OUTPUT0_REG, iox_data))
+        if(WriteByte_IOX(sensor->iox_i2c_client, IOX_OUTPUT0_REG, iox_data) < 0)
             return -ENODEV;
     }
     break;
@@ -1404,7 +1404,7 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
 
     case BMI_SENSOR_USB_PWR_EN:
     {
-        if(ReadByte_IOX(sensor->iox_i2c_client, IOX_OUTPUT0_REG, &iox_data))
+        if(ReadByte_IOX(sensor->iox_i2c_client, IOX_OUTPUT0_REG, &iox_data) < 0)
             return -ENODEV;
 
         if(arg == BMI_SENSOR_ON)
@@ -1412,14 +1412,14 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
         else
             iox_data &= ~(0x1 << SENSOR_IOX_USB_EN);
 
-        if(WriteByte_IOX(sensor->iox_i2c_client, IOX_OUTPUT0_REG, iox_data))
+        if(WriteByte_IOX(sensor->iox_i2c_client, IOX_OUTPUT0_REG, iox_data) < 0)
             return -ENODEV;
     }
     break;
 
     case BMI_SENSOR_HUM_PWR_EN:
     {
-        if(ReadByte_IOX(sensor->iox_i2c_client, IOX_OUTPUT0_REG, &iox_data))
+        if(ReadByte_IOX(sensor->iox_i2c_client, IOX_OUTPUT0_REG, &iox_data) < 0)
             return -ENODEV;
 
         if(arg == BMI_SENSOR_ON)
@@ -1427,14 +1427,14 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
         else
             iox_data &= ~(0x1 << SENSOR_IOX_HUM_EN);
 
-        if(WriteByte_IOX(sensor->iox_i2c_client, IOX_OUTPUT0_REG, iox_data))
+        if(WriteByte_IOX(sensor->iox_i2c_client, IOX_OUTPUT0_REG, iox_data) < 0)
             return -ENODEV;
     }
     break;
 
     case BMI_SENSOR_DCOM_RST:
     {
-        if(ReadByte_IOX(sensor->iox_i2c_client, IOX_OUTPUT0_REG, &iox_data))
+        if(ReadByte_IOX(sensor->iox_i2c_client, IOX_OUTPUT0_REG, &iox_data) < 0)
             return -ENODEV;
 
         if(arg == BMI_SENSOR_ON)
@@ -1442,7 +1442,7 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
         else
             iox_data &= ~(0x1 << SENSOR_IOX_COMP_RS_N);
 
-        if(WriteByte_IOX(sensor->iox_i2c_client, IOX_OUTPUT0_REG, iox_data))
+        if(WriteByte_IOX(sensor->iox_i2c_client, IOX_OUTPUT0_REG, iox_data) < 0)
             return -ENODEV;
 
     }
@@ -1457,72 +1457,72 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
         if ((cal = kmalloc(sizeof(struct sensor_comp_cal), GFP_KERNEL)) == NULL)
             return -ENOMEM;
 
-        if(ReadByte_EE(sensor->mee_i2c_client, 0x0, &ee_datam)) {
+        if(ReadByte_EE(sensor->mee_i2c_client, 0x0, &ee_datam) < 0) {
             kfree(cal);
             return -ENODEV;
         }
 
-        if(ReadByte_EE(sensor->mee_i2c_client, 0x1, &ee_datal)) {
+        if(ReadByte_EE(sensor->mee_i2c_client, 0x1, &ee_datal) < 0) {
             kfree(cal);
             return -ENODEV;
         }
 
         cal->xsf = (ee_datam << 8) | ee_datal;
 
-        if(ReadByte_EE(sensor->mee_i2c_client, 0x2, &ee_datam)) {
+        if(ReadByte_EE(sensor->mee_i2c_client, 0x2, &ee_datam) < 0) {
             kfree(cal);
             return -ENODEV;
         }
 
-        if(ReadByte_EE(sensor->mee_i2c_client, 0x3, &ee_datal)) {
+        if(ReadByte_EE(sensor->mee_i2c_client, 0x3, &ee_datal) < 0) {
             kfree(cal);
             return -ENODEV;
         }
 
         cal->ysf = (ee_datam << 8) | ee_datal;
 
-        if(ReadByte_EE(sensor->mee_i2c_client, 0x4, &ee_datam)) {
+        if(ReadByte_EE(sensor->mee_i2c_client, 0x4, &ee_datam) < 0) {
             kfree(cal);
             return -ENODEV;
         }
 
-        if(ReadByte_EE(sensor->mee_i2c_client, 0x5, &ee_datal)) {
+        if(ReadByte_EE(sensor->mee_i2c_client, 0x5, &ee_datal) < 0) {
             kfree(cal);
             return -ENODEV;
         }
 
         cal->zsf = (ee_datam << 8) | ee_datal;
 
-        if(ReadByte_EE(sensor->mee_i2c_client, 0x6, &ee_datam)) {
+        if(ReadByte_EE(sensor->mee_i2c_client, 0x6, &ee_datam) < 0) {
             kfree(cal);
             return -ENODEV;
         }
 
-        if(ReadByte_EE(sensor->mee_i2c_client, 0x7, &ee_datal)) {
+        if(ReadByte_EE(sensor->mee_i2c_client, 0x7, &ee_datal) < 0) {
             kfree(cal);
             return -ENODEV;
         }
 
         cal->xoff = (ee_datam << 8) | ee_datal;
 
-        if(ReadByte_EE(sensor->mee_i2c_client, 0x8, &ee_datam)) {
+        if(ReadByte_EE(sensor->mee_i2c_client, 0x8, &ee_datam) < 0) {
             kfree(cal);
             return -ENODEV;
         }
 
-        if(ReadByte_EE(sensor->mee_i2c_client, 0x9, &ee_datal)) {
+        if(ReadByte_EE(sensor->mee_i2c_client, 0x9, &ee_datal) < 0) {
             kfree(cal);
             return -ENODEV;
         }
 
         cal->yoff = (ee_datam << 8) | ee_datal;
 
-        if(ReadByte_EE(sensor->mee_i2c_client, 0xA, &ee_datam)) {
+        if(ReadByte_EE(sensor->mee_i2c_client, 0xA, &ee_datam) < 0) {
             kfree(cal);
             return -ENODEV;
         }
 
-        if(ReadByte_EE(sensor->mee_i2c_client, 0xB, &ee_datal)) {
+        if(ReadByte_EE(sensor->mee_i2c_client, 0xB, &ee_datal) < 0) {
             kfree(cal);
             return -ENODEV;
         }
@@ -1561,12 +1561,12 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
         ee_datam = (unsigned char) ((cal->xsf >> 8) & 0xff);
         ee_datal = (unsigned char) (cal->xsf & 0xff);
 
-        if(WriteByte_EE(sensor->mee_i2c_client, 0x0, ee_datam)) {
+        if(WriteByte_EE(sensor->mee_i2c_client, 0x0, ee_datam) < 0) {
             kfree(cal);
             return -ENODEV;
         }
 
-        if(WriteByte_EE(sensor->mee_i2c_client, 0x1, ee_datal)) {
+        if(WriteByte_EE(sensor->mee_i2c_client, 0x1, ee_datal) < 0) {
             kfree(cal);
             return -ENODEV;
         }
@@ -1574,12 +1574,12 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
         ee_datam = (unsigned char) ((cal->ysf >> 8) & 0xff);
         ee_datal = (unsigned char) (cal->ysf & 0xff);
 
-        if(WriteByte_EE(sensor->mee_i2c_client, 0x2, ee_datam)) {
+        if(WriteByte_EE(sensor->mee_i2c_client, 0x2, ee_datam) < 0) {
             kfree(cal);
             return -ENODEV;
         }
 
-        if(WriteByte_EE(sensor->mee_i2c_client, 0x3, ee_datal)) {
+        if(WriteByte_EE(sensor->mee_i2c_client, 0x3, ee_datal) < 0) {
             kfree(cal);
             return -ENODEV;
         }
@@ -1587,12 +1587,12 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
         ee_datam = (unsigned char) ((cal->zsf >> 8) & 0xff);
         ee_datal = (unsigned char) (cal->zsf & 0xff);
 
-        if(WriteByte_EE(sensor->mee_i2c_client, 0x4, ee_datam)) {
+        if(WriteByte_EE(sensor->mee_i2c_client, 0x4, ee_datam) < 0) {
             kfree(cal);
             return -ENODEV;
         }
 
-        if(WriteByte_EE(sensor->mee_i2c_client, 0x5, ee_datal)) {
+        if(WriteByte_EE(sensor->mee_i2c_client, 0x5, ee_datal) < 0) {
             kfree(cal);
             return -ENODEV;
         }
@@ -1600,12 +1600,12 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
         ee_datam = (unsigned char) ((cal->xoff >> 8) & 0xff);
         ee_datal = (unsigned char) (cal->xoff & 0xff);
 
-        if(WriteByte_EE(sensor->mee_i2c_client, 0x6, ee_datam)) {
+        if(WriteByte_EE(sensor->mee_i2c_client, 0x6, ee_datam) < 0) {
             kfree(cal);
             return -ENODEV;
         }
 
-        if(WriteByte_EE(sensor->mee_i2c_client, 0x7, ee_datal)) {
+        if(WriteByte_EE(sensor->mee_i2c_client, 0x7, ee_datal) < 0) {
             kfree(cal);
             return -ENODEV;
         }
@@ -1613,12 +1613,12 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
         ee_datam = (unsigned char) ((cal->yoff >> 8) & 0xff);
         ee_datal = (unsigned char) (cal->yoff & 0xff);
 
-        if(WriteByte_EE(sensor->mee_i2c_client, 0x8, ee_datam)) {
+        if(WriteByte_EE(sensor->mee_i2c_client, 0x8, ee_datam) < 0) {
             kfree(cal);
             return -ENODEV;
         }
 
-        if(WriteByte_EE(sensor->mee_i2c_client, 0x9, ee_datal)) {
+        if(WriteByte_EE(sensor->mee_i2c_client, 0x9, ee_datal) < 0) {
             kfree(cal);
             return -ENODEV;
         }
@@ -1626,12 +1626,12 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
         ee_datam = (unsigned char) ((cal->zoff >> 8) & 0xff);
         ee_datal = (unsigned char) (cal->zoff & 0xff);
 
-        if(WriteByte_EE(sensor->mee_i2c_client, 0xA, ee_datam)) {
+        if(WriteByte_EE(sensor->mee_i2c_client, 0xA, ee_datam) < 0) {
             kfree(cal);
             return -ENODEV;
         }
 
-        if(WriteByte_EE(sensor->mee_i2c_client, 0xB, ee_datal)) {
+        if(WriteByte_EE(sensor->mee_i2c_client, 0xB, ee_datal) < 0) {
             kfree(cal);
             return -ENODEV;
         }
@@ -1658,7 +1658,7 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
 
         dc_addr = dc->address;
         dc_data = dc->data;
-        if(WriteByte_DCOMP(sensor->dcomp_i2c_client, dc_addr, dc_data)) {
+        if(WriteByte_DCOMP(sensor->dcomp_i2c_client, dc_addr, dc_data) < 0) {
             kfree(dc);
             return -ENODEV;
         }
@@ -1684,7 +1684,7 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
         }
 
         dc_addr = dc->address;
-        if(ReadByte_DCOMP(sensor->dcomp_i2c_client, dc_addr, &dc_data)) {
+        if(ReadByte_DCOMP(sensor->dcomp_i2c_client, dc_addr, &dc_data) < 0) {
             kfree(dc);
             return -ENODEV;
         }
@@ -1740,19 +1740,19 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
         sensor->eeprom.ydac = dac->ydac;
         sensor->eeprom.zdac = dac->zdac;
 
-        if(WriteByte_EE(sensor->mee_i2c_client, SENSOR_EE_XDAC, dac->xdac & 0xFF)) {
+        if(WriteByte_EE(sensor->mee_i2c_client, SENSOR_EE_XDAC, dac->xdac & 0xFF) < 0) {
             kfree(dac);
             return -ENODEV;
         }
         mdelay(5);
 
-        if(WriteByte_EE(sensor->mee_i2c_client, SENSOR_EE_YDAC, dac->ydac & 0xFF)) {
+        if(WriteByte_EE(sensor->mee_i2c_client, SENSOR_EE_YDAC, dac->ydac & 0xFF) < 0) {
             kfree(dac);
             return -ENODEV;
         }
         mdelay(5);
 
-        if(WriteByte_EE(sensor->mee_i2c_client, SENSOR_EE_ZDAC, dac->zdac & 0xFF)) {
+        if(WriteByte_EE(sensor->mee_i2c_client, SENSOR_EE_ZDAC, dac->zdac & 0xFF) < 0) {
             kfree(dac);
             return -ENODEV;
         }
@@ -1800,10 +1800,10 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
             return -ENODEV;
 
         // start burst to LED
-        if(ReadByte_IOX(sensor->iox_i2c_client, IOX_INPUT1_REG, &iox_data))
+        if(ReadByte_IOX(sensor->iox_i2c_client, IOX_INPUT1_REG, &iox_data) < 0)
             return -ENODEV;
         iox_data |= (0x1 << SENSOR_IOX_PROX_RST_N);
-        if(WriteByte_IOX(sensor->iox_i2c_client, IOX_OUTPUT1_REG, iox_data))
+        if(WriteByte_IOX(sensor->iox_i2c_client, IOX_OUTPUT1_REG, iox_data) < 0)
             return -ENODEV;
 
         // set up timer
@@ -1819,25 +1819,25 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
         if(ret)
             return ret;
 
-        if(ReadByte_IOX(sensor->iox_i2c_client, IOX_INPUT1_REG, &iox_data))
+        if(ReadByte_IOX(sensor->iox_i2c_client, IOX_INPUT1_REG, &iox_data) < 0)
             return -ENODEV;
 
         // digital output
         read_data = (iox_data & (0x1 << SENSOR_IOX_PROX_OUT)) << 14;
 
         // read ADC - analog output
-        if(WriteByte_ADC(sensor->adc_i2c_client, SENSOR_ADC_APROXIMITY | SENSOR_ADC_PD_OFF))
+        if(WriteByte_ADC(sensor->adc_i2c_client, SENSOR_ADC_APROXIMITY | SENSOR_ADC_PD_OFF) < 0)
             return -ENODEV;
 
         mdelay(1);
 
-        if(ReadByte_ADC(sensor->adc_i2c_client, aprox_data))
+        if(ReadByte_ADC(sensor->adc_i2c_client, aprox_data) < 0)
             return -ENODEV;
         read_data |= (aprox_data[0] << 8) | aprox_data[1];
 
         // stop burst to LED
         iox_data &= ~(0x1 << SENSOR_IOX_PROX_RST_N);
-        if(WriteByte_IOX(sensor->iox_i2c_client, IOX_OUTPUT1_REG, iox_data))
+        if(WriteByte_IOX(sensor->iox_i2c_client, IOX_OUTPUT1_REG, iox_data) < 0)
             return -ENODEV;
 
         if(put_user(read_data, (int __user *) arg))
@@ -1853,12 +1853,12 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
         if(sensor->eeprom.alight_present != SENSOR_DEVICE_PRESENT)
             return -ENODEV;
 
-        if(WriteByte_ADC(sensor->adc_i2c_client, SENSOR_ADC_LIGHT | SENSOR_ADC_PD_OFF))
+        if(WriteByte_ADC(sensor->adc_i2c_client, SENSOR_ADC_LIGHT | SENSOR_ADC_PD_OFF) < 0)
             return -ENODEV;
 
         mdelay(1);
 
-        if(ReadByte_ADC(sensor->adc_i2c_client, adc_data))
+        if(ReadByte_ADC(sensor->adc_i2c_client, adc_data) < 0)
             return -ENODEV;
         read_data = ((adc_data[0] & SENSOR_ADC_DATA_MSB) << 8) | adc_data[1];
 
@@ -1883,25 +1883,25 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
         }
 
         dl_data = dl->cmd;
-        if(WriteByte_PL(sensor->pl_i2c_client, SENSOR_DL_CMD, dl_data)) {
+        if(WriteByte_PL(sensor->pl_i2c_client, SENSOR_DL_CMD, dl_data) < 0) {
             kfree(dl);
             return -ENODEV;
         }
 
         dl_data = dl->control;
-        if(WriteByte_PL(sensor->pl_i2c_client, SENSOR_DL_CONT, dl_data)) {
+        if(WriteByte_PL(sensor->pl_i2c_client, SENSOR_DL_CONT, dl_data) < 0) {
             kfree(dl);
             return -ENODEV;
         }
 
         dl_data = dl->int_thi;
-        if(WriteByte_PL(sensor->pl_i2c_client, SENSOR_DL_INT_THI, dl_data)) {
+        if(WriteByte_PL(sensor->pl_i2c_client, SENSOR_DL_INT_THI, dl_data) < 0) {
             kfree(dl);
             return -ENODEV;
         }
 
         dl_data = dl->int_tlo;
-        if(WriteByte_PL(sensor->pl_i2c_client, SENSOR_DL_INT_TLO, dl_data)) {
+        if(WriteByte_PL(sensor->pl_i2c_client, SENSOR_DL_INT_TLO, dl_data) < 0) {
             kfree(dl);
             return -ENODEV;
         }
@@ -1919,12 +1919,12 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
             return -ENODEV;
 
         // read sensor data
-        if(ReadByte_PL(sensor->pl_i2c_client, SENSOR_DL_SENSOR_MSB, &dl_data)) {
+        if(ReadByte_PL(sensor->pl_i2c_client, SENSOR_DL_SENSOR_MSB, &dl_data) < 0) {
             return -ENODEV;
         }
         read_data = ((unsigned int) (dl_data)) << 8;
 
-        if(ReadByte_PL(sensor->pl_i2c_client, SENSOR_DL_SENSOR_LSB, &dl_data)) {
+        if(ReadByte_PL(sensor->pl_i2c_client, SENSOR_DL_SENSOR_LSB, &dl_data) < 0) {
             return -ENODEV;
         }
         read_data |= dl_data;
@@ -1939,7 +1939,7 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
         if(sensor->eeprom.dlight_present != SENSOR_DEVICE_PRESENT)
             return -ENODEV;
 
-        if(WriteByte_DL_IC(sensor->pl_i2c_client))
+        if(WriteByte_DL_IC(sensor->pl_i2c_client) < 0)
             return -ENODEV;
     }
     break;
@@ -1962,25 +1962,25 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
         }
 
         dl_data = dl->cmd;
-        if(WriteByte_PL(sensor->pl_i2c_client, SENSOR_DL_CMD, dl_data)) {
+        if(WriteByte_PL(sensor->pl_i2c_client, SENSOR_DL_CMD, dl_data) < 0) {
             kfree(dl);
             return -ENODEV;
         }
 
         dl_data = dl->control;
-        if(WriteByte_PL(sensor->pl_i2c_client, SENSOR_DL_CONT, dl_data)) {
+        if(WriteByte_PL(sensor->pl_i2c_client, SENSOR_DL_CONT, dl_data) < 0) {
             kfree(dl);
             return -ENODEV;
         }
 
         dl_data = dl->int_thi;
-        if(WriteByte_PL(sensor->pl_i2c_client, SENSOR_DL_INT_THI, dl_data)) {
+        if(WriteByte_PL(sensor->pl_i2c_client, SENSOR_DL_INT_THI, dl_data) < 0) {
             kfree(dl);
             return -ENODEV;
         }
 
         dl_data = dl->int_tlo;
-        if(WriteByte_PL(sensor->pl_i2c_client, SENSOR_DL_INT_TLO, dl_data)) {
+        if(WriteByte_PL(sensor->pl_i2c_client, SENSOR_DL_INT_TLO, dl_data) < 0) {
             kfree(dl);
             return -ENODEV;
         }
@@ -1996,12 +1996,12 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
             return ret;
 
         // read sensor data
-        if(ReadByte_PL(sensor->pl_i2c_client, SENSOR_DL_SENSOR_MSB, &dl_data)) {
+        if(ReadByte_PL(sensor->pl_i2c_client, SENSOR_DL_SENSOR_MSB, &dl_data) < 0) {
             return -ENODEV;
         }
         read_data = ((unsigned int) (dl_data)) << 8;
 
-        if(ReadByte_PL(sensor->pl_i2c_client, SENSOR_DL_SENSOR_LSB, &dl_data)) {
+        if(ReadByte_PL(sensor->pl_i2c_client, SENSOR_DL_SENSOR_LSB, &dl_data) < 0) {
             return -ENODEV;
         }
         read_data |= dl_data;
@@ -2021,7 +2021,7 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
         if(sensor->eeprom.sound_present != SENSOR_DEVICE_PRESENT)
             return -ENODEV;
 
-        if(ReadByte_IOX(sensor->iox_i2c_client, IOX_OUTPUT1_REG, &iox_data))
+        if(ReadByte_IOX(sensor->iox_i2c_client, IOX_OUTPUT1_REG, &iox_data) < 0)
             return -ENODEV;
 
         if(arg == BMI_SENSOR_ON)
@@ -2029,7 +2029,7 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
         else
             iox_data &= ~(0x1 << SENSOR_IOX_MIC_EN);
 
-        if(WriteByte_IOX(sensor->iox_i2c_client, IOX_OUTPUT1_REG, iox_data))
+        if(WriteByte_IOX(sensor->iox_i2c_client, IOX_OUTPUT1_REG, iox_data) < 0)
             return -ENODEV;
     }
     break;
@@ -2063,12 +2063,12 @@ static void sensor_work_handler(struct work_struct * work)
     unsigned char i2c_dummy;
     struct sensor_acc_rw acc_rw;
 
-    if(ReadByte_IOX(sensor->iox_i2c_client, IOX_INPUT0_REG, &iox0)) {
+    if(ReadByte_IOX(sensor->iox_i2c_client, IOX_INPUT0_REG, &iox0) < 0) {
         printk(KERN_ERR "bmi_sensor.c: sensor_work_handler - IOX0 error\n");
         return;
     }
 
-    if(ReadByte_IOX(sensor->iox_i2c_client, IOX_INPUT1_REG, &iox1)) {
+    if(ReadByte_IOX(sensor->iox_i2c_client, IOX_INPUT1_REG, &iox1) < 0) {
         printk(KERN_ERR "bmi_sensor.c: sensor_work_handler - IOX1 error\n");
         return;
     }
@@ -2079,7 +2079,7 @@ static void sensor_work_handler(struct work_struct * work)
                 sensor->pl_int_en = 0;
                 sensor->pl_int_fl = 1;
                 // clear interrupts
-                if(ReadByte_PL(sensor->pl_i2c_client, SENSOR_PL_CMD1, &i2c_dummy)) {
+                if(ReadByte_PL(sensor->pl_i2c_client, SENSOR_PL_CMD1, &i2c_dummy) < 0) {
                     printk(KERN_ERR "bmi_sensor.c: PL read error\n");
                 }
                 wake_up_all(&sensor->pl_wait_queue);
@@ -2093,7 +2093,7 @@ static void sensor_work_handler(struct work_struct * work)
                 sensor->temp_int_en = 0;
                 sensor->temp_int_fl = 1;
                 // disable interrupts
-                if(WriteByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_CONF1_WR, SENSOR_TEMP_CONF1_STOP)) {
+                if(WriteByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_CONF1_WR, SENSOR_TEMP_CONF1_STOP) < 0) {
                     printk(KERN_ERR "bmi_sensor.c: TEMP write error\n");
                 }
                 wake_up_all(&sensor->temp_wait_queue);
@@ -2134,25 +2134,25 @@ static void sensor_work_handler(struct work_struct * work)
             // clear interrupts
             acc_rw.address = SENSOR_ACC_IS;
             acc_rw.count = 1;
-            if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw)) {
+            if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
                 printk(KERN_ERR "bmi_sensor.c: ACC_IS read error\n");
             }
 
             acc_rw.address = SENSOR_ACC_DX0;
             acc_rw.count = 2;
-            if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw)) {
+            if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
                 printk(KERN_ERR "bmi_sensor.c: ACC read (DX0) error\n");
             }
 
             acc_rw.address = SENSOR_ACC_DY0;
             acc_rw.count = 2;
-            if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw)) {
+            if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
                 printk(KERN_ERR "bmi_sensor.c: ACC read (DY0) error\n");
             }
 
             acc_rw.address = SENSOR_ACC_DZ0;
             acc_rw.count = 2;
-            if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw)) {
+            if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
                 printk(KERN_ERR "bmi_sensor.c: ACC read (DZ0) error\n");
             }
         } else { // LIS302DL
@@ -2161,7 +2161,7 @@ static void sensor_work_handler(struct work_struct * work)
                 if((iox0 & (0x1 << SENSOR_IOX_ACC_INT1)) == 0) {
                     acc_rw.address = SENSOR_A3_SRC1;
                     acc_rw.count = 1;
-                    if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw)) {
+                    if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
                         printk(KERN_ERR "bmi_sensor.c: A3_SRC1 read error\n");
                     }
                 }
@@ -2171,7 +2171,7 @@ static void sensor_work_handler(struct work_struct * work)
                 if((iox0 & (0x1 << SENSOR_IOX_ACC_INT2)) == 0) {
                     acc_rw.address = SENSOR_A3_SRC2;
                     acc_rw.count = 1;
-                    if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw)) {
+                    if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
                         printk(KERN_ERR "bmi_sensor.c: A3_SRC2 read error\n");
                     }
                 }
@@ -2179,25 +2179,25 @@ static void sensor_work_handler(struct work_struct * work)
 
             acc_rw.address = SENSOR_A3_STAT;
             acc_rw.count = 1;
-            if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw)) {
+            if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
                 printk(KERN_ERR "bmi_sensor.c: A3_STAT read error\n");
             }
 
             acc_rw.address = SENSOR_A3_OUTX;
             acc_rw.count = 1;
-            if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw)) {
+            if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
                 printk(KERN_ERR "bmi_sensor.c: A3 read (OUTX) error\n");
             }
 
             acc_rw.address = SENSOR_A3_OUTY;
             acc_rw.count = 1;
-            if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw)) {
+            if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
                 printk(KERN_ERR "bmi_sensor.c: A3 read (OUTY) error\n");
             }
 
             acc_rw.address = SENSOR_A3_OUTZ;
             acc_rw.count = 1;
-            if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw)) {
+            if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
                 printk(KERN_ERR "bmi_sensor.c: A3 read (OUTZ) error\n");
             }
         }
@@ -2209,7 +2209,7 @@ static void sensor_work_handler(struct work_struct * work)
                 sensor->dcomp_int_en = 0;
                 sensor->dcomp_int_fl = 1;
                 // clear interrupts
-                if(ReadByte_DCOMP(sensor->dcomp_i2c_client, SENSOR_DCOMP_TMPS, &i2c_dummy)) {
+                if(ReadByte_DCOMP(sensor->dcomp_i2c_client, SENSOR_DCOMP_TMPS, &i2c_dummy) < 0) {
                     printk(KERN_ERR "bmi_sensor.c: TMPS error\n");
                 }
 
@@ -2224,14 +2224,14 @@ static void sensor_work_handler(struct work_struct * work)
                 sensor->dlight_int_en = 0;
                 sensor->dlight_int_fl = 1;
                 // clear interrupts
-                if(ReadByte_PL(sensor->pl_i2c_client, SENSOR_DL_CONT, &i2c_dummy)) {
+                if(ReadByte_PL(sensor->pl_i2c_client, SENSOR_DL_CONT, &i2c_dummy) < 0) {
                     printk(KERN_ERR "bmi_sensor.c: DL read error\n");
                 }
                 i2c_dummy &= ~(SENSOR_DL_CONT_INT);
-                if(WriteByte_PL(sensor->pl_i2c_client, SENSOR_DL_CONT, i2c_dummy)) {
+                if(WriteByte_PL(sensor->pl_i2c_client, SENSOR_DL_CONT, i2c_dummy) < 0) {
                     printk(KERN_ERR "bmi_sensor.c: DL write error\n");
                 }
-                if(WriteByte_DL_IC(sensor->pl_i2c_client)) {
+                if(WriteByte_DL_IC(sensor->pl_i2c_client) < 0) {
                     printk(KERN_ERR "bmi_sensor.c: DL interrupt clear error\n");
                 }
                 wake_up_all(&sensor->pl_wait_queue);
@@ -2244,7 +2244,7 @@ static void sensor_work_handler(struct work_struct * work)
         sensor->usb_int_en = 0;
         sensor->usb_int_fl = 1;
         // disable USB power
-        if(ReadByte_IOX(sensor->iox_i2c_client, IOX_INPUT0_REG, &i2c_dummy)) // clear IOX interrupts
+        if(ReadByte_IOX(sensor->iox_i2c_client, IOX_INPUT0_REG, &i2c_dummy) < 0) // clear IOX interrupts
             printk(KERN_ERR "bmi_sensor.c: USB IOX read error\n");
         wake_up_all(&sensor->usb_wait_queue);
     }
@@ -2269,13 +2269,13 @@ static ssize_t show_humidity(struct device *dev, struct device_attribute *attr, 
     struct bmi_sensor *sensor = &bmi_sensor[bdev->slot->slotnum];
     unsigned char adc_data[2];
 
-    if(WriteByte_ADC(sensor->adc_i2c_client, SENSOR_ADC_HUMIDITY)) {
+    if(WriteByte_ADC(sensor->adc_i2c_client, SENSOR_ADC_HUMIDITY) < 0) {
         printk(KERN_ERR "bmi_sensor.c: ADC write error\n");
     }
 
     mdelay(1);
 
-    if(ReadByte_ADC(sensor->adc_i2c_client, adc_data)) {
+    if(ReadByte_ADC(sensor->adc_i2c_client, adc_data) < 0) {
         printk(KERN_ERR "bmi_sensor.c: ADC read error\n");
     }
 
@@ -2292,35 +2292,35 @@ static ssize_t show_acompass(struct device *dev, struct device_attribute *attr, 
     unsigned int compass_y;
     unsigned int compass_z;
 
-    if(WriteByte_ADC(sensor->adc_i2c_client, SENSOR_ADC_ACOMPASS_X)) {
+    if(WriteByte_ADC(sensor->adc_i2c_client, SENSOR_ADC_ACOMPASS_X) < 0) {
         printk(KERN_ERR "bmi_sensor.c: ADC write error\n");
     }
 
     mdelay(1);
 
-    if(ReadByte_ADC(sensor->adc_i2c_client, adc_data)) {
+    if(ReadByte_ADC(sensor->adc_i2c_client, adc_data) < 0) {
         printk(KERN_ERR "bmi_sensor.c: ADC read error\n");
     }
     compass_x = (adc_data[0] << 8) | adc_data[1];
 
-    if(WriteByte_ADC(sensor->adc_i2c_client, SENSOR_ADC_ACOMPASS_Y)) {
+    if(WriteByte_ADC(sensor->adc_i2c_client, SENSOR_ADC_ACOMPASS_Y) < 0) {
         printk(KERN_ERR "bmi_sensor.c: ADC write error\n");
     }
 
     mdelay(1);
 
-    if(ReadByte_ADC(sensor->adc_i2c_client, adc_data)) {
+    if(ReadByte_ADC(sensor->adc_i2c_client, adc_data) < 0) {
         printk(KERN_ERR "bmi_sensor.c: ADC read error\n");
     }
     compass_y = (adc_data[0] << 8) | adc_data[1];
 
-    if(WriteByte_ADC(sensor->adc_i2c_client, SENSOR_ADC_ACOMPASS_Z)) {
+    if(WriteByte_ADC(sensor->adc_i2c_client, SENSOR_ADC_ACOMPASS_Z) < 0) {
         printk(KERN_ERR "bmi_sensor.c: ADC write error\n");
     }
 
     mdelay(1);
 
-    if(ReadByte_ADC(sensor->adc_i2c_client, adc_data)) {
+    if(ReadByte_ADC(sensor->adc_i2c_client, adc_data) < 0) {
         printk(KERN_ERR "bmi_sensor.c: ADC read error\n");
     }
     compass_z = (adc_data[0] << 8) | adc_data[1];
@@ -2340,32 +2340,32 @@ static ssize_t show_dcompass(struct device *dev, struct device_attribute *attr, 
     unsigned char compass_y;
     unsigned char compass_z;
 
-    if(WriteByte_DCOMP(sensor->dcomp_i2c_client, SENSOR_DCOMP_MS1, SENSOR_DCOMP_MS1_SENSOR)) {
+    if(WriteByte_DCOMP(sensor->dcomp_i2c_client, SENSOR_DCOMP_MS1, SENSOR_DCOMP_MS1_SENSOR) < 0) {
         printk(KERN_ERR "bmi_sensor.c: DCOMP MS1 write error\n");
     }
 
     mdelay(20);
 
-    if(ReadByte_DCOMP(sensor->dcomp_i2c_client, SENSOR_DCOMP_ST, &compass_i)) {
+    if(ReadByte_DCOMP(sensor->dcomp_i2c_client, SENSOR_DCOMP_ST, &compass_i) < 0) {
         printk(KERN_ERR "bmi_sensor.c: ADC read error\n");
     }
     if((compass_i & SENSOR_DCOMP_ST_INT) == 0) {
         printk(KERN_ERR "bmi_sensor.c: DCOMP interrupt error\n");
     }
 
-    if(ReadByte_DCOMP(sensor->dcomp_i2c_client, SENSOR_DCOMP_TMPS, &compass_t)) {
+    if(ReadByte_DCOMP(sensor->dcomp_i2c_client, SENSOR_DCOMP_TMPS, &compass_t) < 0) {
         printk(KERN_ERR "bmi_sensor.c: TMPS error\n");
     }
 
-    if(ReadByte_DCOMP(sensor->dcomp_i2c_client, SENSOR_DCOMP_H1X, &compass_x)) {
+    if(ReadByte_DCOMP(sensor->dcomp_i2c_client, SENSOR_DCOMP_H1X, &compass_x) < 0) {
         printk(KERN_ERR "bmi_sensor.c: H1X error\n");
     }
 
-    if(ReadByte_DCOMP(sensor->dcomp_i2c_client, SENSOR_DCOMP_H1Y, &compass_y)) {
+    if(ReadByte_DCOMP(sensor->dcomp_i2c_client, SENSOR_DCOMP_H1Y, &compass_y) < 0) {
         printk(KERN_ERR "bmi_sensor.c: H1Y error\n");
     }
 
-    if(ReadByte_DCOMP(sensor->dcomp_i2c_client, SENSOR_DCOMP_H1Z, &compass_z)) {
+    if(ReadByte_DCOMP(sensor->dcomp_i2c_client, SENSOR_DCOMP_H1Z, &compass_z) < 0) {
         printk(KERN_ERR "bmi_sensor.c: H1Z error\n");
     }
 
@@ -2380,17 +2380,17 @@ static ssize_t show_als(struct device *dev, struct device_attribute *attr, char 
     struct bmi_sensor *sensor = &bmi_sensor[bdev->slot->slotnum];
     unsigned char pl_data[2];
 
-    if(WriteByte_PL(sensor->pl_i2c_client, SENSOR_PL_CMD1, SENSOR_PL_CMD1_ALS_1X)) {
+    if(WriteByte_PL(sensor->pl_i2c_client, SENSOR_PL_CMD1, SENSOR_PL_CMD1_ALS_1X) < 0) {
         printk(KERN_ERR "bmi_sensor.c: PL write error\n");
     }
 
     mdelay(20);
 
-    if(ReadByte_PL(sensor->pl_i2c_client, SENSOR_PL_DATA_MSB, &pl_data[0])) {
+    if(ReadByte_PL(sensor->pl_i2c_client, SENSOR_PL_DATA_MSB, &pl_data[0]) < 0) {
         printk(KERN_ERR "bmi_sensor.c: PL read error\n");
     }
 
-    if(ReadByte_PL(sensor->pl_i2c_client, SENSOR_PL_DATA_LSB, &pl_data[1])) {
+    if(ReadByte_PL(sensor->pl_i2c_client, SENSOR_PL_DATA_LSB, &pl_data[1]) < 0) {
         printk(KERN_ERR "bmi_sensor.c: PL read error\n");
     }
 
@@ -2404,17 +2404,17 @@ static ssize_t show_ir(struct device *dev, struct device_attribute *attr, char *
     struct bmi_sensor *sensor = &bmi_sensor[bdev->slot->slotnum];
     unsigned char pl_data[2];
 
-    if(WriteByte_PL(sensor->pl_i2c_client, SENSOR_PL_CMD1, SENSOR_PL_CMD1_IR_1X)) {
+    if(WriteByte_PL(sensor->pl_i2c_client, SENSOR_PL_CMD1, SENSOR_PL_CMD1_IR_1X) < 0) {
         printk(KERN_ERR "bmi_sensor.c: PL write error\n");
     }
 
     mdelay(20);
 
-    if(ReadByte_PL(sensor->pl_i2c_client, SENSOR_PL_DATA_MSB, &pl_data[0])) {
+    if(ReadByte_PL(sensor->pl_i2c_client, SENSOR_PL_DATA_MSB, &pl_data[0]) < 0) {
         printk(KERN_ERR "bmi_sensor.c: PL read error\n");
     }
 
-    if(ReadByte_PL(sensor->pl_i2c_client, SENSOR_PL_DATA_LSB, &pl_data[1])) {
+    if(ReadByte_PL(sensor->pl_i2c_client, SENSOR_PL_DATA_LSB, &pl_data[1]) < 0) {
         printk(KERN_ERR "bmi_sensor.c: PL read error\n");
     }
 
@@ -2428,17 +2428,17 @@ static ssize_t show_proximity(struct device *dev, struct device_attribute *attr,
     struct bmi_sensor *sensor = &bmi_sensor[bdev->slot->slotnum];
     unsigned char pl_data[2];
 
-    if(WriteByte_PL(sensor->pl_i2c_client, SENSOR_PL_CMD1, SENSOR_PL_CMD1_PROX_1X)) {
+    if(WriteByte_PL(sensor->pl_i2c_client, SENSOR_PL_CMD1, SENSOR_PL_CMD1_PROX_1X) < 0) {
         printk(KERN_ERR "bmi_sensor.c: PL write error\n");
     }
 
     mdelay(20);
 
-    if(ReadByte_PL(sensor->pl_i2c_client, SENSOR_PL_DATA_MSB, &pl_data[0])) {
+    if(ReadByte_PL(sensor->pl_i2c_client, SENSOR_PL_DATA_MSB, &pl_data[0]) < 0) {
         printk(KERN_ERR "bmi_sensor.c: PL read error\n");
     }
 
-    if(ReadByte_PL(sensor->pl_i2c_client, SENSOR_PL_DATA_LSB, &pl_data[1])) {
+    if(ReadByte_PL(sensor->pl_i2c_client, SENSOR_PL_DATA_LSB, &pl_data[1]) < 0) {
         printk(KERN_ERR "bmi_sensor.c: PL read error\n");
     }
 
@@ -2452,13 +2452,13 @@ static ssize_t show_snda(struct device *dev, struct device_attribute *attr, char
     struct bmi_sensor *sensor = &bmi_sensor[bdev->slot->slotnum];
     unsigned char adc_data[2];
 
-    if(WriteByte_ADC(sensor->adc_i2c_client, SENSOR_ADC_SOUND_AVG)) {
+    if(WriteByte_ADC(sensor->adc_i2c_client, SENSOR_ADC_SOUND_AVG) < 0) {
         printk(KERN_ERR "bmi_sensor.c: ADC write error\n");
     }
 
     mdelay(1);
 
-    if(ReadByte_ADC(sensor->adc_i2c_client, adc_data)) {
+    if(ReadByte_ADC(sensor->adc_i2c_client, adc_data) < 0) {
         printk(KERN_ERR "bmi_sensor.c: ADC read error\n");
     }
 
@@ -2472,13 +2472,13 @@ static ssize_t show_sndp(struct device *dev, struct device_attribute *attr, char
     struct bmi_sensor *sensor = &bmi_sensor[bdev->slot->slotnum];
     unsigned char adc_data[2];
 
-    if(WriteByte_ADC(sensor->adc_i2c_client, SENSOR_ADC_SOUND_PEAK)) {
+    if(WriteByte_ADC(sensor->adc_i2c_client, SENSOR_ADC_SOUND_PEAK) < 0) {
         printk(KERN_ERR "bmi_sensor.c: ADC write error\n");
     }
 
     mdelay(1);
 
-    if(ReadByte_ADC(sensor->adc_i2c_client, adc_data)) {
+    if(ReadByte_ADC(sensor->adc_i2c_client, adc_data) < 0) {
         printk(KERN_ERR "bmi_sensor.c: ADC read error\n");
     }
 
@@ -2493,21 +2493,21 @@ static ssize_t show_temp_l(struct device *dev, struct device_attribute *attr, ch
     unsigned char temp_datam;
     unsigned char temp_datal;
 
-    if(WriteByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_CONF1_WR, SENSOR_TEMP_CONF1_STOP)) {
+    if(WriteByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_CONF1_WR, SENSOR_TEMP_CONF1_STOP) < 0) {
         printk(KERN_ERR "bmi_sensor.c: TEMP write (CONF1) error\n");
     }
 
-    if(WriteByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_ONE_SHOT, 0x0)) {
+    if(WriteByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_ONE_SHOT, 0x0) < 0) {
         printk(KERN_ERR "bmi_sensor.c: TEMP write (CONF1) error\n");
     }
 
     mdelay(400);
 
-    if(ReadByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_LOC_MSB, &temp_datam)) {
+    if(ReadByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_LOC_MSB, &temp_datam) < 0) {
         printk(KERN_ERR "bmi_sensor.c: TEMP read (LOCAL MSB) error\n");
     }
 
-    if(ReadByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_LOC_LSB, &temp_datal)) {
+    if(ReadByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_LOC_LSB, &temp_datal) < 0) {
         printk(KERN_ERR "bmi_sensor.c: TEMP read (LOCAL LSB) error\n");
     }
 
@@ -2522,21 +2522,21 @@ static ssize_t show_temp_sr(struct device *dev, struct device_attribute *attr, c
     unsigned char temp_datam;
     unsigned char temp_datal;
 
-    if(WriteByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_CONF1_WR, SENSOR_TEMP_CONF1_STOP)) {
+    if(WriteByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_CONF1_WR, SENSOR_TEMP_CONF1_STOP) < 0) {
         printk(KERN_ERR "bmi_sensor.c: TEMP write (CONF1) error\n");
     }
 
-    if(WriteByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_ONE_SHOT, 0x0)) {
+    if(WriteByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_ONE_SHOT, 0x0) < 0) {
         printk(KERN_ERR "bmi_sensor.c: TEMP write (CONF1) error\n");
     }
 
     mdelay(400);
 
-    if(ReadByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_REM_MSB, &temp_datam)) {
+    if(ReadByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_REM_MSB, &temp_datam) < 0) {
         printk(KERN_ERR "bmi_sensor.c: TEMP read (REM MSB) error\n");
     }
 
-    if(ReadByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_REM_LSB, &temp_datal)) {
+    if(ReadByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_REM_LSB, &temp_datal) < 0) {
         printk(KERN_ERR "bmi_sensor.c: TEMP read (REM LSB) error\n");
     }
 
@@ -2551,21 +2551,21 @@ static ssize_t show_temp_ur(struct device *dev, struct device_attribute *attr, c
     unsigned char temp_datam;
     unsigned char temp_datal;
 
-    if(WriteByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_CONF1_WR, SENSOR_TEMP_CONF1_STOP)) {
+    if(WriteByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_CONF1_WR, SENSOR_TEMP_CONF1_STOP) < 0) {
         printk(KERN_ERR "bmi_sensor.c: TEMP write (CONF1) error\n");
     }
 
-    if(WriteByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_ONE_SHOT, 0x0)) {
+    if(WriteByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_ONE_SHOT, 0x0) < 0) {
         printk(KERN_ERR "bmi_sensor.c: TEMP write (CONF1) error\n");
     }
 
     mdelay(400);
 
-    if(ReadByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_UREM_MSB, &temp_datam)) {
+    if(ReadByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_UREM_MSB, &temp_datam) < 0) {
         printk(KERN_ERR "bmi_sensor.c: TEMP read (UREM MSB) error\n");
     }
 
-    if(ReadByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_UREM_LSB, &temp_datal)) {
+    if(ReadByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_UREM_LSB, &temp_datal) < 0) {
         printk(KERN_ERR "bmi_sensor.c: TEMP read (UREM LSB) error\n");
     }
 
@@ -2593,42 +2593,42 @@ static ssize_t show_accel(struct device *dev, struct device_attribute *attr, cha
     if (sensor->eeprom.acc_present != SENSOR_DEVICE_PRESENT) {
         acc_rw.address = SENSOR_ACC_DX0;
         acc_rw.count = 2;
-        if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw)) {
+        if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
             printk(KERN_ERR "bmi_sensor.c: ACC read (DX0) error\n");
         }
         x = (acc_rw.data[0] << 8) | acc_rw.data[1];
 
         acc_rw.address = SENSOR_ACC_DY0;
         acc_rw.count = 2;
-        if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw)) {
+        if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
             printk(KERN_ERR "bmi_sensor.c: ACC read (DY0) error\n");
         }
         y = (acc_rw.data[0] << 8) | acc_rw.data[1];
 
         acc_rw.address = SENSOR_ACC_DZ0;
         acc_rw.count = 2;
-        if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw)) {
+        if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
             printk(KERN_ERR "bmi_sensor.c: ACC read (DZ0) error\n");
         }
         z = (acc_rw.data[0] << 8) | acc_rw.data[1];
     } else {
         acc_rw.address = SENSOR_A3_OUTX;
         acc_rw.count = 1;
-        if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw)) {
+        if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
             printk(KERN_ERR "bmi_sensor.c: ACC read (OUTX) error\n");
         }
         x = acc_rw.data[0];
 
         acc_rw.address = SENSOR_A3_OUTY;
         acc_rw.count = 1;
-        if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw)) {
+        if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
             printk(KERN_ERR "bmi_sensor.c: ACC read (OUTY) error\n");
         }
         y = acc_rw.data[0];
 
         acc_rw.address = SENSOR_A3_OUTZ;
         acc_rw.count = 1;
-        if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw)) {
+        if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
             printk(KERN_ERR "bmi_sensor.c: ACC read (OUTZ) error\n");
         }
         z = acc_rw.data[0];
@@ -2647,10 +2647,10 @@ static ssize_t show_aprox(struct device *dev, struct device_attribute *attr, cha
     int ret;
 
     // start burst to LED
-    if(ReadByte_IOX(sensor->iox_i2c_client, IOX_INPUT1_REG, &iox_data))
+    if(ReadByte_IOX(sensor->iox_i2c_client, IOX_INPUT1_REG, &iox_data) < 0)
         printk(KERN_ERR "bmi_sensor.c: IOX read error\n");
     iox_data |= (0x1 << SENSOR_IOX_PROX_RST_N);
-    if(WriteByte_IOX(sensor->iox_i2c_client, IOX_OUTPUT1_REG, iox_data))
+    if(WriteByte_IOX(sensor->iox_i2c_client, IOX_OUTPUT1_REG, iox_data) < 0)
         printk(KERN_ERR "bmi_sensor.c: IOX write error\n");
 
     // set up timer
@@ -2665,22 +2665,22 @@ static ssize_t show_aprox(struct device *dev, struct device_attribute *attr, cha
     wait_event_interruptible(sensor->aprox_wait_queue, (sensor->aprox_int_fl == 1));
 
     // stop burst to LED
-    if(ReadByte_IOX(sensor->iox_i2c_client, IOX_INPUT1_REG, &iox_data))
+    if(ReadByte_IOX(sensor->iox_i2c_client, IOX_INPUT1_REG, &iox_data) < 0)
         printk(KERN_ERR "bmi_sensor.c: IOX read error\n");
     iox_data &= ~(0x1 << SENSOR_IOX_PROX_RST_N);
-    if(WriteByte_IOX(sensor->iox_i2c_client, IOX_OUTPUT1_REG, iox_data))
+    if(WriteByte_IOX(sensor->iox_i2c_client, IOX_OUTPUT1_REG, iox_data) < 0)
         printk(KERN_ERR "bmi_sensor.c: IOX write error\n");
 
     // digital output
     read_data = (iox_data & (0x1 << SENSOR_IOX_PROX_OUT)) << 14;
 
     // read ADC - analog output
-    if(WriteByte_ADC(sensor->adc_i2c_client, SENSOR_ADC_APROXIMITY | SENSOR_ADC_PD_OFF))
+    if(WriteByte_ADC(sensor->adc_i2c_client, SENSOR_ADC_APROXIMITY | SENSOR_ADC_PD_OFF) < 0)
         printk(KERN_ERR "bmi_sensor.c: IOX write error\n");
 
     mdelay(1);
 
-    if(ReadByte_ADC(sensor->adc_i2c_client, &aprox_data))
+    if(ReadByte_ADC(sensor->adc_i2c_client, &aprox_data) < 0)
         printk(KERN_ERR "bmi_sensor.c: IOX read error\n");
     read_data |= aprox_data;
 
@@ -2694,13 +2694,13 @@ static ssize_t show_alight(struct device *dev, struct device_attribute *attr, ch
     struct bmi_sensor *sensor = &bmi_sensor[bdev->slot->slotnum];
     unsigned char adc_data[2];
 
-    if(WriteByte_ADC(sensor->adc_i2c_client, SENSOR_ADC_LIGHT)) {
+    if(WriteByte_ADC(sensor->adc_i2c_client, SENSOR_ADC_LIGHT) < 0) {
         printk(KERN_ERR "bmi_sensor.c: ADC write error\n");
     }
 
     mdelay(1);
 
-    if(ReadByte_ADC(sensor->adc_i2c_client, adc_data)) {
+    if(ReadByte_ADC(sensor->adc_i2c_client, adc_data) < 0) {
         printk(KERN_ERR "bmi_sensor.c: ADC read error\n");
     }
 
@@ -2714,11 +2714,11 @@ static ssize_t show_dlight(struct device *dev, struct device_attribute *attr, ch
     struct bmi_sensor *sensor = &bmi_sensor[bdev->slot->slotnum];
     unsigned char dl_data[2];
 
-    if(ReadByte_PL(sensor->pl_i2c_client, SENSOR_DL_SENSOR_MSB, &dl_data[0])) {
+    if(ReadByte_PL(sensor->pl_i2c_client, SENSOR_DL_SENSOR_MSB, &dl_data[0]) < 0) {
         printk(KERN_ERR "bmi_sensor.c: DL read error\n");
     }
 
-    if(ReadByte_PL(sensor->pl_i2c_client, SENSOR_DL_SENSOR_LSB, &dl_data[1])) {
+    if(ReadByte_PL(sensor->pl_i2c_client, SENSOR_DL_SENSOR_LSB, &dl_data[1]) < 0) {
         printk(KERN_ERR "bmi_sensor.c: DL read error\n");
     }
 
@@ -2732,115 +2732,115 @@ int read_eeprom(struct i2c_client *client, struct sensor_eeprom_raw *eeprom)
 {
     unsigned char ee_data;
 
-    if(ReadByte_EE(client, 0x0, &ee_data))
+    if(ReadByte_EE(client, 0x0, &ee_data) < 0)
         return -ENODEV;
     eeprom->xsf_msb = (__u8) ee_data;
 
-    if(ReadByte_EE(client, 0x1, &ee_data))
+    if(ReadByte_EE(client, 0x1, &ee_data) < 0)
         return -ENODEV;
     eeprom->xsf_lsb = (__u8) ee_data;
 
-    if(ReadByte_EE(client, 0x2, &ee_data))
+    if(ReadByte_EE(client, 0x2, &ee_data) < 0)
         return -ENODEV;
     eeprom->ysf_msb = (__u8) ee_data;
 
-    if(ReadByte_EE(client, 0x3, &ee_data))
+    if(ReadByte_EE(client, 0x3, &ee_data) < 0)
         return -ENODEV;
     eeprom->ysf_lsb = (__u8) ee_data;
 
-    if(ReadByte_EE(client, 0x4, &ee_data))
+    if(ReadByte_EE(client, 0x4, &ee_data) < 0)
         return -ENODEV;
     eeprom->zsf_msb = (__u8) ee_data;
 
-    if(ReadByte_EE(client, 0x5, &ee_data))
+    if(ReadByte_EE(client, 0x5, &ee_data) < 0)
         return -ENODEV;
     eeprom->zsf_lsb = (__u8) ee_data;
 
-    if(ReadByte_EE(client, 0x6, &ee_data))
+    if(ReadByte_EE(client, 0x6, &ee_data) < 0)
         return -ENODEV;
     eeprom->xoff_msb = (__u8) ee_data;
 
-    if(ReadByte_EE(client, 0x7, &ee_data))
+    if(ReadByte_EE(client, 0x7, &ee_data) < 0)
         return -ENODEV;
     eeprom->xoff_lsb = (__u8) ee_data;
 
-    if(ReadByte_EE(client, 0x8, &ee_data))
+    if(ReadByte_EE(client, 0x8, &ee_data) < 0)
         return -ENODEV;
     eeprom->yoff_msb = (__u8) ee_data;
 
-    if(ReadByte_EE(client, 0x9, &ee_data))
+    if(ReadByte_EE(client, 0x9, &ee_data) < 0)
         return -ENODEV;
     eeprom->zoff_lsb = (__u8) ee_data;
 
-    if(ReadByte_EE(client, 0xA, &ee_data))
+    if(ReadByte_EE(client, 0xA, &ee_data) < 0)
         return -ENODEV;
     eeprom->zoff_msb = (__u8) ee_data;
 
-    if(ReadByte_EE(client, 0xB, &ee_data))
+    if(ReadByte_EE(client, 0xB, &ee_data) < 0)
         return -ENODEV;
     eeprom->yoff_lsb = (__u8) ee_data;
 
-    if(ReadByte_EE(client, 0xC, &ee_data))
+    if(ReadByte_EE(client, 0xC, &ee_data) < 0)
         return -ENODEV;
     eeprom->xdac = (__u8) ee_data;
 
-    if(ReadByte_EE(client, 0xD, &ee_data))
+    if(ReadByte_EE(client, 0xD, &ee_data) < 0)
         return -ENODEV;
     eeprom->ydac = (__u8) ee_data;
 
-    if(ReadByte_EE(client, 0xE, &ee_data))
+    if(ReadByte_EE(client, 0xE, &ee_data) < 0)
         return -ENODEV;
     eeprom->zdac = (__u8) ee_data;
 
-    if(ReadByte_EE(client, 0xF, &ee_data))
+    if(ReadByte_EE(client, 0xF, &ee_data) < 0)
         return -ENODEV;
     eeprom->adc_present = (__u8) ee_data;
 
-    if(ReadByte_EE(client, 0x10, &ee_data))
+    if(ReadByte_EE(client, 0x10, &ee_data) < 0)
         return -ENODEV;
     eeprom->humidity_present = (__u8) ee_data;
 
-    if(ReadByte_EE(client, 0x11, &ee_data))
+    if(ReadByte_EE(client, 0x11, &ee_data) < 0)
         return -ENODEV;
     eeprom->acompass_present = (__u8) ee_data;
 
-    if(ReadByte_EE(client, 0x12, &ee_data))
+    if(ReadByte_EE(client, 0x12, &ee_data) < 0)
         return -ENODEV;
     eeprom->light_proximity_present = (__u8) ee_data;
 
-    if(ReadByte_EE(client, 0x13, &ee_data))
+    if(ReadByte_EE(client, 0x13, &ee_data) < 0)
         return -ENODEV;
     eeprom->sound_present = (__u8) ee_data;
 
-    if(ReadByte_EE(client, 0x14, &ee_data))
+    if(ReadByte_EE(client, 0x14, &ee_data) < 0)
         return -ENODEV;
     eeprom->temperature_present = (__u8) ee_data;
 
-    if(ReadByte_EE(client, 0x15, &ee_data))
+    if(ReadByte_EE(client, 0x15, &ee_data) < 0)
         return -ENODEV;
     eeprom->motion_present = (__u8) ee_data;
 
-    if(ReadByte_EE(client, 0x16, &ee_data))
+    if(ReadByte_EE(client, 0x16, &ee_data) < 0)
         return -ENODEV;
     eeprom->acc_present = (__u8) ee_data;
 
-    if(ReadByte_EE(client, 0x17, &ee_data))
+    if(ReadByte_EE(client, 0x17, &ee_data) < 0)
         return -ENODEV;
     eeprom->dcompass_present = (__u8) ee_data;
 
-    if(ReadByte_EE(client, 0x18, &ee_data))
+    if(ReadByte_EE(client, 0x18, &ee_data) < 0)
         return -ENODEV;
     eeprom->aproximity_present = (__u8) ee_data;
 
-    if(ReadByte_EE(client, 0x19, &ee_data))
+    if(ReadByte_EE(client, 0x19, &ee_data) < 0)
         return -ENODEV;
     eeprom->alight_present = (__u8) ee_data;
 
-    if(ReadByte_EE(client, 0x1A, &ee_data))
+    if(ReadByte_EE(client, 0x1A, &ee_data) < 0)
         return -ENODEV;
     eeprom->dlight_present = (__u8) ee_data;
 
-    if(ReadByte_EE(client, 0x1B, &ee_data))
+    if(ReadByte_EE(client, 0x1B, &ee_data) < 0)
         return -ENODEV;
     eeprom->acc302_present = (__u8) ee_data;
 
@@ -2976,34 +2976,40 @@ int bmi_sensor_probe(struct bmi_device *bdev)
 
     // configure IOX
     if(factory_test || fcc_test) {
-        if(WriteByte_IOX(sensor->iox_i2c_client, IOX_OUTPUT0_REG, 0x98)) {  // USB/HUM on, MOT_INT off, COMPASS RST High
-            printk(KERN_ERR "bmi_sensor.c: IOX error in slot %d\n", slot);
+        // USB/HUM on, MOT_INT off, COMPASS RST High
+        if(WriteByte_IOX(sensor->iox_i2c_client, IOX_OUTPUT0_REG, 0x98) < 0) {
+            printk(KERN_ERR "bmi_sensor.c: IOX error in slot %d setting IOX_OUTPUT0_REG to 0x98\n", slot);
             goto error;
         }
 
-        if(WriteByte_IOX(sensor->iox_i2c_client, IOX_OUTPUT1_REG, 0x08)) {  // Speaker Peak Clear, all other outputs low
-            printk(KERN_ERR "bmi_sensor.c: IOX error in slot %d\n", slot);
+        // Speaker Peak Clear, all other outputs low
+        if(WriteByte_IOX(sensor->iox_i2c_client, IOX_OUTPUT1_REG, 0x08) < 0) {
+            printk(KERN_ERR "bmi_sensor.c: IOX error in slot %d setting IOX_OUTPUT1_REG to 0x08\n", slot);
             goto error;
         }
     } else {
-        if(WriteByte_IOX(sensor->iox_i2c_client, IOX_OUTPUT0_REG, 0x80)) {  // USB/HUM/MOT_INT off, COMPASS RST High
-            printk(KERN_ERR "bmi_sensor.c: IOX error in slot %d\n", slot);
+        // USB/HUM/MOT_INT off, COMPASS RST High
+        if(WriteByte_IOX(sensor->iox_i2c_client, IOX_OUTPUT0_REG, 0x80) < 0) {
+            printk(KERN_ERR "bmi_sensor.c: IOX error in slot %d setting IOX_OUTPUT0_REG to 0x80\n", slot);
             goto error;
         }
 
-        if(WriteByte_IOX(sensor->iox_i2c_client, IOX_OUTPUT1_REG, 0x0A)) {  // Speaker Peak Clear/analog proximity enable high, all other outputs low
-            printk(KERN_ERR "bmi_sensor.c: IOX error in slot %d\n", slot);
+        // Speaker Peak Clear/analog proximity enable high, all other outputs low
+        if(WriteByte_IOX(sensor->iox_i2c_client, IOX_OUTPUT1_REG, 0x0A) < 0) {
+            printk(KERN_ERR "bmi_sensor.c: IOX error in slot %d settng IOX_OUTPUT1_REG to 0x0A\n", slot);
             goto error;
         }
     }
 
-    if(WriteByte_IOX(sensor->iox_i2c_client, IOX_CONTROL0_REG, 0x27)) {     // IOX[5,2:0]=IN, IOX[7:6,4:3]=OUT
-        printk(KERN_ERR "bmi_sensor.c: IOX error in slot %d\n", slot);
+    // IOX[5,2:0]=IN, IOX[7:6,4:3]=OUT
+    if(WriteByte_IOX(sensor->iox_i2c_client, IOX_CONTROL0_REG, 0x27) < 0) {
+        printk(KERN_ERR "bmi_sensor.c: IOX error in slot %d setting IOX_CONTROL0_REG to 0x27\n", slot);
         goto error;
     }
 
-    if(WriteByte_IOX(sensor->iox_i2c_client, IOX_CONTROL1_REG, 0xb4)) {     // IOX[7,5:4,2]=IN, IOX[6,3,1:0]=OUT
-        printk(KERN_ERR "bmi_sensor.c: IOX error in slot %d\n", slot);
+    // IOX[7,5:4,2]=IN, IOX[6,3,1:0]=OUT
+    if(WriteByte_IOX(sensor->iox_i2c_client, IOX_CONTROL1_REG, 0xb4) < 0) {
+        printk(KERN_ERR "bmi_sensor.c: IOX error in slot %d setting IOX_CONTROL1_REG to 0xb4\n", slot);
         goto error;
     }
 
@@ -3108,14 +3114,14 @@ int bmi_sensor_probe(struct bmi_device *bdev)
     if(sensor->eeprom.adc_present == SENSOR_DEVICE_PRESENT) {
         unsigned char adc_data[2];
 
-        if(WriteByte_ADC(sensor->adc_i2c_client, SENSOR_ADC_CH0)) {
+        if(WriteByte_ADC(sensor->adc_i2c_client, SENSOR_ADC_CH0) < 0) {
             printk(KERN_ERR "bmi_sensor.c: ADC write error\n");
             goto error;
         }
 
         mdelay(1);
 
-        if(ReadByte_ADC(sensor->adc_i2c_client, adc_data)) {
+        if(ReadByte_ADC(sensor->adc_i2c_client, adc_data) < 0) {
             printk(KERN_ERR "bmi_sensor.c: ADC read error\n");
             goto error;
         }
@@ -3133,14 +3139,14 @@ int bmi_sensor_probe(struct bmi_device *bdev)
     if(sensor->eeprom.humidity_present == SENSOR_DEVICE_PRESENT) {
         unsigned char adc_data[2];
 
-        if(WriteByte_ADC(sensor->adc_i2c_client, SENSOR_ADC_HUMIDITY)) {
+        if(WriteByte_ADC(sensor->adc_i2c_client, SENSOR_ADC_HUMIDITY) < 0) {
             printk(KERN_ERR "bmi_sensor.c: ADC write (Humidity) error\n");
             goto error;
         }
 
         mdelay(1);
 
-        if(ReadByte_ADC(sensor->adc_i2c_client, adc_data)) {
+        if(ReadByte_ADC(sensor->adc_i2c_client, adc_data) < 0) {
             printk(KERN_ERR "bmi_sensor.c: ADC read (Humidity) error\n");
             goto error;
         }
@@ -3166,7 +3172,7 @@ int bmi_sensor_probe(struct bmi_device *bdev)
         unsigned int compass_y;
         unsigned int compass_z;
 
-        if(WriteByte_ADC(sensor->adc_i2c_client, SENSOR_ADC_ACOMPASS_X)) {
+        if(WriteByte_ADC(sensor->adc_i2c_client, SENSOR_ADC_ACOMPASS_X) < 0) {
             printk(KERN_ERR "bmi_sensor.c: ADC write error\n");
             goto sysfs_err1;
 
@@ -3174,34 +3180,34 @@ int bmi_sensor_probe(struct bmi_device *bdev)
 
         mdelay(1);
 
-        if(ReadByte_ADC(sensor->adc_i2c_client, adc_data)) {
+        if(ReadByte_ADC(sensor->adc_i2c_client, adc_data) < 0) {
             printk(KERN_ERR "bmi_sensor.c: ADC read error\n");
             device_remove_file(&sensor->bdev->dev, &dev_attr_humidity);
             goto sysfs_err1;
         }
         compass_x = (adc_data[0] << 8) | adc_data[1];
 
-        if(WriteByte_ADC(sensor->adc_i2c_client, SENSOR_ADC_ACOMPASS_Y)) {
+        if(WriteByte_ADC(sensor->adc_i2c_client, SENSOR_ADC_ACOMPASS_Y) < 0) {
             printk(KERN_ERR "bmi_sensor.c: ADC write error\n");
             goto sysfs_err1;
         }
 
         mdelay(1);
 
-        if(ReadByte_ADC(sensor->adc_i2c_client, adc_data)) {
+        if(ReadByte_ADC(sensor->adc_i2c_client, adc_data) < 0) {
             printk(KERN_ERR "bmi_sensor.c: ADC read error\n");
             goto sysfs_err1;
         }
         compass_y = (adc_data[0] << 8) | adc_data[1];
 
-        if(WriteByte_ADC(sensor->adc_i2c_client, SENSOR_ADC_ACOMPASS_Z)) {
+        if(WriteByte_ADC(sensor->adc_i2c_client, SENSOR_ADC_ACOMPASS_Z) < 0) {
             printk(KERN_ERR "bmi_sensor.c: ADC write error\n");
             goto sysfs_err1;
         }
 
         mdelay(1);
 
-        if(ReadByte_ADC(sensor->adc_i2c_client, adc_data)) {
+        if(ReadByte_ADC(sensor->adc_i2c_client, adc_data) < 0) {
             printk(KERN_ERR "bmi_sensor.c: ADC read error\n");
             goto sysfs_err1;
         }
@@ -3232,65 +3238,65 @@ int bmi_sensor_probe(struct bmi_device *bdev)
         unsigned char compass_y;
         unsigned char compass_z;
 
-        if(WriteByte_DCOMP(sensor->dcomp_i2c_client, SENSOR_DCOMP_MS1, SENSOR_DCOMP_MS1_EEPROM)) {
+        if(WriteByte_DCOMP(sensor->dcomp_i2c_client, SENSOR_DCOMP_MS1, SENSOR_DCOMP_MS1_EEPROM) < 0) {
             printk(KERN_ERR "bmi_sensor.c: DCOMP_MS1 write error\n");
             goto sysfs_err2;
         }
 
-        if(ReadByte_DCOMP(sensor->dcomp_i2c_client, SENSOR_DCOMP_EE_EHXGA, &hxga)) {
+        if(ReadByte_DCOMP(sensor->dcomp_i2c_client, SENSOR_DCOMP_EE_EHXGA, &hxga) < 0) {
             printk(KERN_ERR "bmi_sensor.c: EE_EHXGA read error\n");
             goto sysfs_err2;
         }
 
-        if(ReadByte_DCOMP(sensor->dcomp_i2c_client, SENSOR_DCOMP_EE_EHYGA, &hyga)) {
+        if(ReadByte_DCOMP(sensor->dcomp_i2c_client, SENSOR_DCOMP_EE_EHYGA, &hyga) < 0) {
             printk(KERN_ERR "bmi_sensor.c: EE_EHYGA read error\n");
             goto sysfs_err2;
         }
 
-        if(ReadByte_DCOMP(sensor->dcomp_i2c_client, SENSOR_DCOMP_EE_EHZGA, &hzga)) {
+        if(ReadByte_DCOMP(sensor->dcomp_i2c_client, SENSOR_DCOMP_EE_EHZGA, &hzga) < 0) {
             printk(KERN_ERR "bmi_sensor.c: EE_EHZGA read error\n");
             goto sysfs_err2;
         }
 
-        if(WriteByte_DCOMP(sensor->dcomp_i2c_client, SENSOR_DCOMP_MS1, SENSOR_DCOMP_MS1_PD)) {
+        if(WriteByte_DCOMP(sensor->dcomp_i2c_client, SENSOR_DCOMP_MS1, SENSOR_DCOMP_MS1_PD) < 0) {
             printk(KERN_ERR "bmi_sensor.c: DCOMP_MS1 write error\n");
             goto sysfs_err2;
         }
 
-        if(WriteByte_DCOMP(sensor->dcomp_i2c_client, SENSOR_DCOMP_HXGA, hxga)) {
+        if(WriteByte_DCOMP(sensor->dcomp_i2c_client, SENSOR_DCOMP_HXGA, hxga) < 0) {
             printk(KERN_ERR "bmi_sensor.c: DCOMP_HXGA write error\n");
             goto sysfs_err2;
         }
 
-        if(WriteByte_DCOMP(sensor->dcomp_i2c_client, SENSOR_DCOMP_HYGA, hyga)) {
+        if(WriteByte_DCOMP(sensor->dcomp_i2c_client, SENSOR_DCOMP_HYGA, hyga) < 0) {
             printk(KERN_ERR "bmi_sensor.c: DCOMP_HYGA write error\n");
             goto sysfs_err2;
         }
 
-        if(WriteByte_DCOMP(sensor->dcomp_i2c_client, SENSOR_DCOMP_HZGA, hzga)) {
+        if(WriteByte_DCOMP(sensor->dcomp_i2c_client, SENSOR_DCOMP_HZGA, hzga) < 0) {
             printk(KERN_ERR "bmi_sensor.c: DCOMP_HZGA write error\n");
             goto sysfs_err2;
         }
 
-        if(WriteByte_DCOMP(sensor->dcomp_i2c_client, SENSOR_DCOMP_HXDA, sensor->eeprom.xdac)) {
+        if(WriteByte_DCOMP(sensor->dcomp_i2c_client, SENSOR_DCOMP_HXDA, sensor->eeprom.xdac) < 0) {
             printk(KERN_ERR "bmi_sensor.c: DCOMP_HXDA write error\n");
             goto sysfs_err2;
 
         }
 
-        if(WriteByte_DCOMP(sensor->dcomp_i2c_client, SENSOR_DCOMP_HYDA, sensor->eeprom.ydac)) {
+        if(WriteByte_DCOMP(sensor->dcomp_i2c_client, SENSOR_DCOMP_HYDA, sensor->eeprom.ydac) < 0) {
             printk(KERN_ERR "bmi_sensor.c: DCOMP_HYDA write error\n");
             goto sysfs_err2;
 
         }
 
-        if(WriteByte_DCOMP(sensor->dcomp_i2c_client, SENSOR_DCOMP_HZDA, sensor->eeprom.zdac)) {
+        if(WriteByte_DCOMP(sensor->dcomp_i2c_client, SENSOR_DCOMP_HZDA, sensor->eeprom.zdac) < 0) {
             printk(KERN_ERR "bmi_sensor.c: DCOMP_HZDA write error\n");
             goto sysfs_err2;
 
         }
 
-        if(WriteByte_DCOMP(sensor->dcomp_i2c_client, SENSOR_DCOMP_MS1, SENSOR_DCOMP_MS1_SENSOR)) {
+        if(WriteByte_DCOMP(sensor->dcomp_i2c_client, SENSOR_DCOMP_MS1, SENSOR_DCOMP_MS1_SENSOR) < 0) {
             printk(KERN_ERR "bmi_sensor.c: DCOMP_MS1 write error\n");
             goto sysfs_err2;
 
@@ -3298,7 +3304,7 @@ int bmi_sensor_probe(struct bmi_device *bdev)
 
         mdelay(20);
 
-        if(ReadByte_DCOMP(sensor->dcomp_i2c_client, SENSOR_DCOMP_ST, &compass_i)) {
+        if(ReadByte_DCOMP(sensor->dcomp_i2c_client, SENSOR_DCOMP_ST, &compass_i) < 0) {
             printk(KERN_ERR "bmi_sensor.c: DCOMP_ST read error\n");
             goto sysfs_err2;
         }
@@ -3308,22 +3314,22 @@ int bmi_sensor_probe(struct bmi_device *bdev)
             goto sysfs_err2;
         }
 
-        if(ReadByte_DCOMP(sensor->dcomp_i2c_client, SENSOR_DCOMP_TMPS, &compass_t)) {
+        if(ReadByte_DCOMP(sensor->dcomp_i2c_client, SENSOR_DCOMP_TMPS, &compass_t) < 0) {
             printk(KERN_ERR "bmi_sensor.c: DCOMP_TMPS error\n");
             goto sysfs_err2;
         }
 
-        if(ReadByte_DCOMP(sensor->dcomp_i2c_client, SENSOR_DCOMP_H1X, &compass_x)) {
+        if(ReadByte_DCOMP(sensor->dcomp_i2c_client, SENSOR_DCOMP_H1X, &compass_x) < 0) {
             printk(KERN_ERR "bmi_sensor.c: DCOMP_H1X error\n");
             goto sysfs_err2;
         }
 
-        if(ReadByte_DCOMP(sensor->dcomp_i2c_client, SENSOR_DCOMP_H1Y, &compass_y)) {
+        if(ReadByte_DCOMP(sensor->dcomp_i2c_client, SENSOR_DCOMP_H1Y, &compass_y) < 0) {
             printk(KERN_ERR "bmi_sensor.c: DCOMP_H1Y error\n");
             goto sysfs_err2;
         }
 
-        if(ReadByte_DCOMP(sensor->dcomp_i2c_client, SENSOR_DCOMP_H1Z, &compass_z)) {
+        if(ReadByte_DCOMP(sensor->dcomp_i2c_client, SENSOR_DCOMP_H1Z, &compass_z) < 0) {
             printk(KERN_ERR "bmi_sensor.c: DCOMP_H1Z error\n");
             goto sysfs_err2;
         }
@@ -3346,17 +3352,17 @@ int bmi_sensor_probe(struct bmi_device *bdev)
     if(sensor->eeprom.light_proximity_present == SENSOR_DEVICE_PRESENT) {
         unsigned char pl_data[2];
 
-        if(WriteByte_PL(sensor->pl_i2c_client, SENSOR_PL_CMD1, SENSOR_PL_CMD1_ALS_1X)) {
+        if(WriteByte_PL(sensor->pl_i2c_client, SENSOR_PL_CMD1, SENSOR_PL_CMD1_ALS_1X) < 0) {
             printk(KERN_ERR "bmi_sensor.c: PL write (ALS) error\n");
             goto sysfs_err3;
         }
 
-        if(ReadByte_PL(sensor->pl_i2c_client, SENSOR_PL_DATA_MSB, &pl_data[0])) {
+        if(ReadByte_PL(sensor->pl_i2c_client, SENSOR_PL_DATA_MSB, &pl_data[0]) < 0) {
             printk(KERN_ERR "bmi_sensor.c: PL read (ALS) error\n");
             goto sysfs_err3;
         }
 
-        if(ReadByte_PL(sensor->pl_i2c_client, SENSOR_PL_DATA_MSB, &pl_data[1])) {
+        if(ReadByte_PL(sensor->pl_i2c_client, SENSOR_PL_DATA_MSB, &pl_data[1]) < 0) {
             printk(KERN_ERR "bmi_sensor.c: PL read (ALS) error\n");
             goto sysfs_err3;
         }
@@ -3370,19 +3376,19 @@ int bmi_sensor_probe(struct bmi_device *bdev)
             goto sysfs_err3;
         }
 
-        if(WriteByte_PL(sensor->pl_i2c_client, SENSOR_PL_CMD1, SENSOR_PL_CMD1_IR_1X)) {
+        if(WriteByte_PL(sensor->pl_i2c_client, SENSOR_PL_CMD1, SENSOR_PL_CMD1_IR_1X) < 0) {
             printk(KERN_ERR "bmi_sensor.c: PL write (IR) error\n");
             goto sysfs_err4;
         }
 
         mdelay(20);
 
-        if(ReadByte_PL(sensor->pl_i2c_client, SENSOR_PL_DATA_MSB, &pl_data[0])) {
+        if(ReadByte_PL(sensor->pl_i2c_client, SENSOR_PL_DATA_MSB, &pl_data[0]) < 0) {
             printk(KERN_ERR "bmi_sensor.c: ADC read (IR) error\n");
             goto sysfs_err4;
         }
 
-        if(ReadByte_PL(sensor->pl_i2c_client, SENSOR_PL_DATA_MSB, &pl_data[1])) {
+        if(ReadByte_PL(sensor->pl_i2c_client, SENSOR_PL_DATA_MSB, &pl_data[1]) < 0) {
             printk(KERN_ERR "bmi_sensor.c: ADC read (IR) error\n");
             goto sysfs_err4;
         }
@@ -3396,19 +3402,19 @@ int bmi_sensor_probe(struct bmi_device *bdev)
             goto sysfs_err4;
         }
 
-        if(WriteByte_PL(sensor->pl_i2c_client, SENSOR_PL_CMD1, SENSOR_PL_CMD1_PROX_1X)) {
+        if(WriteByte_PL(sensor->pl_i2c_client, SENSOR_PL_CMD1, SENSOR_PL_CMD1_PROX_1X) < 0) {
             printk(KERN_ERR "bmi_sensor.c: PL write (Proximity) error\n");
             goto sysfs_err5;
         }
 
         mdelay(20);
 
-        if(ReadByte_PL(sensor->pl_i2c_client, SENSOR_PL_DATA_MSB, &pl_data[0])) {
+        if(ReadByte_PL(sensor->pl_i2c_client, SENSOR_PL_DATA_MSB, &pl_data[0]) < 0) {
             printk(KERN_ERR "bmi_sensor.c: ADC read (Proximity) error\n");
             goto sysfs_err5;
         }
 
-        if(ReadByte_PL(sensor->pl_i2c_client, SENSOR_PL_DATA_MSB, &pl_data[1])) {
+        if(ReadByte_PL(sensor->pl_i2c_client, SENSOR_PL_DATA_MSB, &pl_data[1]) < 0) {
             printk(KERN_ERR "bmi_sensor.c: ADC read (Proximity) error\n");
             goto sysfs_err5;
         }
@@ -3430,14 +3436,14 @@ int bmi_sensor_probe(struct bmi_device *bdev)
     if(sensor->eeprom.sound_present == SENSOR_DEVICE_PRESENT) {
         unsigned char adc_data[2];
 
-        if(WriteByte_ADC(sensor->adc_i2c_client, SENSOR_ADC_SOUND_AVG)) {
+        if(WriteByte_ADC(sensor->adc_i2c_client, SENSOR_ADC_SOUND_AVG) < 0) {
             printk(KERN_ERR "bmi_sensor.c: ADC write (Sound Average) error\n");
             goto sysfs_err6;
         }
 
         mdelay(1);
 
-        if(ReadByte_ADC(sensor->adc_i2c_client, adc_data)) {
+        if(ReadByte_ADC(sensor->adc_i2c_client, adc_data) < 0) {
             printk(KERN_ERR "bmi_sensor.c: ADC read (Sound Average) error\n");
             goto sysfs_err6;
         }
@@ -3452,14 +3458,14 @@ int bmi_sensor_probe(struct bmi_device *bdev)
             goto sysfs_err6;
         }
 
-        if(WriteByte_ADC(sensor->adc_i2c_client, SENSOR_ADC_SOUND_PEAK)) {
+        if(WriteByte_ADC(sensor->adc_i2c_client, SENSOR_ADC_SOUND_PEAK) < 0) {
             printk(KERN_ERR "bmi_sensor.c: ADC write (Sound Peak) error\n");
             goto sysfs_err7;
         }
 
         mdelay(1);
 
-        if(ReadByte_ADC(sensor->adc_i2c_client, adc_data)) {
+        if(ReadByte_ADC(sensor->adc_i2c_client, adc_data) < 0) {
             printk(KERN_ERR "bmi_sensor.c: ADC read (Sound Peak) error\n");
             goto sysfs_err7;
         }
@@ -3483,7 +3489,7 @@ int bmi_sensor_probe(struct bmi_device *bdev)
         unsigned char temp_datam;
         unsigned char temp_datal;
 
-        if(ReadByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_MAN_ID, &temp_datam)) {
+        if(ReadByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_MAN_ID, &temp_datam) < 0) {
             printk(KERN_ERR "bmi_sensor.c: TEMP read (Manufacturer ID) error\n");
             goto sysfs_err8;
         }
@@ -3496,7 +3502,7 @@ int bmi_sensor_probe(struct bmi_device *bdev)
 
         printk(KERN_INFO "bmi_sensor.c: TEMP Manufacturer ID = 0x%x\n", temp_datam);
 
-        if(ReadByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_REV_ID, &temp_datam)) {
+        if(ReadByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_REV_ID, &temp_datam) < 0) {
             printk(KERN_ERR "bmi_sensor.c: TEMP read (Revision ID) error\n");
             goto sysfs_err8;
         }
@@ -3509,34 +3515,34 @@ int bmi_sensor_probe(struct bmi_device *bdev)
 
         printk(KERN_INFO "bmi_sensor.c: TEMP Revision ID = 0x%x\n", temp_datam);
 
-        if(WriteByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_CONF2, 0x0)) {
+        if(WriteByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_CONF2, 0x0) < 0) {
             printk(KERN_ERR "bmi_sensor.c: TEMP write (CONF2) error\n");
             goto sysfs_err8;
         }
 
-        if(WriteByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_CONF1_WR, SENSOR_TEMP_CONF1_STOP)) {
+        if(WriteByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_CONF1_WR, SENSOR_TEMP_CONF1_STOP) < 0) {
             printk(KERN_ERR "bmi_sensor.c: TEMP write (CONF1) error\n");
             goto sysfs_err8;
         }
 
-        if(WriteByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_CONV_WR, SENSOR_TEMP_CONV_P364)) {
+        if(WriteByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_CONV_WR, SENSOR_TEMP_CONV_P364) < 0) {
             printk(KERN_ERR "bmi_sensor.c: TEMP write (CONF1) error\n");
             goto sysfs_err8;
         }
 
-        if(WriteByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_ONE_SHOT, 0x0)) {
+        if(WriteByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_ONE_SHOT, 0x0) < 0) {
             printk(KERN_ERR "bmi_sensor.c: TEMP write (CONF1) error\n");
             goto sysfs_err8;
         }
 
         mdelay(400);
 
-        if(ReadByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_LOC_MSB, &temp_datam)) {
+        if(ReadByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_LOC_MSB, &temp_datam) < 0) {
             printk(KERN_ERR "bmi_sensor.c: TEMP read (LOCAL MSB) error\n");
             goto sysfs_err8;
         }
 
-        if(ReadByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_LOC_LSB, &temp_datal)) {
+        if(ReadByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_LOC_LSB, &temp_datal) < 0) {
             printk(KERN_ERR "bmi_sensor.c: TEMP read (LOCAL LSB) error\n");
             goto sysfs_err8;
         }
@@ -3551,12 +3557,12 @@ int bmi_sensor_probe(struct bmi_device *bdev)
             goto sysfs_err8;
         }
 
-        if(ReadByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_REM_MSB, &temp_datam)) {
+        if(ReadByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_REM_MSB, &temp_datam) < 0) {
             printk(KERN_ERR "bmi_sensor.c: TEMP read (REM MSB) error\n");
             goto sysfs_err9;
         }
 
-        if(ReadByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_REM_LSB, &temp_datal)) {
+        if(ReadByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_REM_LSB, &temp_datal) < 0) {
             printk(KERN_ERR "bmi_sensor.c: TEMP read (REM LSB) error\n");
             goto sysfs_err9;
         }
@@ -3571,12 +3577,12 @@ int bmi_sensor_probe(struct bmi_device *bdev)
             goto sysfs_err9;
         }
 
-        if(ReadByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_UREM_MSB, &temp_datam)) {
+        if(ReadByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_UREM_MSB, &temp_datam) < 0) {
             printk(KERN_ERR "bmi_sensor.c: TEMP read (UREM MSB) error\n");
             goto sysfs_err10;
         }
 
-        if(ReadByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_UREM_LSB, &temp_datal)) {
+        if(ReadByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_UREM_LSB, &temp_datal) < 0) {
             printk(KERN_ERR "bmi_sensor.c: TEMP read (UREM LSB) error\n");
             goto sysfs_err10;
         }
@@ -3617,7 +3623,7 @@ int bmi_sensor_probe(struct bmi_device *bdev)
 
         acc_rw.address = SENSOR_ACC_ID;
         acc_rw.count = 1;
-        if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw)) {
+        if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
             printk(KERN_ERR "bmi_sensor.c: ACC read (ID) error\n");
             goto sysfs_err12;
         }
@@ -3631,7 +3637,7 @@ int bmi_sensor_probe(struct bmi_device *bdev)
         acc_rw.address = SENSOR_ACC_RATE;
         acc_rw.count = 1;
         acc_rw.data[0] = SENSOR_ACC_RC_3200_1600;
-        if(WriteByte_ACC(sensor->acc_i2c_client, &acc_rw)) {
+        if(WriteByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
             printk(KERN_ERR "bmi_sensor.c: ACC write (RATE) error\n");
             goto sysfs_err12;
         }
@@ -3639,7 +3645,7 @@ int bmi_sensor_probe(struct bmi_device *bdev)
         acc_rw.address = SENSOR_ACC_POWER;
         acc_rw.count = 1;
         acc_rw.data[0] = SENSOR_ACC_P_NORM;
-        if(WriteByte_ACC(sensor->acc_i2c_client, &acc_rw)) {
+        if(WriteByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
             printk(KERN_ERR "bmi_sensor.c: ACC write (RATE) error\n");
             goto sysfs_err12;
         }
@@ -3647,7 +3653,7 @@ int bmi_sensor_probe(struct bmi_device *bdev)
         acc_rw.address = SENSOR_ACC_DF;
         acc_rw.count = 1;
         acc_rw.data[0] = SENSOR_ACC_DF_LENGTH;
-        if(WriteByte_ACC(sensor->acc_i2c_client, &acc_rw)) {
+        if(WriteByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
             printk(KERN_ERR "bmi_sensor.c: ACC write (DF) error\n");
             goto sysfs_err12;
         }
@@ -3656,7 +3662,7 @@ int bmi_sensor_probe(struct bmi_device *bdev)
 
         acc_rw.address = SENSOR_ACC_DX0;
         acc_rw.count = 2;
-        if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw)) {
+        if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
             printk(KERN_ERR "bmi_sensor.c: ACC read (DX0) error\n");
             goto sysfs_err12;
         }
@@ -3666,7 +3672,7 @@ int bmi_sensor_probe(struct bmi_device *bdev)
 
         acc_rw.address = SENSOR_ACC_DY0;
         acc_rw.count = 2;
-        if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw)) {
+        if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
             printk(KERN_ERR "bmi_sensor.c: ACC read (DY0) error\n");
             goto sysfs_err12;
         }
@@ -3676,7 +3682,7 @@ int bmi_sensor_probe(struct bmi_device *bdev)
 
         acc_rw.address = SENSOR_ACC_DZ0;
         acc_rw.count = 2;
-        if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw)) {
+        if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
             printk(KERN_ERR "bmi_sensor.c: ACC read (DZ0) error\n");
             goto sysfs_err12;
         }
@@ -3701,7 +3707,7 @@ int bmi_sensor_probe(struct bmi_device *bdev)
 
         acc_rw.address = SENSOR_A3_WAI;
         acc_rw.count = 1;
-        if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw)) {
+        if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
             printk(KERN_ERR "bmi_sensor.c: ACC302 read (WAI) error\n");
             goto sysfs_err12;
         }
@@ -3720,7 +3726,7 @@ int bmi_sensor_probe(struct bmi_device *bdev)
         else
             acc_rw.data[0] = SENSOR_A3_CTRL1_DR400 | SENSOR_A3_CTRL1_PU
                 | SENSOR_A3_CTRL1_XYZEN;
-        if(WriteByte_ACC(sensor->acc_i2c_client, &acc_rw)) {
+        if(WriteByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
             printk(KERN_ERR "bmi_sensor.c: ACC302 write (RATE) error\n");
             goto sysfs_err12;
         }
@@ -3728,7 +3734,7 @@ int bmi_sensor_probe(struct bmi_device *bdev)
         acc_rw.address = SENSOR_A3_CTRL3;
         acc_rw.count = 1;
         acc_rw.data[0] = SENSOR_A3_CTRL3_IL;
-        if(WriteByte_ACC(sensor->acc_i2c_client, &acc_rw)) {
+        if(WriteByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
             printk(KERN_ERR "bmi_sensor.c: ACC302 write (RATE) error\n");
             goto sysfs_err12;
         }
@@ -3737,7 +3743,7 @@ int bmi_sensor_probe(struct bmi_device *bdev)
 
         acc_rw.address = SENSOR_A3_OUTX;
         acc_rw.count = 1;
-        if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw)) {
+        if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
             printk(KERN_ERR "bmi_sensor.c: ACC302 read (OUTX) error\n");
             goto sysfs_err12;
         }
@@ -3747,7 +3753,7 @@ int bmi_sensor_probe(struct bmi_device *bdev)
 
         acc_rw.address = SENSOR_A3_OUTY;
         acc_rw.count = 1;
-        if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw)) {
+        if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
             printk(KERN_ERR "bmi_sensor.c: ACC302 read (OUTY) error\n");
             goto sysfs_err12;
         }
@@ -3757,7 +3763,7 @@ int bmi_sensor_probe(struct bmi_device *bdev)
 
         acc_rw.address = SENSOR_A3_OUTZ;
         acc_rw.count = 1;
-        if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw)) {
+        if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
             printk(KERN_ERR "bmi_sensor.c: ACC302 read (OUTZ) error\n");
             goto sysfs_err12;
         }
@@ -3783,19 +3789,19 @@ int bmi_sensor_probe(struct bmi_device *bdev)
         int ret;
 
         // enable sensor
-        if(ReadByte_IOX(sensor->iox_i2c_client, IOX_INPUT1_REG, &iox_data)) {
+        if(ReadByte_IOX(sensor->iox_i2c_client, IOX_INPUT1_REG, &iox_data) < 0) {
             printk(KERN_ERR "bmi_sensor.c: IOX error in slot %d\n", slot);
             goto sysfs_err13;
         }
         iox_data &= ~(0x1 << SENSOR_IOX_PROX_EN_N);
-        if(WriteByte_IOX(sensor->iox_i2c_client, IOX_OUTPUT1_REG, iox_data)) {
+        if(WriteByte_IOX(sensor->iox_i2c_client, IOX_OUTPUT1_REG, iox_data) < 0) {
             printk(KERN_ERR "bmi_sensor.c: IOX error in slot %d\n", slot);
             goto sysfs_err13;
         }
 
         // start burst to LED
         iox_data |= (0x1 << SENSOR_IOX_PROX_RST_N);
-        if(WriteByte_IOX(sensor->iox_i2c_client, IOX_OUTPUT1_REG, iox_data))
+        if(WriteByte_IOX(sensor->iox_i2c_client, IOX_OUTPUT1_REG, iox_data) < 0)
             goto sysfs_err13;
 
         // set up timer
@@ -3810,22 +3816,22 @@ int bmi_sensor_probe(struct bmi_device *bdev)
         wait_event_interruptible(sensor->aprox_wait_queue, (sensor->aprox_int_fl == 1));
 
         // stop burst to LED
-        if(ReadByte_IOX(sensor->iox_i2c_client, IOX_INPUT1_REG, &iox_data))
+        if(ReadByte_IOX(sensor->iox_i2c_client, IOX_INPUT1_REG, &iox_data) < 0)
             goto sysfs_err13;
         iox_data &= ~(0x1 << SENSOR_IOX_PROX_RST_N);
-        if(WriteByte_IOX(sensor->iox_i2c_client, IOX_OUTPUT1_REG, iox_data))
+        if(WriteByte_IOX(sensor->iox_i2c_client, IOX_OUTPUT1_REG, iox_data) < 0)
             goto sysfs_err13;
 
         // digital output
         read_data = (iox_data & (0x1 << SENSOR_IOX_PROX_OUT)) << 14;
 
         // read ADC - analog output
-        if(WriteByte_ADC(sensor->adc_i2c_client, SENSOR_ADC_APROXIMITY | SENSOR_ADC_PD_OFF))
+        if(WriteByte_ADC(sensor->adc_i2c_client, SENSOR_ADC_APROXIMITY | SENSOR_ADC_PD_OFF) < 0)
             goto sysfs_err13;
 
         mdelay(1);
 
-        if(ReadByte_ADC(sensor->adc_i2c_client, &aprox_data))
+        if(ReadByte_ADC(sensor->adc_i2c_client, &aprox_data) < 0)
             goto sysfs_err13;
         read_data |= aprox_data;
 
@@ -3846,14 +3852,14 @@ int bmi_sensor_probe(struct bmi_device *bdev)
     if(sensor->eeprom.alight_present == SENSOR_DEVICE_PRESENT) {
         unsigned char adc_data[2];
 
-        if(WriteByte_ADC(sensor->adc_i2c_client, SENSOR_ADC_LIGHT)) {
+        if(WriteByte_ADC(sensor->adc_i2c_client, SENSOR_ADC_LIGHT) < 0) {
             printk(KERN_ERR "bmi_sensor.c: ADC write (Analog Light) error\n");
             goto sysfs_err14;
         }
 
         mdelay(1);
 
-        if(ReadByte_ADC(sensor->adc_i2c_client, adc_data)) {
+        if(ReadByte_ADC(sensor->adc_i2c_client, adc_data) < 0) {
             printk(KERN_ERR "bmi_sensor.c: ADC read (Humidity) error\n");
             goto sysfs_err14;
         }
@@ -3876,19 +3882,19 @@ int bmi_sensor_probe(struct bmi_device *bdev)
     if(sensor->eeprom.dlight_present == SENSOR_DEVICE_PRESENT) {
         unsigned char dl_data[2];
 
-        if(WriteByte_PL(sensor->pl_i2c_client, SENSOR_DL_CMD, SENSOR_DL_CMD_ADC_EN)) {
+        if(WriteByte_PL(sensor->pl_i2c_client, SENSOR_DL_CMD, SENSOR_DL_CMD_ADC_EN) < 0) {
             printk(KERN_ERR "bmi_sensor.c: PL write (Digital Light) error\n");
             goto sysfs_err15;
         }
 
         mdelay(20);
 
-        if(ReadByte_PL(sensor->pl_i2c_client, SENSOR_DL_SENSOR_MSB, &dl_data[0])) {
+        if(ReadByte_PL(sensor->pl_i2c_client, SENSOR_DL_SENSOR_MSB, &dl_data[0]) < 0) {
             printk(KERN_ERR "bmi_sensor.c: ADC read (Digital Light) error\n");
             goto sysfs_err15;
         }
 
-        if(ReadByte_PL(sensor->pl_i2c_client, SENSOR_DL_SENSOR_MSB, &dl_data[1])) {
+        if(ReadByte_PL(sensor->pl_i2c_client, SENSOR_DL_SENSOR_MSB, &dl_data[1]) < 0) {
             printk(KERN_ERR "bmi_sensor.c: ADC read (Digital Light) error\n");
             goto sysfs_err15;
         }
@@ -3896,14 +3902,14 @@ int bmi_sensor_probe(struct bmi_device *bdev)
                (dl_data[0] << 8) | dl_data[1]);
 
         // clear interrupts
-        if(ReadByte_PL(sensor->pl_i2c_client, SENSOR_DL_CONT, &dl_data[0])) {
+        if(ReadByte_PL(sensor->pl_i2c_client, SENSOR_DL_CONT, &dl_data[0]) < 0) {
             printk(KERN_ERR "bmi_sensor.c: DL read error\n");
         }
         dl_data[0] &= ~(SENSOR_DL_CONT_INT);
-        if(WriteByte_PL(sensor->pl_i2c_client, SENSOR_DL_CONT, dl_data[0])) {
+        if(WriteByte_PL(sensor->pl_i2c_client, SENSOR_DL_CONT, dl_data[0]) < 0) {
             printk(KERN_ERR "bmi_sensor.c: DL write error\n");
         }
-        if(WriteByte_DL_IC(sensor->pl_i2c_client)) {
+        if(WriteByte_DL_IC(sensor->pl_i2c_client) < 0) {
             printk(KERN_ERR "bmi_sensor.c: DL interrupt clear error\n");
         }
 
@@ -3919,14 +3925,14 @@ int bmi_sensor_probe(struct bmi_device *bdev)
         }
     }
 
-    if(ReadByte_IOX(sensor->iox_i2c_client, IOX_INPUT0_REG, &iox_data)) { // clear IOX interrupts
+    if(ReadByte_IOX(sensor->iox_i2c_client, IOX_INPUT0_REG, &iox_data) < 0) { // clear IOX interrupts
         printk (KERN_ERR
                 "bmi_sensor.c(%d): IOX0 interrupt clear fail.\n",
                 slot);
         goto sysfs_err16;
     }
 
-    if(ReadByte_IOX(sensor->iox_i2c_client, IOX_INPUT1_REG, &iox_data)) { // clear IOX interrupts
+    if(ReadByte_IOX(sensor->iox_i2c_client, IOX_INPUT1_REG, &iox_data) < 0) { // clear IOX interrupts
         printk (KERN_ERR
                 "bmi_sensor.c(%d): IOX1 interrupt clear fail.\n",
                 slot);
@@ -4122,21 +4128,20 @@ static int __init bmi_sensor_init(void)
         return -ENODEV;
     }
 
-    printk(KERN_ERR "bmi_sensor.c: alloced, major=%d", major);
-    /* if(factory_test) { */
-    /*     printk(KERN_INFO "bmi_sensor.c: Factory Test mode enabled\n"); */
-    /*     if(eeprom_init) */
-    /*         printk(KERN_INFO "bmi_sensor.c: eeprom init = 0x%x\n", eeprom_init); */
-    /*     if(xdac_init) */
-    /*         printk(KERN_INFO "bmi_sensor.c: XDAC init = 0x%x\n", xdac_init); */
-    /*     if(ydac_init) */
-    /*         printk(KERN_INFO "bmi_sensor.c: YDAC init = 0x%x\n", ydac_init); */
-    /*     if(zdac_init) */
-    /*         printk(KERN_INFO "bmi_sensor.c: ZDAC init = 0x%x\n", zdac_init); */
-    /* } */
+    if(factory_test) {
+        printk(KERN_INFO "bmi_sensor.c: Factory Test mode enabled\n");
+        if(eeprom_init)
+            printk(KERN_INFO "bmi_sensor.c: eeprom init = 0x%x\n", eeprom_init);
+        if(xdac_init)
+            printk(KERN_INFO "bmi_sensor.c: XDAC init = 0x%x\n", xdac_init);
+        if(ydac_init)
+            printk(KERN_INFO "bmi_sensor.c: YDAC init = 0x%x\n", ydac_init);
+        if(zdac_init)
+            printk(KERN_INFO "bmi_sensor.c: ZDAC init = 0x%x\n", zdac_init);
+    }
 
-    /* if(fcc_test) */
-    /*     printk(KERN_INFO "bmi_sensor.c: FCC Test mode enabled\n"); */
+    if(fcc_test)
+        printk(KERN_INFO "bmi_sensor.c: FCC Test mode enabled\n");
 
     printk(KERN_INFO "bmi_sensor.c: BMI_SENSOR Driver v%s \n", BMISENSOR_VERSION);
 
