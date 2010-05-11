@@ -240,10 +240,12 @@ static int omapbmi_slot_probe(struct platform_device *pdev)
   }
   
   ret = gpio_direction_input(irq_pres->start);
-
+  omap_set_gpio_debounce(irq_pres->start, 1);
+  omap_set_gpio_debounce_time(irq_pres->start, 0xff);
   slot_pdata = pdev->dev.platform_data;
 
   omapbmi_slot_gpio_req(slot_pdata->gpios);
+  
   
   slot->slot_data = (void*)slot_pdata->gpios;
   slot->present_irq = gpio_to_irq(irq_pres->start);
@@ -264,7 +266,7 @@ static int omapbmi_slot_probe(struct platform_device *pdev)
   }
   
   //  disable_irq_nosync(slot->present_irq);
-  schedule_delayed_work(&slot->work, msecs_to_jiffies(100));
+  schedule_delayed_work(&slot->work, msecs_to_jiffies(1000));
   return 0;
  err_release:
   kfree(slot->slot_data);
