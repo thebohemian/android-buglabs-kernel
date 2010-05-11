@@ -426,8 +426,8 @@ static int WriteByte_ACC(struct i2c_client *client, struct sensor_acc_rw *acc_rw
 
         msg[0] = acc_rw->address;
         msg[1] = acc_rw->data[0];
-        ret = i2c_master_send(client, msg, sizeof(msg));
 
+        ret = i2c_master_send(client, msg, sizeof(msg));
         if (ret < 0)
             printk (KERN_ERR "WriteByte_ACC() - i2c_transfer() failed...%d\n",ret);
 
@@ -1287,12 +1287,14 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
             acc->count = 2;
 
             if(ReadByte_ACC(sensor->acc_i2c_client, acc) < 0) {
+                printk(KERN_ERR "ReadByte_ACC failed for ACCXRD\n");
                 kfree(acc);
                 return -ENODEV;
             }
 
             read_data = (acc->data[1] << 8) | acc->data[0];
             if(put_user(read_data, (int __user *) arg)) {
+                printk(KERN_ERR "XRD failed to put_user\n");
                 kfree(acc);
                 return -EFAULT;
             }
@@ -1314,6 +1316,7 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
                 return -EFAULT;
             }
         } else {
+            printk(KERN_ERR "No accelerometer present for XRD\n");
             return -ENODEV;
         }
 
@@ -1326,7 +1329,7 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
         struct sensor_acc_rw *acc = NULL;
         unsigned int read_data;
 
-        if(sensor->eeprom.acc_present != SENSOR_DEVICE_PRESENT) {
+        if(sensor->eeprom.acc_present == SENSOR_DEVICE_PRESENT) {
             if ((acc = kmalloc(sizeof(struct sensor_acc_rw), GFP_KERNEL)) == NULL)
                 return -ENOMEM;
 
@@ -1334,12 +1337,14 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
             acc->count = 2;
 
             if(ReadByte_ACC(sensor->acc_i2c_client, acc) < 0) {
+                printk(KERN_ERR "ReadByte_ACC failed for ACCYRD\n");
                 kfree(acc);
                 return -ENODEV;
             }
 
             read_data = (acc->data[1] << 8) | acc->data[0];
             if(put_user(read_data, (int __user *) arg)) {
+                printk(KERN_ERR "YRD failed to put_user\n");
                 kfree(acc);
                 return -EFAULT;
             }
@@ -1361,6 +1366,7 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
                 return -EFAULT;
             }
         } else {
+            printk(KERN_ERR "No accelerometer present for YRD\n");
             return -ENODEV;
         }
 
@@ -1373,7 +1379,7 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
         struct sensor_acc_rw *acc = NULL;
         unsigned int read_data;
 
-        if(sensor->eeprom.acc_present != SENSOR_DEVICE_PRESENT) {
+        if(sensor->eeprom.acc_present == SENSOR_DEVICE_PRESENT) {
             if ((acc = kmalloc(sizeof(struct sensor_acc_rw), GFP_KERNEL)) == NULL)
                 return -ENOMEM;
 
@@ -1381,12 +1387,14 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
             acc->count = 2;
 
             if(ReadByte_ACC(sensor->acc_i2c_client, acc) < 0) {
+                printk(KERN_ERR "ReadByte_ACC failed for ACCZRD\n");
                 kfree(acc);
                 return -ENODEV;
             }
 
             read_data = (acc->data[1] << 8) | acc->data[0];
             if(put_user(read_data, (int __user *) arg)) {
+                printk(KERN_ERR "ZRD failed to put_user\n");
                 kfree(acc);
                 return -EFAULT;
             }
@@ -1408,6 +1416,7 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
                 return -EFAULT;
             }
         } else {
+            printk(KERN_ERR "No accelerometer present for ZRD\n");
             return -ENODEV;
         }
 
@@ -2718,28 +2727,28 @@ static ssize_t show_accel(struct device *dev, struct device_attribute *attr, cha
     int y;
     int z;
 
-    if (sensor->eeprom.acc_present != SENSOR_DEVICE_PRESENT) {
+    if (sensor->eeprom.acc_present == SENSOR_DEVICE_PRESENT) {
         acc_rw.address = SENSOR_ACC_DX0;
         acc_rw.count = 2;
         if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
             printk(KERN_ERR "bmi_sensor.c: ACC read (DX0) error\n");
         }
-        x = (acc_rw.data[0] << 8) | acc_rw.data[1];
+        x = (acc_rw.data[1] << 8) | acc_rw.data[0];
 
         acc_rw.address = SENSOR_ACC_DY0;
         acc_rw.count = 2;
         if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
             printk(KERN_ERR "bmi_sensor.c: ACC read (DY0) error\n");
         }
-        y = (acc_rw.data[0] << 8) | acc_rw.data[1];
+        y = (acc_rw.data[1] << 8) | acc_rw.data[0];
 
         acc_rw.address = SENSOR_ACC_DZ0;
         acc_rw.count = 2;
         if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
             printk(KERN_ERR "bmi_sensor.c: ACC read (DZ0) error\n");
         }
-        z = (acc_rw.data[0] << 8) | acc_rw.data[1];
-    } else {
+        z = (acc_rw.data[1] << 8) | acc_rw.data[0];
+    } else { // presume acc302
         acc_rw.address = SENSOR_A3_OUTX;
         acc_rw.count = 1;
         if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
@@ -3820,7 +3829,7 @@ int bmi_sensor_probe(struct bmi_device *bdev)
             }
 
             printk(KERN_INFO "bmi_sensor.c: initial ACC X state = 0x%x\n",
-                   (acc_rw.data[0] << 8) | acc_rw.data[1]);
+                   (acc_rw.data[1] << 8) | acc_rw.data[0]);
 
             acc_rw.address = SENSOR_ACC_DY0;
             acc_rw.count = 2;
@@ -3830,7 +3839,7 @@ int bmi_sensor_probe(struct bmi_device *bdev)
             }
 
             printk(KERN_INFO "bmi_sensor.c: initial ACC Y state = 0x%x\n",
-                   (acc_rw.data[0] << 8) | acc_rw.data[1]);
+                   (acc_rw.data[1] << 8) | acc_rw.data[0]);
 
             acc_rw.address = SENSOR_ACC_DZ0;
             acc_rw.count = 2;
@@ -3840,7 +3849,7 @@ int bmi_sensor_probe(struct bmi_device *bdev)
             }
 
             printk(KERN_INFO "bmi_sensor.c: initial ACC Z state = 0x%x\n",
-                   (acc_rw.data[0] << 8) | acc_rw.data[1]);
+                   (acc_rw.data[1] << 8) | acc_rw.data[0]);
 
             if(device_create_file(&sensor->bdev->dev, &dev_attr_accel)) {
                 printk (KERN_ERR

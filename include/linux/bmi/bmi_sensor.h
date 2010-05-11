@@ -146,7 +146,6 @@ struct sensor_comp_dac
 #define SENSOR_ADC_PD_ON	(0x03 << 2)	// power up ADC
 // data read
 #define SENSOR_ADC_DATA_MSB	(0x0F)
-#define SENSOR_ADC_DATA_LSB	(0xFF)
 
 // ADC mapping
 #define SENSOR_ADC_SOUND_PEAK	SENSOR_ADC_CH7
