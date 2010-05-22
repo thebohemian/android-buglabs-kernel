@@ -48,28 +48,34 @@
  */
 
 static struct i2c_board_info iox_info = {
-    I2C_BOARD_INFO("SENSOR_IOX", BMI_IOX_I2C_ADDRESS),
+    .type = "SENSOR_IOX",
 };
+static const unsigned short iox_addresses[] = { BMI_IOX_I2C_ADDRESS, I2C_CLIENT_END };
 
 static struct i2c_board_info adc_info = {
-    I2C_BOARD_INFO("SENSOR_ADC", BMI_ADC_I2C_ADDRESS),
+    .type = "SENSOR_ADC",
 };
+static const unsigned short adc_addresses[] = { BMI_ADC_I2C_ADDRESS, I2C_CLIENT_END };
 
 static struct i2c_board_info pl_info = {
-    I2C_BOARD_INFO("SENSOR_PL", BMI_PL_I2C_ADDRESS),
+    .type = "SENSOR_PL",
 };
+static const unsigned short pl_addresses[] = { BMI_PL_I2C_ADDRESS, I2C_CLIENT_END };
 
 static struct i2c_board_info temp_info = {
-    I2C_BOARD_INFO("SENSOR_TEMP", BMI_TEMP_I2C_ADDRESS),
+    .type = "SENSOR_TEMP", 
 };
+static const unsigned short temp_addresses[] = { BMI_TEMP_I2C_ADDRESS, I2C_CLIENT_END };
 
 static struct i2c_board_info acc_info = {
-    I2C_BOARD_INFO("SENSOR_ACC", BMI_ACC_I2C_ADDRESS),
+    .type = "SENSOR_ACC",
 };
+static const unsigned short acc_addresses[] = { BMI_ACC_I2C_ADDRESS, I2C_CLIENT_END };
 
 static struct i2c_board_info dcomp_info = {
-    I2C_BOARD_INFO("SENSOR_DCOMP", BMI_DCOMP_I2C_ADDRESS),
+    .type = "SENSOR_DCOMP",
 };
+static const unsigned short dcomp_addresses[] = { BMI_DCOMP_I2C_ADDRESS, I2C_CLIENT_END };
 
 static ushort factory_test = 0;
 
@@ -681,7 +687,7 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
         unsigned char adc_data[2];
         int read_data;
 
-         if(!ACOMPASS_PRESENT)
+        if(!ACOMPASS_PRESENT)
             return -ENODEV;
 
         if(WriteByte_ADC(sensor->adc_i2c_client, SENSOR_ADC_ACOMPASS_Y | SENSOR_ADC_PD_OFF) < 0)
@@ -2376,7 +2382,6 @@ int bmi_sensor_probe(struct bmi_device *bdev)
     struct cdev *cdev;
     struct class *bmi_class;
     dev_t dev_id;
-    int irq;
     unsigned char iox_data;
 
     sensor->bdev = 0;
@@ -2407,11 +2412,15 @@ int bmi_sensor_probe(struct bmi_device *bdev)
     // bind driver and bmi_device
     sensor->bdev = bdev;
 
-    sensor->iox_i2c_client = i2c_new_device(bdev->slot->adap, &iox_info);
-    if (sensor->iox_i2c_client == NULL)
+    sensor->iox_i2c_client = i2c_new_probed_device(bdev->slot->adap, &iox_info, iox_addresses);
+    if (sensor->iox_i2c_client != NULL)
     {
-        printk(KERN_ERR "IOX NULL...\n");
-        // we're similarly screwed without the IOX
+        printk(KERN_INFO "Found IOX\n");
+    }
+    else
+    {
+        printk(KERN_INFO "IOX not found\n");
+        // we're screwed without the IOX
         goto error;
     }
 
@@ -2513,10 +2522,16 @@ int bmi_sensor_probe(struct bmi_device *bdev)
     }
     INIT_WORK(&sensor->work_item, sensor_work_handler);
 
-    sensor->adc_i2c_client = i2c_new_device(bdev->slot->adap, &adc_info);
-    if (sensor->adc_i2c_client != NULL)
+    sensor->adc_i2c_client = i2c_new_probed_device(bdev->slot->adap, &adc_info, adc_addresses);
+    if (sensor->adc_i2c_client == NULL)
+    {
+        printk(KERN_INFO "ADC not found\n");
+    }
+    else
     {
         unsigned char adc_data[2];
+
+        printk(KERN_INFO "Found ADC\n");
 
         if(WriteByte_ADC(sensor->adc_i2c_client, SENSOR_ADC_CH0) < 0) {
             printk(KERN_ERR "bmi_sensor.c: ADC write error\n");
@@ -2559,10 +2574,6 @@ int bmi_sensor_probe(struct bmi_device *bdev)
                     "bmi_sensor.c (%d): attr (humidity) failed.\n",
                     slot);
             goto sysfs_err1;
-        }
-
-        if(factory_test == 1) {
-            printk(KERN_INFO "bmi_sensor.c: HUMIDITY Sensor present in slot %d\n", slot);
         }
     }
 
@@ -2622,10 +2633,6 @@ int bmi_sensor_probe(struct bmi_device *bdev)
                     slot);
             goto sysfs_err1;
         }
-
-        if(factory_test == 1) {
-            printk(KERN_INFO "bmi_sensor.c: ACOMPASS Sensor present in slot %d\n", slot);
-        }
     }
 
     // try and initialize digital compass
@@ -2639,9 +2646,15 @@ int bmi_sensor_probe(struct bmi_device *bdev)
         unsigned char compass_y;
         unsigned char compass_z;
 
-        sensor->dcomp_i2c_client = i2c_new_device(bdev->slot->adap, &dcomp_info);
-        if (sensor->dcomp_i2c_client != NULL)
+        sensor->dcomp_i2c_client = i2c_new_probed_device(bdev->slot->adap, &dcomp_info, dcomp_addresses);
+        if (sensor->dcomp_i2c_client == NULL)
         {
+            printk(KERN_INFO "DCOMP not found\n");
+        }
+        else
+        {
+            printk(KERN_INFO "Found DCOMP\n");
+
             if(WriteByte_DCOMP(sensor->dcomp_i2c_client, SENSOR_DCOMP_MS1, SENSOR_DCOMP_MS1_EEPROM) < 0) {
                 printk(KERN_ERR "bmi_sensor.c: DCOMP_MS1 write error\n");
                 goto sysfs_err2;
@@ -2730,19 +2743,21 @@ int bmi_sensor_probe(struct bmi_device *bdev)
                 goto sysfs_err2;
             }
         }
-
-        if(factory_test == 1) {
-            printk(KERN_INFO "bmi_sensor.c: DCOMPASS Sensor present in slot %d\n", slot);
-        }
     }
 
     // try and initialized proximity / light sensor
     {
         unsigned char pl_data[2];
 
-        sensor->pl_i2c_client = i2c_new_device(bdev->slot->adap, &pl_info);
-        if (sensor->pl_i2c_client != NULL)
+        sensor->pl_i2c_client = i2c_new_probed_device(bdev->slot->adap, &pl_info, pl_addresses);
+        if (sensor->pl_i2c_client == NULL)
         {
+            printk(KERN_INFO "PL not found\n");
+        }
+        else
+        {
+            printk(KERN_INFO "PL found\n");
+
             if(WriteByte_PL(sensor->pl_i2c_client, SENSOR_PL_CMD1, SENSOR_PL_CMD1_ALS_1X) < 0) {
                 printk(KERN_ERR "bmi_sensor.c: PL write (ALS) error\n");
                 goto sysfs_err3;
@@ -2819,16 +2834,11 @@ int bmi_sensor_probe(struct bmi_device *bdev)
                 goto sysfs_err5;
             }
         }
-
-        if(factory_test == 1) {
-            printk(KERN_INFO "bmi_sensor.c: Combined LIGHT/PROXIMITY Sensor present in slot %d\n", slot);
-        }
     }
 
-    if (SOUND_PRESENT) {
+    if (SOUND_PRESENT)
     {
         unsigned char adc_data[2];
-
         if(WriteByte_ADC(sensor->adc_i2c_client, SENSOR_ADC_SOUND_AVG) < 0) {
             printk(KERN_ERR "bmi_sensor.c: ADC write (Sound Average) error\n");
             goto sysfs_err6;
@@ -2872,132 +2882,127 @@ int bmi_sensor_probe(struct bmi_device *bdev)
                     slot);
             goto sysfs_err7;
         }
-
-        if(factory_test == 1) {
-            printk(KERN_INFO "bmi_sensor.c: SOUND PRESSURE Sensor present in slot %d\n", slot);
-        }
     }
 
-    // try and initialize temperatur sensor
+    // try and initialize temperature sensor
+    sensor->temp_i2c_client = i2c_new_probed_device(bdev->slot->adap, &temp_info, temp_addresses);
+    if (sensor->temp_i2c_client == NULL)
+    {
+        printk(KERN_INFO "TEMP not found\n");
+    }
+    else
     {
         unsigned char temp_datam;
         unsigned char temp_datal;
+        printk(KERN_INFO "TEMP found\n");
 
-        sensor->temp_i2c_client = i2c_new_device(bdev->slot->adap, &temp_info);
-        if (sensor->temp_i2c_client != NULL)
-        {
-            if(ReadByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_MAN_ID, &temp_datam) < 0) {
-                printk(KERN_ERR "bmi_sensor.c: TEMP read (Manufacturer ID) error\n");
-                goto sysfs_err8;
-            }
-
-            if(temp_datam != SENSOR_TEMP_MAN_ID_DATA) {
-                printk(KERN_ERR "bmi_sensor.c: TEMP MAN ID error (read=0x%x, expected=0x%x\n",
-                       temp_datam, SENSOR_TEMP_MAN_ID_DATA);
-                goto sysfs_err8;
-            }
-
-            printk(KERN_INFO "bmi_sensor.c: TEMP Manufacturer ID = 0x%x\n", temp_datam);
-
-            if(ReadByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_REV_ID, &temp_datam) < 0) {
-                printk(KERN_ERR "bmi_sensor.c: TEMP read (Revision ID) error\n");
-                goto sysfs_err8;
-            }
-
-            if(temp_datam != SENSOR_TEMP_REV_ID_DATA) {
-                printk(KERN_ERR "bmi_sensor.c: TEMP REV ID error (read=0x%x, expected=0x%x\n",
-                       temp_datam, SENSOR_TEMP_REV_ID_DATA);
-                goto sysfs_err8;
-            }
-
-            printk(KERN_INFO "bmi_sensor.c: TEMP Revision ID = 0x%x\n", temp_datam);
-
-            if(WriteByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_CONF2, 0x0) < 0) {
-                printk(KERN_ERR "bmi_sensor.c: TEMP write (CONF2) error\n");
-                goto sysfs_err8;
-            }
-
-            if(WriteByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_CONF1_WR, SENSOR_TEMP_CONF1_STOP) < 0) {
-                printk(KERN_ERR "bmi_sensor.c: TEMP write (CONF1) error\n");
-                goto sysfs_err8;
-            }
-
-            if(WriteByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_CONV_WR, SENSOR_TEMP_CONV_P364) < 0) {
-                printk(KERN_ERR "bmi_sensor.c: TEMP write (CONF1) error\n");
-                goto sysfs_err8;
-            }
-
-            if(WriteByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_ONE_SHOT, 0x0) < 0) {
-                printk(KERN_ERR "bmi_sensor.c: TEMP write (CONF1) error\n");
-                goto sysfs_err8;
-            }
-
-            mdelay(400);
-
-            if(ReadByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_LOC_MSB, &temp_datam) < 0) {
-                printk(KERN_ERR "bmi_sensor.c: TEMP read (LOCAL MSB) error\n");
-                goto sysfs_err8;
-            }
-
-            if(ReadByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_LOC_LSB, &temp_datal) < 0) {
-                printk(KERN_ERR "bmi_sensor.c: TEMP read (LOCAL LSB) error\n");
-                goto sysfs_err8;
-            }
-
-            printk(KERN_INFO "bmi_sensor.c: initial Local temperature = 0x%x\n",
-                   (temp_datam << 8) | temp_datal);
-
-            if(device_create_file(&sensor->bdev->dev, &dev_attr_temp_local)) {
-                printk (KERN_ERR
-                        "bmi_sensor.c (%d): attr (TEMP local) failed.\n",
-                        slot);
-                goto sysfs_err8;
-            }
-
-            if(ReadByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_REM_MSB, &temp_datam) < 0) {
-                printk(KERN_ERR "bmi_sensor.c: TEMP read (REM MSB) error\n");
-                goto sysfs_err9;
-            }
-
-            if(ReadByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_REM_LSB, &temp_datal) < 0) {
-                printk(KERN_ERR "bmi_sensor.c: TEMP read (REM LSB) error\n");
-                goto sysfs_err9;
-            }
-
-            printk(KERN_INFO "bmi_sensor.c: initial Remote temperature = 0x%x\n",
-                   (temp_datam << 8) | temp_datal);
-
-            if(device_create_file(&sensor->bdev->dev, &dev_attr_temp_sremote)) {
-                printk (KERN_ERR
-                        "bmi_sensor.c (%d): attr (TEMP sremote) failed.\n",
-                        slot);
-                goto sysfs_err9;
-            }
-
-            if(ReadByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_UREM_MSB, &temp_datam) < 0) {
-                printk(KERN_ERR "bmi_sensor.c: TEMP read (UREM MSB) error\n");
-                goto sysfs_err10;
-            }
-
-            if(ReadByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_UREM_LSB, &temp_datal) < 0) {
-                printk(KERN_ERR "bmi_sensor.c: TEMP read (UREM LSB) error\n");
-                goto sysfs_err10;
-            }
-
-            if(device_create_file(&sensor->bdev->dev, &dev_attr_temp_uremote)) {
-                printk (KERN_ERR
-                        "bmi_sensor.c (%d): attr (TEMP uremote) failed.\n",
-                        slot);
-                goto sysfs_err10;
-            }
-
-            printk(KERN_INFO "bmi_sensor.c: initial Remote temperature (unsigned) = 0x%x\n",
-                   (temp_datam << 8) | temp_datal);
+        if(ReadByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_MAN_ID, &temp_datam) < 0) {
+            printk(KERN_ERR "bmi_sensor.c: TEMP read (Manufacturer ID) error\n");
+            goto sysfs_err8;
         }
 
-        if(factory_test == 1) {
-            printk(KERN_INFO "bmi_sensor.c: TEMPERATURE Sensor present in slot %d\n", slot);
+        if(temp_datam != SENSOR_TEMP_MAN_ID_DATA) {
+            printk(KERN_ERR "bmi_sensor.c: TEMP MAN ID error (read=0x%x, expected=0x%x\n",
+                   temp_datam, SENSOR_TEMP_MAN_ID_DATA);
+            goto sysfs_err8;
         }
+
+        printk(KERN_INFO "bmi_sensor.c: TEMP Manufacturer ID = 0x%x\n", temp_datam);
+
+        if(ReadByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_REV_ID, &temp_datam) < 0) {
+            printk(KERN_ERR "bmi_sensor.c: TEMP read (Revision ID) error\n");
+            goto sysfs_err8;
+        }
+
+        if(temp_datam != SENSOR_TEMP_REV_ID_DATA) {
+            printk(KERN_ERR "bmi_sensor.c: TEMP REV ID error (read=0x%x, expected=0x%x\n",
+                   temp_datam, SENSOR_TEMP_REV_ID_DATA);
+            goto sysfs_err8;
+        }
+
+        printk(KERN_INFO "bmi_sensor.c: TEMP Revision ID = 0x%x\n", temp_datam);
+
+        if(WriteByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_CONF2, 0x0) < 0) {
+            printk(KERN_ERR "bmi_sensor.c: TEMP write (CONF2) error\n");
+            goto sysfs_err8;
+        }
+
+        if(WriteByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_CONF1_WR, SENSOR_TEMP_CONF1_STOP) < 0) {
+            printk(KERN_ERR "bmi_sensor.c: TEMP write (CONF1) error\n");
+            goto sysfs_err8;
+        }
+
+        if(WriteByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_CONV_WR, SENSOR_TEMP_CONV_P364) < 0) {
+            printk(KERN_ERR "bmi_sensor.c: TEMP write (CONF1) error\n");
+            goto sysfs_err8;
+        }
+
+        if(WriteByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_ONE_SHOT, 0x0) < 0) {
+            printk(KERN_ERR "bmi_sensor.c: TEMP write (CONF1) error\n");
+            goto sysfs_err8;
+        }
+
+        mdelay(400);
+
+        if(ReadByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_LOC_MSB, &temp_datam) < 0) {
+            printk(KERN_ERR "bmi_sensor.c: TEMP read (LOCAL MSB) error\n");
+            goto sysfs_err8;
+        }
+
+        if(ReadByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_LOC_LSB, &temp_datal) < 0) {
+            printk(KERN_ERR "bmi_sensor.c: TEMP read (LOCAL LSB) error\n");
+            goto sysfs_err8;
+        }
+
+        printk(KERN_INFO "bmi_sensor.c: initial Local temperature = 0x%x\n",
+               (temp_datam << 8) | temp_datal);
+
+        if(device_create_file(&sensor->bdev->dev, &dev_attr_temp_local)) {
+            printk (KERN_ERR
+                    "bmi_sensor.c (%d): attr (TEMP local) failed.\n",
+                    slot);
+            goto sysfs_err8;
+        }
+
+        if(ReadByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_REM_MSB, &temp_datam) < 0) {
+            printk(KERN_ERR "bmi_sensor.c: TEMP read (REM MSB) error\n");
+            goto sysfs_err9;
+        }
+
+        if(ReadByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_REM_LSB, &temp_datal) < 0) {
+            printk(KERN_ERR "bmi_sensor.c: TEMP read (REM LSB) error\n");
+            goto sysfs_err9;
+        }
+
+        printk(KERN_INFO "bmi_sensor.c: initial Remote temperature = 0x%x\n",
+               (temp_datam << 8) | temp_datal);
+
+        if(device_create_file(&sensor->bdev->dev, &dev_attr_temp_sremote)) {
+            printk (KERN_ERR
+                    "bmi_sensor.c (%d): attr (TEMP sremote) failed.\n",
+                    slot);
+            goto sysfs_err9;
+        }
+
+        if(ReadByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_UREM_MSB, &temp_datam) < 0) {
+            printk(KERN_ERR "bmi_sensor.c: TEMP read (UREM MSB) error\n");
+            goto sysfs_err10;
+        }
+
+        if(ReadByte_TEMP(sensor->temp_i2c_client, SENSOR_TEMP_UREM_LSB, &temp_datal) < 0) {
+            printk(KERN_ERR "bmi_sensor.c: TEMP read (UREM LSB) error\n");
+            goto sysfs_err10;
+        }
+
+        if(device_create_file(&sensor->bdev->dev, &dev_attr_temp_uremote)) {
+            printk (KERN_ERR
+                    "bmi_sensor.c (%d): attr (TEMP uremote) failed.\n",
+                    slot);
+            goto sysfs_err10;
+        }
+
+        printk(KERN_INFO "bmi_sensor.c: initial Remote temperature (unsigned) = 0x%x\n",
+               (temp_datam << 8) | temp_datal);
     }
 
     if(MOTION_PRESENT) {
@@ -3010,98 +3015,94 @@ int bmi_sensor_probe(struct bmi_device *bdev)
 
         printk(KERN_INFO "bmi_sensor.c: initial Motion state = 0x%x\n",
                get_mot_det_state(slot));
-
-        if(factory_test == 1) {
-            printk(KERN_INFO "bmi_sensor.c: MOTION Sensor present in slot %d\n", slot);
-        }
     }
 
     // try and initialize accelerometer
+    sensor->acc_i2c_client = i2c_new_probed_device(bdev->slot->adap, &acc_info, acc_addresses);
+    if (sensor->acc_i2c_client == NULL)
     {
-        sensor->acc_i2c_client = i2c_new_device(bdev->slot->adap, &acc_info);
-        if (sensor->acc_i2c_client != NULL)
-        {
-            struct sensor_acc_rw acc_rw;
+        printk(KERN_INFO "ACC not found\n");
+    }
+    else
+    {
+        struct sensor_acc_rw acc_rw;
 
-            acc_rw.address = SENSOR_ACC_ID;
-            acc_rw.count = 1;
-            if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
-                printk(KERN_ERR "bmi_sensor.c: ACC read (ID) error\n");
-                goto sysfs_err12;
-            }
+        printk(KERN_INFO "ACC found\n");
 
-            if(acc_rw.data[0] != SENSOR_ACC_ID_DATA) {
-                printk(KERN_ERR "bmi_sensor.c: ACC ID error (read=0x%x, expected=0x%x)\n",
-                       acc_rw.data[0], SENSOR_ACC_ID_DATA);
-                goto sysfs_err12;
-            }
-
-            acc_rw.address = SENSOR_ACC_RATE;
-            acc_rw.count = 1;
-            acc_rw.data[0] = SENSOR_ACC_RC_3200_1600;
-            if(WriteByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
-                printk(KERN_ERR "bmi_sensor.c: ACC write (RATE) error\n");
-                goto sysfs_err12;
-            }
-
-            acc_rw.address = SENSOR_ACC_POWER;
-            acc_rw.count = 1;
-            acc_rw.data[0] = SENSOR_ACC_P_NORM;
-            if(WriteByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
-                printk(KERN_ERR "bmi_sensor.c: ACC write (RATE) error\n");
-                goto sysfs_err12;
-            }
-
-            acc_rw.address = SENSOR_ACC_DF;
-            acc_rw.count = 1;
-            acc_rw.data[0] = SENSOR_ACC_DF_LENGTH;
-            if(WriteByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
-                printk(KERN_ERR "bmi_sensor.c: ACC write (DF) error\n");
-                goto sysfs_err12;
-            }
-
-            mdelay(20);
-
-            acc_rw.address = SENSOR_ACC_DX0;
-            acc_rw.count = 2;
-            if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
-                printk(KERN_ERR "bmi_sensor.c: ACC read (DX0) error\n");
-                goto sysfs_err12;
-            }
-
-            printk(KERN_INFO "bmi_sensor.c: initial ACC X state = 0x%x\n",
-                   (acc_rw.data[1] << 8) | acc_rw.data[0]);
-
-            acc_rw.address = SENSOR_ACC_DY0;
-            acc_rw.count = 2;
-            if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
-                printk(KERN_ERR "bmi_sensor.c: ACC read (DY0) error\n");
-                goto sysfs_err12;
-            }
-
-            printk(KERN_INFO "bmi_sensor.c: initial ACC Y state = 0x%x\n",
-                   (acc_rw.data[1] << 8) | acc_rw.data[0]);
-
-            acc_rw.address = SENSOR_ACC_DZ0;
-            acc_rw.count = 2;
-            if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
-                printk(KERN_ERR "bmi_sensor.c: ACC read (DZ0) error\n");
-                goto sysfs_err12;
-            }
-
-            printk(KERN_INFO "bmi_sensor.c: initial ACC Z state = 0x%x\n",
-                   (acc_rw.data[1] << 8) | acc_rw.data[0]);
-
-            if(device_create_file(&sensor->bdev->dev, &dev_attr_accel)) {
-                printk (KERN_ERR
-                        "bmi_sensor.c (%d): attr (accel) failed.\n",
-                        slot);
-                goto sysfs_err12;
-            }
+        acc_rw.address = SENSOR_ACC_ID;
+        acc_rw.count = 1;
+        if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
+            printk(KERN_ERR "bmi_sensor.c: ACC read (ID) error\n");
+            goto sysfs_err12;
         }
 
-        if(factory_test == 1) {
-            printk(KERN_INFO "bmi_sensor.c: ACCELEROMETER Sensor present in slot %d\n", slot);
+        if(acc_rw.data[0] != SENSOR_ACC_ID_DATA) {
+            printk(KERN_ERR "bmi_sensor.c: ACC ID error (read=0x%x, expected=0x%x)\n",
+                   acc_rw.data[0], SENSOR_ACC_ID_DATA);
+            goto sysfs_err12;
+        }
+
+        acc_rw.address = SENSOR_ACC_RATE;
+        acc_rw.count = 1;
+        acc_rw.data[0] = SENSOR_ACC_RC_3200_1600;
+        if(WriteByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
+            printk(KERN_ERR "bmi_sensor.c: ACC write (RATE) error\n");
+            goto sysfs_err12;
+        }
+
+        acc_rw.address = SENSOR_ACC_POWER;
+        acc_rw.count = 1;
+        acc_rw.data[0] = SENSOR_ACC_P_NORM;
+        if(WriteByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
+            printk(KERN_ERR "bmi_sensor.c: ACC write (RATE) error\n");
+            goto sysfs_err12;
+        }
+
+        acc_rw.address = SENSOR_ACC_DF;
+        acc_rw.count = 1;
+        acc_rw.data[0] = SENSOR_ACC_DF_LENGTH;
+        if(WriteByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
+            printk(KERN_ERR "bmi_sensor.c: ACC write (DF) error\n");
+            goto sysfs_err12;
+        }
+
+        mdelay(20);
+
+        acc_rw.address = SENSOR_ACC_DX0;
+        acc_rw.count = 2;
+        if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
+            printk(KERN_ERR "bmi_sensor.c: ACC read (DX0) error\n");
+            goto sysfs_err12;
+        }
+
+        printk(KERN_INFO "bmi_sensor.c: initial ACC X state = 0x%x\n",
+               (acc_rw.data[1] << 8) | acc_rw.data[0]);
+
+        acc_rw.address = SENSOR_ACC_DY0;
+        acc_rw.count = 2;
+        if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
+            printk(KERN_ERR "bmi_sensor.c: ACC read (DY0) error\n");
+            goto sysfs_err12;
+        }
+
+        printk(KERN_INFO "bmi_sensor.c: initial ACC Y state = 0x%x\n",
+               (acc_rw.data[1] << 8) | acc_rw.data[0]);
+
+        acc_rw.address = SENSOR_ACC_DZ0;
+        acc_rw.count = 2;
+        if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
+            printk(KERN_ERR "bmi_sensor.c: ACC read (DZ0) error\n");
+            goto sysfs_err12;
+        }
+
+        printk(KERN_INFO "bmi_sensor.c: initial ACC Z state = 0x%x\n",
+               (acc_rw.data[1] << 8) | acc_rw.data[0]);
+
+        if(device_create_file(&sensor->bdev->dev, &dev_attr_accel)) {
+            printk (KERN_ERR
+                    "bmi_sensor.c (%d): attr (accel) failed.\n",
+                    slot);
+            goto sysfs_err12;
         }
     }
 
@@ -3165,10 +3166,6 @@ int bmi_sensor_probe(struct bmi_device *bdev)
                     slot);
             goto sysfs_err13;
         }
-
-        if(factory_test == 1) {
-            printk(KERN_INFO "bmi_sensor.c: Analog PROXIMITY Sensor present in slot %d\n", slot);
-        }
     }
 
     if (ALIGHT_PRESENT) {
@@ -3194,10 +3191,6 @@ int bmi_sensor_probe(struct bmi_device *bdev)
                     "bmi_sensor.c (%d): attr (alight) failed.\n",
                     slot);
             goto sysfs_err14;
-        }
-
-        if(factory_test == 1) {
-            printk(KERN_INFO "bmi_sensor.c: Analog LIGHT Sensor present in slot %d\n", slot);
         }
     }
 
@@ -3241,10 +3234,6 @@ int bmi_sensor_probe(struct bmi_device *bdev)
                     slot);
             goto sysfs_err15;
         }
-
-        if(factory_test == 1) {
-            printk(KERN_INFO "bmi_sensor.c: Digital LIGHT Sensor present in slot %d\n", slot);
-        }
     }
 
     if(ReadByte_IOX(sensor->iox_i2c_client, IOX_INPUT0_REG, &iox_data) < 0) { // clear IOX interrupts
@@ -3261,9 +3250,18 @@ int bmi_sensor_probe(struct bmi_device *bdev)
         goto sysfs_err16;
     }
 
+#ifdef IRQ_STUFF_IMPLEMENTED
     // request PIM interrupt
-    irq = bdev->slot->status_irq;
-    sprintf(sensor->int_name, "bmi_sensor%d", slot);
+    {
+        int irq = bdev->slot->status_irq;
+        sprintf(sensor->int_name, "bmi_sensor%d", slot);
+        if(request_irq(irq, &module_irq_handler, 0, sensor->int_name, sensor)) {
+            printk(KERN_ERR "bmi_sensor.c: Can't allocate irq %d or find Sensor in slot %d\n",
+                   irq, slot);
+            goto sysfs_err16;
+        }
+    }
+#endif
 
     return 0;
 
@@ -3297,7 +3295,6 @@ sysfs_err8:
 sysfs_err7:
     if(SOUND_PRESENT)
         device_remove_file(&sensor->bdev->dev, &dev_attr_sound_avg);
-    }
 sysfs_err6:
     if(PL_PRESENT)
         device_remove_file(&sensor->bdev->dev, &dev_attr_proximity);
@@ -3332,18 +3329,20 @@ error:
 // remove PIM
 void bmi_sensor_remove(struct bmi_device *bdev)
 {
-    int slot;
-    struct bmi_sensor *sensor;
+    int slot = bdev->slot->slotnum;
+    struct bmi_sensor *sensor = &bmi_sensor[slot];
     struct class *bmi_class;
-    int irq;
 
-    slot = bdev->slot->slotnum;
-    sensor = &bmi_sensor[slot];
+#ifdef IRQ_STUFF_IMPLEMENTED
+    {
+        int irq = bdev->slot->status_irq;
+        free_irq(irq, sensor);
+    }
+#endif
 
-    irq = bdev->slot->status_irq;
-    free_irq(irq, sensor);
-
+    printk(KERN_ERR "destroy_workqueue: sensor->workqueue is %p\n", sensor->workqueue);
     destroy_workqueue(sensor->workqueue);
+    printk(KERN_ERR "back from destroy_workqueue\n");
 
     if(HUMIDITY_PRESENT) {
         device_remove_file(&sensor->bdev->dev, &dev_attr_humidity);
@@ -3394,14 +3393,11 @@ void bmi_sensor_remove(struct bmi_device *bdev)
     device_destroy(bmi_class, MKDEV(major, slot));
 
     sensor->class_dev = 0;
-
     cdev_del(&sensor->cdev);
 
     // de-attach driver-specific struct from bmi_device structure
     bmi_device_set_drvdata(bdev, 0);
     sensor->bdev = 0;
-
-    return;
 }
 
 /*
