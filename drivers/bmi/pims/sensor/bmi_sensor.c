@@ -1224,8 +1224,7 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
     {
         struct sensor_acc_rw *acc = NULL;
 
-        if((sensor->eeprom.acc_present != SENSOR_DEVICE_PRESENT)
-           && (sensor->eeprom.acc302_present != SENSOR_DEVICE_PRESENT))
+        if (sensor->eeprom.acc_present != SENSOR_DEVICE_PRESENT)
             return -ENODEV;
 
         if ((acc = kmalloc(sizeof(struct sensor_acc_rw), GFP_KERNEL)) == NULL)
@@ -1248,8 +1247,7 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
     {
         struct sensor_acc_rw *acc = NULL;
 
-        if((sensor->eeprom.acc_present != SENSOR_DEVICE_PRESENT)
-           && (sensor->eeprom.acc302_present != SENSOR_DEVICE_PRESENT))
+        if(sensor->eeprom.acc_present != SENSOR_DEVICE_PRESENT)
             return -ENODEV;
 
         if ((acc = kmalloc(sizeof(struct sensor_acc_rw), GFP_KERNEL)) == NULL)
@@ -1298,23 +1296,6 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
                 kfree(acc);
                 return -EFAULT;
             }
-        } else if(sensor->eeprom.acc302_present == SENSOR_DEVICE_PRESENT) {
-            if ((acc = kmalloc(sizeof(struct sensor_acc_rw), GFP_KERNEL)) == NULL)
-                return -ENOMEM;
-
-            acc->address = SENSOR_A3_OUTX;
-            acc->count = 1;
-
-            if(ReadByte_ACC(sensor->acc_i2c_client, acc) < 0) {
-                kfree(acc);
-                return -ENODEV;
-            }
-
-            read_data = acc->data[0];
-            if(put_user(read_data, (int __user *) arg)) {
-                kfree(acc);
-                return -EFAULT;
-            }
         } else {
             printk(KERN_ERR "No accelerometer present for XRD\n");
             return -ENODEV;
@@ -1345,23 +1326,6 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
             read_data = (acc->data[1] << 8) | acc->data[0];
             if(put_user(read_data, (int __user *) arg)) {
                 printk(KERN_ERR "YRD failed to put_user\n");
-                kfree(acc);
-                return -EFAULT;
-            }
-        } else if(sensor->eeprom.acc302_present == SENSOR_DEVICE_PRESENT) {
-            if ((acc = kmalloc(sizeof(struct sensor_acc_rw), GFP_KERNEL)) == NULL)
-                return -ENOMEM;
-
-            acc->address = SENSOR_A3_OUTY;
-            acc->count = 1;
-
-            if(ReadByte_ACC(sensor->acc_i2c_client, acc) < 0) {
-                kfree(acc);
-                return -ENODEV;
-            }
-
-            read_data = acc->data[0];
-            if(put_user(read_data, (int __user *) arg)) {
                 kfree(acc);
                 return -EFAULT;
             }
@@ -1398,23 +1362,6 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
                 kfree(acc);
                 return -EFAULT;
             }
-        } else if(sensor->eeprom.acc302_present == SENSOR_DEVICE_PRESENT) {
-            if ((acc = kmalloc(sizeof(struct sensor_acc_rw), GFP_KERNEL)) == NULL)
-                return -ENOMEM;
-
-            acc->address = SENSOR_A3_OUTZ;
-            acc->count = 1;
-
-            if(ReadByte_ACC(sensor->acc_i2c_client, acc) < 0) {
-                kfree(acc);
-                return -ENODEV;
-            }
-
-            read_data = acc->data[0];
-            if(put_user(read_data, (int __user *) arg)) {
-                kfree(acc);
-                return -EFAULT;
-            }
         } else {
             printk(KERN_ERR "No accelerometer present for ZRD\n");
             return -ENODEV;
@@ -1426,8 +1373,7 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
 
     case BMI_SENSOR_ACC_I1WAIT:
     {
-        if((sensor->eeprom.acc_present != SENSOR_DEVICE_PRESENT)
-           && (sensor->eeprom.acc302_present != SENSOR_DEVICE_PRESENT))
+        if(sensor->eeprom.acc_present != SENSOR_DEVICE_PRESENT)
             return -ENODEV;
 
         ret = down_interruptible(&sensor->sem);
@@ -1442,8 +1388,7 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
 
     case BMI_SENSOR_ACC_I2WAIT:
     {
-        if((sensor->eeprom.acc_present != SENSOR_DEVICE_PRESENT)
-           && (sensor->eeprom.acc302_present != SENSOR_DEVICE_PRESENT))
+        if(sensor->eeprom.acc_present != SENSOR_DEVICE_PRESENT)
             return -ENODEV;
 
         ret = down_interruptible(&sensor->sem);
@@ -2249,8 +2194,7 @@ static void sensor_work_handler(struct work_struct * work)
         }
     }
 
-    if((sensor->eeprom.acc_present == SENSOR_DEVICE_PRESENT)
-       || (sensor->eeprom.acc302_present == SENSOR_DEVICE_PRESENT)) {
+    if(sensor->eeprom.acc_present == SENSOR_DEVICE_PRESENT) {
         if(sensor->acc_int1_en) {
             if((iox0 & (0x1 << SENSOR_IOX_ACC_INT1)) == 0) {
                 sensor->acc_int1_en = 0;
@@ -2267,76 +2211,29 @@ static void sensor_work_handler(struct work_struct * work)
             }
         }
 
-        if(sensor->eeprom.acc_present == SENSOR_DEVICE_PRESENT)  {
-            // clear interrupts
-            acc_rw.address = SENSOR_ACC_IS;
-            acc_rw.count = 1;
-            if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
-                printk(KERN_ERR "bmi_sensor.c: ACC_IS read error\n");
-            }
+        // clear interrupts
+        acc_rw.address = SENSOR_ACC_IS;
+        acc_rw.count = 1;
+        if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
+            printk(KERN_ERR "bmi_sensor.c: ACC_IS read error\n");
+        }
 
-            acc_rw.address = SENSOR_ACC_DX0;
-            acc_rw.count = 2;
-            if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
-                printk(KERN_ERR "bmi_sensor.c: ACC read (DX0) error\n");
-            }
+        acc_rw.address = SENSOR_ACC_DX0;
+        acc_rw.count = 2;
+        if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
+            printk(KERN_ERR "bmi_sensor.c: ACC read (DX0) error\n");
+        }
 
-            acc_rw.address = SENSOR_ACC_DY0;
-            acc_rw.count = 2;
-            if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
-                printk(KERN_ERR "bmi_sensor.c: ACC read (DY0) error\n");
-            }
+        acc_rw.address = SENSOR_ACC_DY0;
+        acc_rw.count = 2;
+        if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
+            printk(KERN_ERR "bmi_sensor.c: ACC read (DY0) error\n");
+        }
 
-            acc_rw.address = SENSOR_ACC_DZ0;
-            acc_rw.count = 2;
-            if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
-                printk(KERN_ERR "bmi_sensor.c: ACC read (DZ0) error\n");
-            }
-        } else { // LIS302DL
-            // clear interrupts
-            if(sensor->acc_int1_en) {
-                if((iox0 & (0x1 << SENSOR_IOX_ACC_INT1)) == 0) {
-                    acc_rw.address = SENSOR_A3_SRC1;
-                    acc_rw.count = 1;
-                    if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
-                        printk(KERN_ERR "bmi_sensor.c: A3_SRC1 read error\n");
-                    }
-                }
-            }
-
-            if(sensor->acc_int2_en) {
-                if((iox0 & (0x1 << SENSOR_IOX_ACC_INT2)) == 0) {
-                    acc_rw.address = SENSOR_A3_SRC2;
-                    acc_rw.count = 1;
-                    if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
-                        printk(KERN_ERR "bmi_sensor.c: A3_SRC2 read error\n");
-                    }
-                }
-            }
-
-            acc_rw.address = SENSOR_A3_STAT;
-            acc_rw.count = 1;
-            if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
-                printk(KERN_ERR "bmi_sensor.c: A3_STAT read error\n");
-            }
-
-            acc_rw.address = SENSOR_A3_OUTX;
-            acc_rw.count = 1;
-            if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
-                printk(KERN_ERR "bmi_sensor.c: A3 read (OUTX) error\n");
-            }
-
-            acc_rw.address = SENSOR_A3_OUTY;
-            acc_rw.count = 1;
-            if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
-                printk(KERN_ERR "bmi_sensor.c: A3 read (OUTY) error\n");
-            }
-
-            acc_rw.address = SENSOR_A3_OUTZ;
-            acc_rw.count = 1;
-            if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
-                printk(KERN_ERR "bmi_sensor.c: A3 read (OUTZ) error\n");
-            }
+        acc_rw.address = SENSOR_ACC_DZ0;
+        acc_rw.count = 2;
+        if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
+            printk(KERN_ERR "bmi_sensor.c: ACC read (DZ0) error\n");
         }
     }
 
@@ -2727,49 +2624,27 @@ static ssize_t show_accel(struct device *dev, struct device_attribute *attr, cha
     int y;
     int z;
 
-    if (sensor->eeprom.acc_present == SENSOR_DEVICE_PRESENT) {
-        acc_rw.address = SENSOR_ACC_DX0;
-        acc_rw.count = 2;
-        if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
-            printk(KERN_ERR "bmi_sensor.c: ACC read (DX0) error\n");
-        }
-        x = (acc_rw.data[1] << 8) | acc_rw.data[0];
-
-        acc_rw.address = SENSOR_ACC_DY0;
-        acc_rw.count = 2;
-        if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
-            printk(KERN_ERR "bmi_sensor.c: ACC read (DY0) error\n");
-        }
-        y = (acc_rw.data[1] << 8) | acc_rw.data[0];
-
-        acc_rw.address = SENSOR_ACC_DZ0;
-        acc_rw.count = 2;
-        if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
-            printk(KERN_ERR "bmi_sensor.c: ACC read (DZ0) error\n");
-        }
-        z = (acc_rw.data[1] << 8) | acc_rw.data[0];
-    } else { // presume acc302
-        acc_rw.address = SENSOR_A3_OUTX;
-        acc_rw.count = 1;
-        if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
-            printk(KERN_ERR "bmi_sensor.c: ACC read (OUTX) error\n");
-        }
-        x = acc_rw.data[0];
-
-        acc_rw.address = SENSOR_A3_OUTY;
-        acc_rw.count = 1;
-        if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
-            printk(KERN_ERR "bmi_sensor.c: ACC read (OUTY) error\n");
-        }
-        y = acc_rw.data[0];
-
-        acc_rw.address = SENSOR_A3_OUTZ;
-        acc_rw.count = 1;
-        if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
-            printk(KERN_ERR "bmi_sensor.c: ACC read (OUTZ) error\n");
-        }
-        z = acc_rw.data[0];
+    acc_rw.address = SENSOR_ACC_DX0;
+    acc_rw.count = 2;
+    if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
+        printk(KERN_ERR "bmi_sensor.c: ACC read (DX0) error\n");
     }
+    x = (acc_rw.data[1] << 8) | acc_rw.data[0];
+
+    acc_rw.address = SENSOR_ACC_DY0;
+    acc_rw.count = 2;
+    if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
+        printk(KERN_ERR "bmi_sensor.c: ACC read (DY0) error\n");
+    }
+    y = (acc_rw.data[1] << 8) | acc_rw.data[0];
+
+    acc_rw.address = SENSOR_ACC_DZ0;
+    acc_rw.count = 2;
+    if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
+        printk(KERN_ERR "bmi_sensor.c: ACC read (DZ0) error\n");
+    }
+    z = (acc_rw.data[1] << 8) | acc_rw.data[0];
+
     return sprintf(buf, "X=0x%x\nY=0x%x\nZ=0x%x\n", x, y, z);
 }
 static DEVICE_ATTR(accel, S_IRUGO, show_accel, NULL);
@@ -2976,10 +2851,6 @@ int read_eeprom(struct i2c_client *client, struct sensor_eeprom_raw *eeprom)
     if(ReadByte_EE(client, 0x1A, &ee_data) < 0)
         return -ENODEV;
     eeprom->dlight_present = (__u8) ee_data;
-
-    if(ReadByte_EE(client, 0x1B, &ee_data) < 0)
-        return -ENODEV;
-    eeprom->acc302_present = (__u8) ee_data;
 
     return 0;
 }
@@ -3863,94 +3734,6 @@ int bmi_sensor_probe(struct bmi_device *bdev)
             printk(KERN_INFO "bmi_sensor.c: ACCELEROMETER Sensor present in slot %d\n", slot);
         }
     }
-    else if(sensor->eeprom.acc302_present == SENSOR_DEVICE_PRESENT) {
-        sensor->acc_i2c_client = i2c_new_device(bdev->slot->adap, &acc_info);
-        if (sensor->acc_i2c_client == NULL)
-        {
-            printk(KERN_ERR "ACCELO NULL...\n");
-        }
-        else
-        {
-            struct sensor_acc_rw acc_rw;
-
-            acc_rw.address = SENSOR_A3_WAI;
-            acc_rw.count = 1;
-            if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
-                printk(KERN_ERR "bmi_sensor.c: ACC302 read (WAI) error\n");
-                goto sysfs_err12;
-            }
-
-            if(acc_rw.data[0] != SENSOR_A3_WAI_ID) {
-                printk(KERN_ERR "bmi_sensor.c: ACC302 ID error (read=0x%x, expected=0x%x)\n",
-                       acc_rw.data[0], SENSOR_A3_WAI_ID);
-                goto sysfs_err12;
-            }
-
-            acc_rw.address = SENSOR_A3_CTRL1;
-            acc_rw.count = 1;
-            if(factory_test)
-                acc_rw.data[0] = SENSOR_A3_CTRL1_DR400 | SENSOR_A3_CTRL1_PU |
-                    SENSOR_A3_CTRL1_STP | SENSOR_A3_CTRL1_STM | SENSOR_A3_CTRL1_XYZEN;
-            else
-                acc_rw.data[0] = SENSOR_A3_CTRL1_DR400 | SENSOR_A3_CTRL1_PU
-                    | SENSOR_A3_CTRL1_XYZEN;
-            if(WriteByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
-                printk(KERN_ERR "bmi_sensor.c: ACC302 write (RATE) error\n");
-                goto sysfs_err12;
-            }
-
-            acc_rw.address = SENSOR_A3_CTRL3;
-            acc_rw.count = 1;
-            acc_rw.data[0] = SENSOR_A3_CTRL3_IL;
-            if(WriteByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
-                printk(KERN_ERR "bmi_sensor.c: ACC302 write (RATE) error\n");
-                goto sysfs_err12;
-            }
-
-            mdelay(20);
-
-            acc_rw.address = SENSOR_A3_OUTX;
-            acc_rw.count = 1;
-            if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
-                printk(KERN_ERR "bmi_sensor.c: ACC302 read (OUTX) error\n");
-                goto sysfs_err12;
-            }
-
-            printk(KERN_INFO "bmi_sensor.c: initial ACC302 X state = 0x%x\n",
-                   acc_rw.data[0]);
-
-            acc_rw.address = SENSOR_A3_OUTY;
-            acc_rw.count = 1;
-            if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
-                printk(KERN_ERR "bmi_sensor.c: ACC302 read (OUTY) error\n");
-                goto sysfs_err12;
-            }
-
-            printk(KERN_INFO "bmi_sensor.c: initial ACC302 Y state = 0x%x\n",
-                   acc_rw.data[0]);
-
-            acc_rw.address = SENSOR_A3_OUTZ;
-            acc_rw.count = 1;
-            if(ReadByte_ACC(sensor->acc_i2c_client, &acc_rw) < 0) {
-                printk(KERN_ERR "bmi_sensor.c: ACC302 read (OUTZ) error\n");
-                goto sysfs_err12;
-            }
-
-            printk(KERN_INFO "bmi_sensor.c: initial ACC302 Z state = 0x%x\n",
-                   acc_rw.data[0]);
-
-            if(device_create_file(&sensor->bdev->dev, &dev_attr_accel)) {
-                printk (KERN_ERR
-                        "bmi_sensor.c (%d): attr (accel) failed.\n",
-                        slot);
-                goto sysfs_err12;
-            }
-        }
-
-        if(factory_test == 1) {
-            printk(KERN_INFO "bmi_sensor.c: ISL302 ACCELEROMETER Sensor present in slot %d\n", slot);
-        }
-    }
 
     if ((sensor->eeprom.aproximity_present == SENSOR_DEVICE_PRESENT) &&
         (sensor->adc_i2c_client != NULL))
@@ -4253,9 +4036,6 @@ void bmi_sensor_remove(struct bmi_device *bdev)
     }
     if(sensor->eeprom.motion_present == SENSOR_DEVICE_PRESENT) {
         device_remove_file(&sensor->bdev->dev, &dev_attr_motion);
-    }
-    if(sensor->eeprom.acc302_present == SENSOR_DEVICE_PRESENT) {
-        device_remove_file(&sensor->bdev->dev, &dev_attr_accel);
     }
     if(sensor->eeprom.acc_present == SENSOR_DEVICE_PRESENT) {
         device_remove_file(&sensor->bdev->dev, &dev_attr_accel);

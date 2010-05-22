@@ -93,7 +93,6 @@ struct sensor_eeprom_raw
 	__u8 aproximity_present;	/* byte 0x18  - 0x1 == present */ // Avago APDS-9700
 	__u8 alight_present;		/* byte 0x19 - 0x1 == present */  // Avago APDS-9002
 	__u8 dlight_present;		/* byte 0x1A - 0x1 == present */  // Intersil ISL29003
-	__u8 acc302_present;		/* byte 0x1B - 0x1 == present */  // ST LIS302DL
 };
 #define	SENSOR_DEVICE_NOT_PRESENT	(0x0)
 #define	SENSOR_DEVICE_PRESENT		(0x1)
@@ -481,93 +480,6 @@ struct sensor_temp_rw {	// see the datasheet
 	#define SENSOR_ACC_FS_TRIG		(0x80)		// TRIGGER occurred
 	#define SENSOR_ACC_FS_ENTRIES_MSK	(0x1F)		// See ADXL345 datasheet
 
-// ST LIS302DL
-#define SENSOR_A3_WAI				(0x0F)		// Device ID
-	#define SENSOR_A3_WAI_ID		(0x3B)		// Device ID
-#define SENSOR_A3_CTRL1				(0x20)		// Control Register
-	#define SENSOR_A3_CTRL1_DR100		(0x00)		// sample data rate = 100 Hz
-	#define SENSOR_A3_CTRL1_DR400		(0x80)		// sample data rate = 400 Hz
-	#define SENSOR_A3_CTRL1_PD		(0x00)		// power down
-	#define SENSOR_A3_CTRL1_PU		(0x40)		// power up
-	#define SENSOR_A3_CTRL1_FS		(0x20)		// See data sheet
-	#define SENSOR_A3_CTRL1_STP		(0x10)		// See data sheet
-	#define SENSOR_A3_CTRL1_STM		(0x08)		// See data sheet
-	#define SENSOR_A3_CTRL1_XYZEN		(0x07)		// X,Y,Z axis enable
-	#define SENSOR_A3_CTRL1_ZEN		(0x04)		// Z axis enable
-	#define SENSOR_A3_CTRL1_YEN		(0x02)		// Y axis enable
-	#define SENSOR_A3_CTRL1_XEN		(0x01)		// X axis enable
-#define SENSOR_A3_CTRL2				(0x21)		// Control Register
-	#define SENSOR_A3_CTRL2_SIM		(0x80)		// SPI mode
-	#define SENSOR_A3_CTRL2_BOOT		(0x40)		// copy calibration from FLASH
-	#define SENSOR_A3_CTRL2_FILT_OFF	(0x00)		// internal filter bypassed
-	#define SENSOR_A3_CTRL2_FILT_ON		(0x10)		// internal filter enabled
-	#define SENSOR_A3_CTRL2_F2		(0x08)		// WU2 filter enable
-	#define SENSOR_A3_CTRL2_F1		(0x04)		// WU1 filter enable
-	#define SENSOR_A3_CTRL2_COEFF(x)	(x & 0x3)	// See data sheet
-#define SENSOR_A3_CTRL3				(0x22)		// Control Register
-	#define SENSOR_A3_CTRL3_IH		(0x00)		// Interrupt active high
-	#define SENSOR_A3_CTRL3_IL		(0x80)		// Interrupt active low
-	#define SENSOR_A3_CTRL3_IPP		(0x00)		// Interrupt push/pull
-	#define SENSOR_A3_CTRL3_IOD		(0x40)		// Interrupt open drain
-	#define SENSOR_A3_CTRL3_I2C(x)		((x&0x7) << 3)	// I2 config - See data sheet
-	#define SENSOR_A3_CTRL3_I1C(x)		((x&0x7))	// I1 config - See data sheet
-#define SENSOR_A3_HPF_RST			(0x23)		// High Pass Filter Reset - See data sheet
-#define SENSOR_A3_STAT				(0x27)		// Status
-	#define SENSOR_A3_STAT_ZYXOR		(0x80)		// ZYX overrun
-	#define SENSOR_A3_STAT_ZOR		(0x40)		// Z overrun
-	#define SENSOR_A3_STAT_YOR		(0x20)		// Y overrun
-	#define SENSOR_A3_STAT_XOR		(0x10)		// X overrun
-	#define SENSOR_A3_STAT_ZYXDA		(0x08)		// ZYX data available
-	#define SENSOR_A3_STAT_ZDA		(0x04)		// Z data available
-	#define SENSOR_A3_STAT_YDA		(0x02)		// Y data available
-	#define SENSOR_A3_STAT_XDA		(0x01)		// X data available
-#define SENSOR_A3_OUTX				(0x29)		// X Output
-#define SENSOR_A3_OUTY				(0x2B)		// Y Output
-#define SENSOR_A3_OUTZ				(0x2D)		// Z Output
-#define SENSOR_A3_CFG1				(0x30)		// Configuration
-#define SENSOR_A3_CFG2				(0x34)		// Configuration
-	#define SENSOR_A3_CFG_AOI		(0x80)		// AND/OR interrupts
-	#define SENSOR_A3_CFG_LIR		(0x40)		// latch interrupts into SRC
-	#define SENSOR_A3_CFG_ZHIE		(0x20)		// Z high enable
-	#define SENSOR_A3_CFG_ZLIE		(0x10)		// Z low enable
-	#define SENSOR_A3_CFG_YHIE		(0x08)		// Y high enable
-	#define SENSOR_A3_CFG_YLIE		(0x04)		// Y low enable
-	#define SENSOR_A3_CFG_XHIE		(0x02)		// X high enable
-	#define SENSOR_A3_CFG_XLIE		(0x01)		// X low enable
-#define SENSOR_A3_SRC1				(0x31)		// Source
-#define SENSOR_A3_SRC2				(0x35)		// Source
-	#define SENSOR_A3_SRC_IA		(0x40)		// interrupt active
-	#define SENSOR_A3_SRC_ZH		(0x20)		// Z high
-	#define SENSOR_A3_SRC_ZL		(0x10)		// Z low
-	#define SENSOR_A3_SRC_YH		(0x08)		// Y high
-	#define SENSOR_A3_SRC_YL		(0x04)		// Y low
-	#define SENSOR_A3_SRC_XH		(0x02)		// X high
-	#define SENSOR_A3_SRC_XL		(0x01)		// X low
-#define SENSOR_A3_THS1				(0x32)		// Threshold
-#define SENSOR_A3_THS2				(0x36)		// Threshold
-	#define SENSOR_A3_THS_DCRM		(0x80)		// Resetting mode - See data sheet
-	#define SENSOR_A3_THS_THS(x)		(x & 0x7F)	// FF/wakeup threshold
-#define SENSOR_A3_DUR1				(0x33)		// Duration - See data sheet
-#define SENSOR_A3_DUR2				(0x37)		// Duration - See data sheet
-#define SENSOR_A3_CCFG				(0x38)		// Click Configuration
-#define SENSOR_A3_CSRC				(0x39)		// Click Source
-	#define SENSOR_A3_CCS_LIR		(0x40)		// latch interrupt into SRC
-	#define SENSOR_A3_CCS_DZ		(0x20)		// double Z enable
-	#define SENSOR_A3_CCS_SZ		(0x10)		// single Z enable
-	#define SENSOR_A3_CCS_DY		(0x08)		// double Y enable
-	#define SENSOR_A3_CCS_SY		(0x04)		// single Y enable
-	#define SENSOR_A3_CCS_DX		(0x02)		// double X enable
-	#define SENSOR_A3_CCS_SX		(0x01)		// single X enable
-#define SENSOR_A3_CTHXY				(0x3B)		// Click X, Y Threshold
-	#define SENSOR_A3_CTHYX_Y(x)		((x&0xF) << 4)	// Y Threshold
-	#define SENSOR_A3_CTHYX_X(x)		(x&0xF)		// X Threshold
-#define SENSOR_A3_CTHZ				(0x3C)		// Click Z Threshold
-	#define SENSOR_A3_CTHYX_Z(x)		(x&0xF)		// Z Threshold
-#define SENSOR_A3_CTL				(0x3D)		// Click Time Limit
-#define SENSOR_A3_CLAT				(0x3E)		// Click Latency
-#define SENSOR_A3_CWIN				(0x3F)		// Click Window
-
-// count always = 1 for LIS302DL
 struct sensor_acc_rw {	// see the datasheets
 	unsigned char address;
 	unsigned int count;	// number of bytes to read (1 or 2) 
