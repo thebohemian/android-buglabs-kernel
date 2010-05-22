@@ -47,10 +47,19 @@
  *      Global variables
  */
 
+// TODO Why do I usually get "IOX not found" if I probe it
+// (even after it's been in the slot for a while)
+#undef PROBE_IOX
+#if defined(PROBE_IOX)
 static struct i2c_board_info iox_info = {
     .type = "SENSOR_IOX",
 };
 static const unsigned short iox_addresses[] = { BMI_IOX_I2C_ADDRESS, I2C_CLIENT_END };
+#else
+static struct i2c_board_info iox_info = {
+    I2C_BOARD_INFO("SENSOR_IOX", BMI_IOX_I2C_ADDRESS)
+};
+#endif
 
 static struct i2c_board_info adc_info = {
     .type = "SENSOR_ADC",
@@ -2412,10 +2421,18 @@ int bmi_sensor_probe(struct bmi_device *bdev)
     // bind driver and bmi_device
     sensor->bdev = bdev;
 
+#if defined(PROBE_IOX)
     sensor->iox_i2c_client = i2c_new_probed_device(bdev->slot->adap, &iox_info, iox_addresses);
+#else
+    sensor->iox_i2c_client = i2c_new_device(bdev->slot->adap, &iox_info);
+#endif
     if (sensor->iox_i2c_client != NULL)
     {
+#if defined(PROBE_IOX)
         printk(KERN_INFO "Found IOX\n");
+#else
+        printk(KERN_INFO "Presuming IOX is present\n");
+#endif
     }
     else
     {
