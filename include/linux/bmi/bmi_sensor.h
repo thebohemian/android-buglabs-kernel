@@ -43,13 +43,10 @@
 // bank 0
 #define	SENSOR_IOX_ACC_INT1	0	// Input - Accelerometer interrupt 1
 #define	SENSOR_IOX_ACC_INT2	1	// Input - Accelerometer interrupt 2
-#define	SENSOR_IOX_USB_FL_N	2	// Input - USB power interrupt
-#define	SENSOR_IOX_USB_EN	3	// Output - USB power enable
 #define	SENSOR_IOX_HUM_EN	4	// Output - Humidity sensor power enable
 #define	SENSOR_IOX_MOT_DET	5	// Input - Motion Detector interrupt
 #define	SENSOR_IOX_MOT_EN	6	// Output - Motion Detector interrupt enable
 #define	SENSOR_IOX_COMP_RS_N	7	// Output - A/D Compass Reset (see Honeywell AN213)
-#define SENSOR_IOX_USB_BIT  0x08
 #define SENSOR_IOX_MOT_BIT  0x40
 
 // bank 1
@@ -62,64 +59,6 @@
 #define	SENSOR_IOX_MIC_EN	6	// Output - Sound power enanle
 #define	SENSOR_IOX_DCOMP_INT	7	// Input - Digital Compass Interrupt
 #define SENSOR_IOX_MIC_BIT  0x40
-
-// EEPROM contents
-struct sensor_eeprom_raw
-{
-	__u8 xsf_msb;			/* byte 0x00  */ // analog and digital compass
-	__u8 xsf_lsb;			/* byte 0x01  */ // analog and digital compass
-	__u8 ysf_msb;			/* byte 0x02  */ // analog and digital compass
-	__u8 ysf_lsb;			/* byte 0x03  */ // analog and digital compass
-	__u8 zsf_msb;			/* byte 0x04  */ // analog and digital compass
-	__u8 zsf_lsb;			/* byte 0x05  */ // analog and digital compass
-	__u8 xoff_msb;			/* byte 0x06  */ // analog and digital compass
-	__u8 xoff_lsb;			/* byte 0x07  */ // analog and digital compass
-	__u8 yoff_msb;			/* byte 0x08  */ // analog and digital compass
-	__u8 yoff_lsb;			/* byte 0x09  */ // analog and digital compass
-	__u8 zoff_msb;			/* byte 0x0A  */ // analog and digital compass
-	__u8 zoff_lsb;			/* byte 0x0B  */ // analog and digital compass
-	__u8 xdac;			/* byte 0x0C  */ // digital compass
-	__u8 ydac;			/* byte 0x0D  */ // digital compass
-	__u8 zdac;			/* byte 0x0E  */ // digital compass
-	__u8 adc_present;		/* byte 0x0F  - 0x1 == present */ // TI/Burr-Brown ADS7828
-	__u8 humidity_present;		/* byte 0x10  - 0x1 == present */ // Honeywell HIH3030
-	__u8 acompass_present;		/* byte 0x11  - 0x1 == present */ // Honeywell HMC6042/HMC1041Z
-	__u8 light_proximity_present;	/* byte 0x12  - 0x1 == present */ // Intersil ISL29018
-	__u8 sound_present;		/* byte 0x13  - 0x1 == present */ // discrete components
-	__u8 temperature_present;	/* byte 0x14  - 0x1 == present */ // National LM95235
-	__u8 motion_present;		/* byte 0x15  - 0x1 == present */ // Panasonic AMN44121
-	__u8 acc_present;		/* byte 0x16  - 0x1 == present */ // Analog Devices ADXL345
-	__u8 dcompass_present;		/* byte 0x17  - 0x1 == present */ // AsahiKASEI AK8973
-	__u8 aproximity_present;	/* byte 0x18  - 0x1 == present */ // Avago APDS-9700
-	__u8 alight_present;		/* byte 0x19 - 0x1 == present */  // Avago APDS-9002
-	__u8 dlight_present;		/* byte 0x1A - 0x1 == present */  // Intersil ISL29003
-};
-#define	SENSOR_DEVICE_NOT_PRESENT	(0x0)
-#define	SENSOR_DEVICE_PRESENT		(0x1)
-#define SENSOR_EE_SF_START		(0x00)
-#define SENSOR_EE_OFF_START		(0x06)
-#define SENSOR_EE_XDAC			(0x0C)
-#define SENSOR_EE_YDAC			(0x0D)
-#define SENSOR_EE_ZDAC			(0x0E)
-#define SENSOR_PRESENT_START		(0x0F)
-#define SENSOR_PRESENT_END		(0x1B)
-
-struct sensor_comp_cal
-{
-	unsigned int xsf;
-	unsigned int ysf;
-	unsigned int zsf;
-	unsigned int xoff;
-	unsigned int yoff;
-	unsigned int zoff;
-};
-
-struct sensor_comp_dac
-{
-	unsigned char xdac;
-	unsigned char ydac;
-	unsigned char zdac;
-};
 
 // ADC (ADS7828) - humidity/acompass/sound/alight/aproximity
 // command write
@@ -558,19 +497,11 @@ struct sensor_rw {
 #define BMI_SENSOR_ACCZRD	_IOR(BMI_SENSOR_IOCTL, 0x20, unsigned int *)		// read Accelerometer Z
 #define BMI_SENSOR_ACC_I1WAIT	_IO(BMI_SENSOR_IOCTL, 0x21)				// wait for Accelerometer interrupt 1 - application sets up INT configuration
 #define BMI_SENSOR_ACC_I2WAIT	_IO(BMI_SENSOR_IOCTL, 0x22)				// wait for Accelerometer interrupt 2 - application sets up INT configuration
-#define BMI_SENSOR_EEWR		_IOW(BMI_SENSOR_IOCTL, 0x23, struct sensor_rw *)	// write EEPROM
-#define BMI_SENSOR_EERD		_IOR(BMI_SENSOR_IOCTL, 0x24, struct sensor_rw *)	// read EEPROM
 #define BMI_SENSOR_MOT_IE	_IOW(BMI_SENSOR_IOCTL, 0x25, unsigned int)		// Motion interrupt enable (on = BMI_SENSOR_ON)
-#define BMI_SENSOR_USB_IWAIT	_IO(BMI_SENSOR_IOCTL, 0x26)				// wait for USB power flag interrupt
-#define BMI_SENSOR_USB_PWR_EN	_IOW(BMI_SENSOR_IOCTL, 0x27, unsigned int)		// USB power enable (on = BMI_SENSOR_ON)
 #define BMI_SENSOR_HUM_PWR_EN	_IOW(BMI_SENSOR_IOCTL, 0x28, unsigned int)		// Humidity power enable (on = BMI_SENSOR_ON)
 #define BMI_SENSOR_DCOM_RST	_IOW(BMI_SENSOR_IOCTL, 0x29, unsigned int)		// Digital Compass Reset (on = BMI_SENSOR_ON)
-#define BMI_SENSOR_COM_GCAL	_IOR(BMI_SENSOR_IOCTL, 0x2a, struct sensor_comp_cal *)	// Get compass calibation
-#define BMI_SENSOR_COM_SCAL	_IOW(BMI_SENSOR_IOCTL, 0x2b, struct sensor_comp_cal *)	// Set compass calibation
 #define BMI_SENSOR_DCWR		_IOW(BMI_SENSOR_IOCTL, 0x2c, struct sensor_rw *)	// write digital compass
 #define BMI_SENSOR_DCRD		_IOR(BMI_SENSOR_IOCTL, 0x2d, struct sensor_rw *)	// read digital compass
-#define BMI_SENSOR_DC_GDAC	_IOR(BMI_SENSOR_IOCTL, 0x2e, struct sensor_comp_dac *)	// Get digital compass DAC settings
-#define BMI_SENSOR_DC_SDAC	_IOW(BMI_SENSOR_IOCTL, 0x2f, struct sensor_comp_dac *)	// Set digital compass DAC settings
 #define BMI_SENSOR_DC_IWAIT	_IO(BMI_SENSOR_IOCTL, 0x30)				// wait for digital compass interrupt - application sets up INT configuration
 #define BMI_SENSOR_APROX_DUR	_IOW(BMI_SENSOR_IOCTL, 0x31, unsigned int)		// Analog Proximity LED burst time (in ms 2 <= arg <= 100)
 #define BMI_SENSOR_APROXRD	_IOR(BMI_SENSOR_IOCTL, 0x32, unsigned int *)		// read Analog proximity = (PDOUT << 16) | ADC_DATA
