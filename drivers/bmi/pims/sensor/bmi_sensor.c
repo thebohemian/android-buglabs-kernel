@@ -72,7 +72,6 @@ static struct i2c_board_info dcomp_info = {
 };
 
 static ushort factory_test = 0;
-static ushort fcc_test = 0;
 
 #define ADC_PRESENT (sensor->adc_i2c_client != NULL)
 #define ACC_PRESENT (sensor->acc_i2c_client != NULL)
@@ -2421,7 +2420,7 @@ int bmi_sensor_probe(struct bmi_device *bdev)
     printk(KERN_INFO "bmi_sensor.c: probe slot %d\n", slot);
 
     // configure IOX
-    if(factory_test || fcc_test) {
+    if(factory_test) {
         // USB/HUM on, MOT_INT off, COMPASS RST High
         if(WriteByte_IOX(sensor->iox_i2c_client, IOX_OUTPUT0_REG, 0x98) < 0) {
             printk(KERN_ERR "bmi_sensor.c: IOX error in slot %d setting IOX_OUTPUT0_REG to 0x98\n", slot);
@@ -3432,9 +3431,6 @@ static int __init bmi_sensor_init(void)
         printk(KERN_INFO "bmi_sensor.c: Factory Test mode enabled\n");
     }
 
-    if(fcc_test)
-        printk(KERN_INFO "bmi_sensor.c: FCC Test mode enabled\n");
-
     printk(KERN_INFO "bmi_sensor.c: BMI_SENSOR Driver v%s \n", BMISENSOR_VERSION);
 
     return 0;
@@ -3456,9 +3452,6 @@ module_exit(bmi_sensor_cleanup);
 
 module_param(factory_test, ushort, S_IRUGO);
 MODULE_PARM_DESC(factory_test, "Factory Test code enable");
-
-module_param(fcc_test, ushort, S_IRUGO);
-MODULE_PARM_DESC(fcc_test, "FCC Test code enable");
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Bug Labs");
