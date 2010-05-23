@@ -37,7 +37,6 @@
 #include <linux/bmi/bmi-slot.h>
 #include <linux/bmi/bmi_sensor.h>
 
-
 #define BMISENSOR_VERSION       "2.0"
 
 #define work_to_sensor(w) (struct bmi_sensor*) container_of(w, struct bmi_sensor, work_item)
@@ -110,48 +109,53 @@ static const unsigned short dcomp_addresses[] = { BMI_DCOMP_I2C_ADDRESS, I2C_CLI
 // private device structure
 struct bmi_sensor
 {
-    struct semaphore                sem;                    // bmi_sensor mutex
-    struct bmi_device               *bdev;                  // BMI device
-    struct cdev                     cdev;                   // control device
-    struct device                   *class_dev;             // control class device
-    char                            int_name[20];           // interrupt name
-    struct workqueue_struct         *workqueue;             // interrupt work queue
-    struct work_struct              work_item;              // interrupt work structure
-    char                            work_name[20];          // workqueue name
+    struct semaphore                sem;
+    struct bmi_device               *bdev;
+    struct cdev                     cdev;
+    struct device                   *class_dev;
 
-    wait_queue_head_t               pl_wait_queue;          // Proximity/Light interrupt wait queue
-    unsigned char                   pl_int_en;              // Proximity/Light interrupts are enabled
-    unsigned char                   pl_int_fl;              // Proximity/Light interrupt occurred
+#undef IRQ_STUFF_IMPLEMENTED
+#if defined(IRQ_STUFF_IMPLEMENTED)
+    char                            int_name[20];
+#endif
 
-    wait_queue_head_t               temp_wait_queue;        // Temperature interrupt wait queue
-    unsigned char                   temp_int_en;            // Temperature interrupts are enabled
-    unsigned char                   temp_int_fl;            // Temperature interrupt occurred
+    struct workqueue_struct         *workqueue;
+    struct work_struct              work_item;
+    char                            workqueue_name[20];
 
-    wait_queue_head_t               mot_wait_queue;         // Motion interrupt wait queue
-    unsigned char                   mot_int_en;             // Motion interrupts are enabled
-    unsigned char                   mot_int_fl;             // Motion interrupt occurred
-    unsigned int                    mot_state;              // previous motion detector state
+    wait_queue_head_t               pl_wait_queue;
+    unsigned char                   pl_int_en;
+    unsigned char                   pl_int_fl;
 
-    wait_queue_head_t               acc_wait1_queue;        // Accelerometer interrupt wait queue
-    unsigned char                   acc_int1_en;            // Accelerometer interrupts are enabled
-    unsigned char                   acc_int1_fl;            // Accelerometer interrupt occurred
-    wait_queue_head_t               acc_wait2_queue;        // Accelerometer interrupt wait queue
-    unsigned char                   acc_int2_en;            // Accelerometer interrupts are enabled
-    unsigned char                   acc_int2_fl;            // Accelerometer interrupt occurred
+    wait_queue_head_t               temp_wait_queue;
+    unsigned char                   temp_int_en;
+    unsigned char                   temp_int_fl;
 
-    wait_queue_head_t               dcomp_wait_queue;       // Digital compass interrupt wait queue
-    unsigned char                   dcomp_int_en;           // Digital compass interrupts are enabled
-    unsigned char                   dcomp_int_fl;           // Digital compass interrupt occurred
+    wait_queue_head_t               mot_wait_queue;
+    unsigned char                   mot_int_en;
+    unsigned char                   mot_int_fl;
+    unsigned int                    mot_state;
 
-    unsigned int                    aprox_duration;         // Analog Proximity LED burst duration (ms)
-    struct timer_list               aprox_timer;            // Analog Proximity LED burst timer
-    wait_queue_head_t               aprox_wait_queue;       // Analog Proximity timer wait queue
-    unsigned char                   aprox_int_en;           // Analog Proximity timer are enabled
-    unsigned char                   aprox_int_fl;           // Analog Proximity timer occurred
+    wait_queue_head_t               acc_wait1_queue;
+    unsigned char                   acc_int1_en;
+    unsigned char                   acc_int1_fl;
+    wait_queue_head_t               acc_wait2_queue;
+    unsigned char                   acc_int2_en;
+    unsigned char                   acc_int2_fl;
 
-    wait_queue_head_t               dlight_wait_queue;      // Digital Light interrupt wait queue
-    unsigned char                   dlight_int_en;          // Digital Light interrupts are enabled
-    unsigned char                   dlight_int_fl;          // Digital Light interrupt occurred
+    wait_queue_head_t               dcomp_wait_queue;
+    unsigned char                   dcomp_int_en;
+    unsigned char                   dcomp_int_fl;
+
+    unsigned int                    aprox_duration;
+    struct timer_list               aprox_timer;
+    wait_queue_head_t               aprox_wait_queue;
+    unsigned char                   aprox_int_en;
+    unsigned char                   aprox_int_fl;
+
+    wait_queue_head_t               dlight_wait_queue;
+    unsigned char                   dlight_int_en;
+    unsigned char                   dlight_int_fl;
 
     struct i2c_client *             iox_i2c_client;
     struct i2c_client *             adc_i2c_client;
@@ -162,8 +166,8 @@ struct bmi_sensor
     struct i2c_client *             dcomp_i2c_client;
 };
 
-static struct bmi_sensor bmi_sensor[4];         // per slot device structure
-static int major;                       // control device major
+static struct bmi_sensor bmi_sensor[4]; // per slot device structure
+static int major; // control device major
 
 /*
  *      BMI set up
@@ -199,10 +203,7 @@ static struct bmi_driver bmi_sensor_driver =
  */
 
 
-static int get_mot_det_state(int slot)
-{
-    return (bmi_slot_gpio_get_all(slot) & (2 ^SENSOR_GPIO_MOT_DET)) ? 1 : 0;
-}
+#define get_mot_det_state(slot) ((bmi_slot_gpio_get_all( (slot) ) & (2 ^SENSOR_GPIO_MOT_DET)) ? 1 : 0)
 
 // IOX
 // write byte to I2C IO expander
@@ -524,7 +525,6 @@ static int ReadByte_DCOMP(struct i2c_client *client, unsigned char offset, unsig
  *      control device operations
  */
 
-// open
 int cntl_open(struct inode *inode, struct file *file)
 {
     struct bmi_sensor *sensor = container_of(inode->i_cdev, struct bmi_sensor, cdev);
@@ -533,7 +533,6 @@ int cntl_open(struct inode *inode, struct file *file)
 
 }
 
-// release
 int cntl_release(struct inode *inode, struct file *file)
 {
     return 0;
@@ -555,7 +554,6 @@ void aptimer(unsigned long arg)
     wake_up_all(&sensor->aprox_wait_queue);
 }
 
-// ioctl
 int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
                unsigned long arg)
 {
@@ -570,7 +568,6 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
 
     // ioctl's
     switch(cmd) {
-
     case BMI_SENSOR_RLEDOFF:
         bmi_slot_gpio_set_value(slot, SENSOR_GPIO_RED_LED, 1);
         break;
@@ -1750,7 +1747,7 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
     }
 
     return 0;
-}
+} // ioctl
 
 // control file operations
 struct file_operations cntl_fops = {
@@ -2405,6 +2402,7 @@ int bmi_sensor_probe(struct bmi_device *bdev)
     dev_id = MKDEV(major, slot);
     err = cdev_add(cdev, dev_id, 1);
     if(err) {
+        printk(KERN_ERR "bmi_sensor cdev_add failed with %d\n", err);
         return err;
     }
 
@@ -2439,7 +2437,7 @@ int bmi_sensor_probe(struct bmi_device *bdev)
     }
     else
     {
-        printk(KERN_INFO "IOX not found\n");
+        printk(KERN_ERR "IOX not found\n");
         // we're screwed without the IOX
         goto error;
     }
@@ -2489,26 +2487,32 @@ int bmi_sensor_probe(struct bmi_device *bdev)
 
     // bmi_sensor initialization
     init_MUTEX(&sensor->sem);
-    sprintf(sensor->work_name, "sensor_m%d", slot + 1);
+
     init_waitqueue_head(&sensor->pl_wait_queue);
     sensor->pl_int_en = 0;
     sensor->pl_int_fl = 0;
+
     init_waitqueue_head(&sensor->temp_wait_queue);
     sensor->temp_int_en = 0;
     sensor->temp_int_fl = 0;
+
     init_waitqueue_head(&sensor->mot_wait_queue);
     sensor->mot_int_en = 0;
     sensor->mot_int_fl = 0;
     sensor->mot_state = get_mot_det_state(slot);
+
     init_waitqueue_head(&sensor->acc_wait1_queue);
     sensor->acc_int1_en = 0;
     sensor->acc_int1_fl = 0;
+
     init_waitqueue_head(&sensor->acc_wait2_queue);
     sensor->acc_int2_en = 0;
     sensor->acc_int2_fl = 0;
+
     init_waitqueue_head(&sensor->dcomp_wait_queue);
     sensor->dcomp_int_en = 0;
     sensor->dcomp_int_fl = 0;
+
     sensor->aprox_duration = 200;
     init_timer(&sensor->aprox_timer);
     sensor->aprox_timer.data = (unsigned long) &bmi_sensor[slot];
@@ -2517,7 +2521,8 @@ int bmi_sensor_probe(struct bmi_device *bdev)
     sensor->aprox_int_en = 0;
     sensor->aprox_int_fl = 0;
 
-    sensor->workqueue = create_singlethread_workqueue(sensor->work_name);
+    sprintf(sensor->workqueue_name, "sensor_m%d", slot + 1);
+    sensor->workqueue = create_singlethread_workqueue(sensor->workqueue_name);
     if (!sensor->workqueue) {
         printk(KERN_ERR "bmi_sensor.c: Can't create_singlethread_workqueue() in slot %d\n",
                slot);
@@ -3253,7 +3258,7 @@ int bmi_sensor_probe(struct bmi_device *bdev)
         goto sysfs_err16;
     }
 
-#ifdef IRQ_STUFF_IMPLEMENTED
+#if defined(IRQ_STUFF_IMPLEMENTED)
     // request PIM interrupt
     {
         int irq = bdev->slot->status_irq;
@@ -3336,7 +3341,7 @@ void bmi_sensor_remove(struct bmi_device *bdev)
     struct bmi_sensor *sensor = &bmi_sensor[slot];
     struct class *bmi_class;
 
-#ifdef IRQ_STUFF_IMPLEMENTED
+#if defined(IRQ_STUFF_IMPLEMENTED)
     {
         int irq = bdev->slot->status_irq;
         free_irq(irq, sensor);
