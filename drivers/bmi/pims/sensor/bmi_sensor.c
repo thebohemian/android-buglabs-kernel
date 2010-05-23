@@ -86,12 +86,10 @@ static struct i2c_board_info dcomp_info = {
 };
 static const unsigned short dcomp_addresses[] = { BMI_DCOMP_I2C_ADDRESS, I2C_CLIENT_END };
 
-static ushort factory_test = 0;
-
 #define ADC_PRESENT (sensor->adc_i2c_client != NULL)
 #define ACC_PRESENT (sensor->acc_i2c_client != NULL)
 #define PL_PRESENT (sensor->pl_i2c_client != NULL)
-// preseume DL is there if AL is as they're the same part, right? TODO
+// presume DL is there if AL is as they're the same part, right? TODO
 #define DLIGHT_PRESENT PL_PRESENT
 #define TEMP_PRESENT (sensor->temp_i2c_client != NULL)
 
@@ -120,36 +118,41 @@ struct bmi_sensor
     struct workqueue_struct         *workqueue;             // interrupt work queue
     struct work_struct              work_item;              // interrupt work structure
     char                            work_name[20];          // workqueue name
+
     wait_queue_head_t               pl_wait_queue;          // Proximity/Light interrupt wait queue
     unsigned char                   pl_int_en;              // Proximity/Light interrupts are enabled
     unsigned char                   pl_int_fl;              // Proximity/Light interrupt occurred
+
     wait_queue_head_t               temp_wait_queue;        // Temperature interrupt wait queue
     unsigned char                   temp_int_en;            // Temperature interrupts are enabled
     unsigned char                   temp_int_fl;            // Temperature interrupt occurred
+
     wait_queue_head_t               mot_wait_queue;         // Motion interrupt wait queue
     unsigned char                   mot_int_en;             // Motion interrupts are enabled
     unsigned char                   mot_int_fl;             // Motion interrupt occurred
     unsigned int                    mot_state;              // previous motion detector state
+
     wait_queue_head_t               acc_wait1_queue;        // Accelerometer interrupt wait queue
     unsigned char                   acc_int1_en;            // Accelerometer interrupts are enabled
     unsigned char                   acc_int1_fl;            // Accelerometer interrupt occurred
     wait_queue_head_t               acc_wait2_queue;        // Accelerometer interrupt wait queue
     unsigned char                   acc_int2_en;            // Accelerometer interrupts are enabled
     unsigned char                   acc_int2_fl;            // Accelerometer interrupt occurred
-    wait_queue_head_t               usb_wait_queue;         // USB interrupt wait queue
-    unsigned char                   usb_int_en;             // USB interrupts are enabled
-    unsigned char                   usb_int_fl;             // USB interrupt occurred
+
     wait_queue_head_t               dcomp_wait_queue;       // Digital compass interrupt wait queue
     unsigned char                   dcomp_int_en;           // Digital compass interrupts are enabled
     unsigned char                   dcomp_int_fl;           // Digital compass interrupt occurred
+
     unsigned int                    aprox_duration;         // Analog Proximity LED burst duration (ms)
     struct timer_list               aprox_timer;            // Analog Proximity LED burst timer
     wait_queue_head_t               aprox_wait_queue;       // Analog Proximity timer wait queue
     unsigned char                   aprox_int_en;           // Analog Proximity timer are enabled
     unsigned char                   aprox_int_fl;           // Analog Proximity timer occurred
+
     wait_queue_head_t               dlight_wait_queue;      // Digital Light interrupt wait queue
     unsigned char                   dlight_int_en;          // Digital Light interrupts are enabled
     unsigned char                   dlight_int_fl;          // Digital Light interrupt occurred
+
     struct i2c_client *             iox_i2c_client;
     struct i2c_client *             adc_i2c_client;
     struct i2c_client *             pl_i2c_client;
@@ -2446,30 +2449,16 @@ int bmi_sensor_probe(struct bmi_device *bdev)
     printk(KERN_INFO "bmi_sensor.c: probe slot %d\n", slot);
 
     // configure IOX
-    if(factory_test) {
-        // USB/HUM on, MOT_INT off, COMPASS RST High
-        if(WriteByte_IOX(sensor->iox_i2c_client, IOX_OUTPUT0_REG, 0x98) < 0) {
-            printk(KERN_ERR "bmi_sensor.c: IOX error in slot %d setting IOX_OUTPUT0_REG to 0x98\n", slot);
-            goto error;
-        }
+    // USB/HUM/MOT_INT off, COMPASS RST High
+    if(WriteByte_IOX(sensor->iox_i2c_client, IOX_OUTPUT0_REG, 0x80) < 0) {
+        printk(KERN_ERR "bmi_sensor.c: IOX error in slot %d setting IOX_OUTPUT0_REG to 0x80\n", slot);
+        goto error;
+    }
 
-        // Speaker Peak Clear, all other outputs low
-        if(WriteByte_IOX(sensor->iox_i2c_client, IOX_OUTPUT1_REG, 0x08) < 0) {
-            printk(KERN_ERR "bmi_sensor.c: IOX error in slot %d setting IOX_OUTPUT1_REG to 0x08\n", slot);
-            goto error;
-        }
-    } else {
-        // USB/HUM/MOT_INT off, COMPASS RST High
-        if(WriteByte_IOX(sensor->iox_i2c_client, IOX_OUTPUT0_REG, 0x80) < 0) {
-            printk(KERN_ERR "bmi_sensor.c: IOX error in slot %d setting IOX_OUTPUT0_REG to 0x80\n", slot);
-            goto error;
-        }
-
-        // Speaker Peak Clear/analog proximity enable high, all other outputs low
-        if(WriteByte_IOX(sensor->iox_i2c_client, IOX_OUTPUT1_REG, 0x0A) < 0) {
-            printk(KERN_ERR "bmi_sensor.c: IOX error in slot %d settng IOX_OUTPUT1_REG to 0x0A\n", slot);
-            goto error;
-        }
+    // Speaker Peak Clear/analog proximity enable high, all other outputs low
+    if(WriteByte_IOX(sensor->iox_i2c_client, IOX_OUTPUT1_REG, 0x0A) < 0) {
+        printk(KERN_ERR "bmi_sensor.c: IOX error in slot %d settng IOX_OUTPUT1_REG to 0x0A\n", slot);
+        goto error;
     }
 
     // IOX[5,2:0]=IN, IOX[7:6,4:3]=OUT
@@ -2517,9 +2506,6 @@ int bmi_sensor_probe(struct bmi_device *bdev)
     init_waitqueue_head(&sensor->acc_wait2_queue);
     sensor->acc_int2_en = 0;
     sensor->acc_int2_fl = 0;
-    init_waitqueue_head(&sensor->usb_wait_queue);
-    sensor->usb_int_en = 0;
-    sensor->usb_int_fl = 0;
     init_waitqueue_head(&sensor->dcomp_wait_queue);
     sensor->dcomp_int_en = 0;
     sensor->dcomp_int_fl = 0;
@@ -3440,12 +3426,7 @@ static int __init bmi_sensor_init(void)
         return -ENODEV;
     }
 
-    if(factory_test) {
-        printk(KERN_INFO "bmi_sensor.c: Factory Test mode enabled\n");
-    }
-
     printk(KERN_INFO "bmi_sensor.c: BMI_SENSOR Driver v%s \n", BMISENSOR_VERSION);
-
     return 0;
 }
 
@@ -3462,9 +3443,6 @@ static void __exit bmi_sensor_cleanup(void)
 
 module_init(bmi_sensor_init);
 module_exit(bmi_sensor_cleanup);
-
-module_param(factory_test, ushort, S_IRUGO);
-MODULE_PARM_DESC(factory_test, "Factory Test code enable");
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Bug Labs");
