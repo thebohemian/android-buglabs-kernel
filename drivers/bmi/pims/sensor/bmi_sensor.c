@@ -89,7 +89,7 @@ static const unsigned short dcomp_addresses[] = { BMI_DCOMP_I2C_ADDRESS, I2C_CLI
 #define ACC_PRESENT (sensor->acc_i2c_client != NULL)
 #define PL_PRESENT (sensor->pl_i2c_client != NULL)
 // presume DL is there if AL is as they're the same part, right? TODO
-#define DLIGHT_PRESENT PL_PRESENT
+#define DL_PRESENT PL_PRESENT
 #define TEMP_PRESENT (sensor->temp_i2c_client != NULL)
 
 // we need to do this by board revision number
@@ -100,7 +100,7 @@ static const unsigned short dcomp_addresses[] = { BMI_DCOMP_I2C_ADDRESS, I2C_CLI
 // presume all analog sensors are present if the ADC is present
 // if we ever need to care we'll do it based on the board
 // revision number
-#define ACOMPASS_PRESENT ADC_PRESENT
+#define ACOMP_PRESENT ADC_PRESENT
 #define ALIGHT_PRESENT ADC_PRESENT
 #define APROX_PRESENT ADC_PRESENT
 #define HUMIDITY_PRESENT ADC_PRESENT
@@ -651,7 +651,7 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
 
     case BMI_SENSOR_ACOMPRST:
     {
-        if(!ACOMPASS_PRESENT)
+        if(!ACOMP_PRESENT)
             return -ENODEV;
 
         if(ReadByte_IOX(sensor->iox_i2c_client, IOX_INPUT0_REG, &iox_data) < 0)
@@ -674,7 +674,7 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
         unsigned char adc_data[2];
         int read_data;
 
-        if(!ACOMPASS_PRESENT)
+        if(!ACOMP_PRESENT)
             return -ENODEV;
 
         if(WriteByte_ADC(sensor->adc_i2c_client, SENSOR_ADC_ACOMPASS_X | SENSOR_ADC_PD_OFF) < 0)
@@ -696,7 +696,7 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
         unsigned char adc_data[2];
         int read_data;
 
-        if(!ACOMPASS_PRESENT)
+        if(!ACOMP_PRESENT)
             return -ENODEV;
 
         if(WriteByte_ADC(sensor->adc_i2c_client, SENSOR_ADC_ACOMPASS_Y | SENSOR_ADC_PD_OFF) < 0)
@@ -718,7 +718,7 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
         unsigned char adc_data[2];
         int read_data;
 
-        if(!ACOMPASS_PRESENT)
+        if(!ACOMP_PRESENT)
             return -ENODEV;
 
         if(WriteByte_ADC(sensor->adc_i2c_client, SENSOR_ADC_ACOMPASS_Z | SENSOR_ADC_PD_OFF) < 0)
@@ -1580,7 +1580,7 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
         struct sensor_dl_rw *dl = NULL;
         unsigned char dl_data;
 
-        if(!DLIGHT_PRESENT)
+        if(!DL_PRESENT)
             return -ENODEV;
 
         if ((dl = kmalloc(sizeof(struct sensor_dl_rw), GFP_KERNEL)) == NULL)
@@ -1623,7 +1623,7 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
         unsigned char dl_data;
         unsigned int read_data;
 
-        if(!DLIGHT_PRESENT)
+        if(!DL_PRESENT)
             return -ENODEV;
 
         // read sensor data
@@ -1644,7 +1644,7 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
 
     case BMI_SENSOR_DLIGHT_IC:
     {
-        if(!DLIGHT_PRESENT)
+        if(!DL_PRESENT)
             return -ENODEV;
 
         if(WriteByte_DL_IC(sensor->pl_i2c_client) < 0)
@@ -1658,7 +1658,7 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
         unsigned char dl_data;
         unsigned int read_data;
 
-        if(!DLIGHT_PRESENT)
+        if(!DL_PRESENT)
             return -ENODEV;
 
         // write all register
@@ -1739,6 +1739,34 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
 
         if(WriteByte_IOX(sensor->iox_i2c_client, IOX_OUTPUT1_REG, iox_data) < 0)
             return -ENODEV;
+    }
+    break;
+
+    case BMI_SENSOR_PRESENCE:
+    {
+        struct sensor_presence *p = NULL;
+
+        if ((p = kmalloc(sizeof(*p), GFP_KERNEL)) == NULL)
+            return -ENOMEM;
+
+        p->adc = ADC_PRESENT ? 1 : 0;
+        p->acc = ACC_PRESENT ? 1 : 0;
+        p->pl = PL_PRESENT ? 1 : 0;
+        p->dl = DL_PRESENT ? 1 : 0;
+        p->temp = TEMP_PRESENT ? 1 : 0;
+        p->motion = MOTION_PRESENT ? 1 : 0;
+        p->dcomp = DCOMP_PRESENT ? 1 : 0;
+        p->acomp = ACOMP_PRESENT ? 1 : 0;
+        p->alight = ALIGHT_PRESENT ? 1 : 0;
+        p->aprox = APROX_PRESENT ? 1 : 0;
+        p->humidity = HUMIDITY_PRESENT ? 1 : 0;
+        p->sound = SOUND_PRESENT ? 1 : 0;
+
+        if (copy_to_user((struct sensor_presence *) arg, p, sizeof(*p))) {
+            kfree(p);
+            return -EFAULT;
+        }
+        kfree(p);
     }
     break;
 
@@ -1870,7 +1898,7 @@ static void sensor_work_handler(struct work_struct * work)
         }
     }
 
-    if(DLIGHT_PRESENT && sensor->dlight_int_en) {
+    if(DL_PRESENT && sensor->dlight_int_en) {
         if((iox1 & (0x1 << SENSOR_IOX_PL_INT)) == 0) {
             sensor->dlight_int_en = 0;
             sensor->dlight_int_fl = 1;
@@ -2585,7 +2613,7 @@ int bmi_sensor_probe(struct bmi_device *bdev)
         }
     }
 
-    if (ACOMPASS_PRESENT) {
+    if (ACOMP_PRESENT) {
         unsigned char adc_data[2];
         unsigned int compass_x;
         unsigned int compass_y;
@@ -3202,7 +3230,7 @@ int bmi_sensor_probe(struct bmi_device *bdev)
         }
     }
 
-    if(DLIGHT_PRESENT) {
+    if(DL_PRESENT) {
         unsigned char dl_data[2];
 
         if(WriteByte_PL(sensor->pl_i2c_client, SENSOR_DL_CMD, SENSOR_DL_CMD_ADC_EN) < 0) {
@@ -3274,7 +3302,7 @@ int bmi_sensor_probe(struct bmi_device *bdev)
     return 0;
 
 sysfs_err16:
-    if(DLIGHT_PRESENT)
+    if(DL_PRESENT)
         device_remove_file(&sensor->bdev->dev, &dev_attr_dlight);
 sysfs_err15:
     if(ALIGHT_PRESENT)
@@ -3316,7 +3344,7 @@ sysfs_err3:
     if(DCOMP_PRESENT)
         device_remove_file(&sensor->bdev->dev, &dev_attr_dcompass);
 sysfs_err2:
-    if(ACOMPASS_PRESENT)
+    if(ACOMP_PRESENT)
         device_remove_file(&sensor->bdev->dev, &dev_attr_acompass);
 sysfs_err1:
     if(HUMIDITY_PRESENT)
@@ -3355,7 +3383,7 @@ void bmi_sensor_remove(struct bmi_device *bdev)
     if(HUMIDITY_PRESENT) {
         device_remove_file(&sensor->bdev->dev, &dev_attr_humidity);
     }
-    if(ACOMPASS_PRESENT) {
+    if(ACOMP_PRESENT) {
         device_remove_file(&sensor->bdev->dev, &dev_attr_acompass);
     }
     if(DCOMP_PRESENT) {
@@ -3388,7 +3416,7 @@ void bmi_sensor_remove(struct bmi_device *bdev)
     if(ALIGHT_PRESENT) {
         device_remove_file(&sensor->bdev->dev, &dev_attr_alight);
     }
-    if(DLIGHT_PRESENT) {
+    if(DL_PRESENT) {
         device_remove_file(&sensor->bdev->dev, &dev_attr_dlight);
     }
 
