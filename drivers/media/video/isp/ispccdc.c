@@ -1230,7 +1230,6 @@ void ispccdc_hs_vs_isr(struct isp_ccdc_device *ccdc)
 static void ispccdc_isr_buffer(struct isp_ccdc_device *ccdc)
 {
 	struct isp_device *isp = to_isp_device(ccdc);
-	struct isp_video *video = ccdc->video;
 	struct isp_buffer *buffer;
 	int restart = 0;
 
@@ -1240,7 +1239,7 @@ static void ispccdc_isr_buffer(struct isp_ccdc_device *ccdc)
 	 * deal with it anyway). Disabling the CCDC when no buffer is available
 	 * would thus not be enough, we need to handle the situation explicitly.
 	 */
-	if (list_empty(&video->dmaqueue))
+	if (list_empty(&ccdc->video_out.dmaqueue))
 		goto done;
 
 	if (ccdc->state == ISP_PIPELINE_STREAM_STOPPED)
@@ -1262,7 +1261,7 @@ static void ispccdc_isr_buffer(struct isp_ccdc_device *ccdc)
 		goto done;
 	}
 
-	buffer = isp_video_buffer_next(video, ccdc->error);
+	buffer = isp_video_buffer_next(&ccdc->video_out, ccdc->error);
 	if (buffer != NULL) {
 		ispccdc_set_outaddr(ccdc, buffer->isp_addr);
 		restart = 1;
@@ -1819,13 +1818,10 @@ static int ccdc_link_setup(struct media_entity *entity,
 
 	case CCDC_PAD_SOURCE_OF | (MEDIA_ENTITY_TYPE_NODE << 16):
 		/* Write to memory */
-		if (flags & MEDIA_LINK_FLAG_ACTIVE) {
+		if (flags & MEDIA_LINK_FLAG_ACTIVE)
 			ccdc->output |= CCDC_OUTPUT_MEMORY;
-			ccdc->video = container_of(remote->entity,
-					struct isp_video, video.entity);
-		} else {
+		else
 			ccdc->output &= ~CCDC_OUTPUT_MEMORY;
-		}
 		break;
 
 	case CCDC_PAD_SOURCE_OF | (MEDIA_ENTITY_TYPE_SUBDEV << 16):
