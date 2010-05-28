@@ -493,44 +493,6 @@ isp_video_querycap(struct file *file, void *fh, struct v4l2_capability *cap)
 }
 
 static int
-isp_video_enum_formats(struct file *file, void *fh, struct v4l2_fmtdesc *f)
-{
-	struct isp_video *video = video_drvdata(file);
-	const struct v4l2_ioctl_ops *ops = video->ioctl_ops;
-
-	if (ops == NULL || ops->vidioc_enum_fmt_vid_cap == NULL)
-		return -EINVAL;
-
-	return ops->vidioc_enum_fmt_vid_cap(file, fh, f);
-}
-
-static int
-isp_video_enum_framesizes(struct file *file, void *fh,
-			  struct v4l2_frmsizeenum *fsize)
-{
-	struct isp_video *video = video_drvdata(file);
-	const struct v4l2_ioctl_ops *ops = video->ioctl_ops;
-
-	if (ops == NULL || ops->vidioc_enum_framesizes == NULL)
-		return -EINVAL;
-
-	return ops->vidioc_enum_framesizes(file, fh, fsize);
-}
-
-static int
-isp_video_enum_frameintervals(struct file *file, void *fh,
-			      struct v4l2_frmivalenum *fival)
-{
-	struct isp_video *video = video_drvdata(file);
-	const struct v4l2_ioctl_ops *ops = video->ioctl_ops;
-
-	if (ops == NULL || ops->vidioc_enum_frameintervals == NULL)
-		return -EINVAL;
-
-	return ops->vidioc_enum_frameintervals(file, fh, fival);
-}
-
-static int
 isp_video_get_format(struct file *file, void *fh, struct v4l2_format *format)
 {
 	struct isp_video_fh *vfh = to_isp_video_fh(fh);
@@ -664,30 +626,6 @@ isp_video_set_crop(struct file *file, void *fh, struct v4l2_crop *crop)
 	mutex_unlock(&video->mutex);
 
 	return ret == -ENOIOCTLCMD ? -EINVAL : ret;
-}
-
-static int
-isp_video_get_param(struct file *file, void *fh, struct v4l2_streamparm *a)
-{
-	struct isp_video *video = video_drvdata(file);
-	const struct v4l2_ioctl_ops *ops = video->ioctl_ops;
-
-	if (ops == NULL || ops->vidioc_g_parm == NULL)
-		return -EINVAL;
-
-	return ops->vidioc_g_parm(file, fh, a);
-}
-
-static int
-isp_video_set_param(struct file *file, void *fh, struct v4l2_streamparm *a)
-{
-	struct isp_video *video = video_drvdata(file);
-	const struct v4l2_ioctl_ops *ops = video->ioctl_ops;
-
-	if (ops == NULL || ops->vidioc_s_parm == NULL)
-		return -EINVAL;
-
-	return ops->vidioc_s_parm(file, fh, a);
 }
 
 static int
@@ -930,9 +868,6 @@ isp_video_s_input(struct file *file, void *fh, unsigned int input)
 
 static const struct v4l2_ioctl_ops isp_video_ioctl_ops = {
 	.vidioc_querycap		= isp_video_querycap,
-	.vidioc_enum_fmt_vid_cap	= isp_video_enum_formats,
-	.vidioc_enum_framesizes		= isp_video_enum_framesizes,
-	.vidioc_enum_frameintervals	= isp_video_enum_frameintervals,
 	.vidioc_g_fmt_vid_cap		= isp_video_get_format,
 	.vidioc_s_fmt_vid_cap		= isp_video_set_format,
 	.vidioc_try_fmt_vid_cap		= isp_video_try_format,
@@ -942,8 +877,6 @@ static const struct v4l2_ioctl_ops isp_video_ioctl_ops = {
 	.vidioc_cropcap			= isp_video_cropcap,
 	.vidioc_g_crop			= isp_video_get_crop,
 	.vidioc_s_crop			= isp_video_set_crop,
-	.vidioc_g_parm			= isp_video_get_param,
-	.vidioc_s_parm			= isp_video_set_param,
 	.vidioc_reqbufs			= isp_video_reqbufs,
 	.vidioc_querybuf		= isp_video_querybuf,
 	.vidioc_qbuf			= isp_video_qbuf,

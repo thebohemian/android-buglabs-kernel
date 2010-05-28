@@ -96,7 +96,6 @@ struct isp_video {
 	atomic_t sequence;
 
 	const struct isp_video_operations *ops;
-	const struct v4l2_ioctl_ops *ioctl_ops;
 };
 
 #define to_isp_video(vdev)	container_of(vdev, struct isp_video, video)
