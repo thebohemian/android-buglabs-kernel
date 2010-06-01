@@ -22,6 +22,8 @@ obj-$(CONFIG_MFD_WM8350_I2C)	+= wm8350-i2c.o
 obj-$(CONFIG_TPS65010)		+= tps65010.o
 obj-$(CONFIG_MENELAUS)		+= menelaus.o
 
+obj-$(CONFIG_SC16IS_CORE)	+= sc16is-core.o
+
 obj-$(CONFIG_TWL4030_CORE)	+= twl4030-core.o twl4030-irq.o twl4030-pwm.o
 
 obj-$(CONFIG_MFD_CORE)		+= mfd-core.o
