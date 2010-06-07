@@ -1,4 +1,3 @@
-
 #include <linux/init.h>
 #include <linux/module.h>
 
@@ -236,12 +235,10 @@ static void transmit_chars(struct sc16is_port *s)
 		s->port.x_char = 0;
 		return;
 	}
-	if (uart_tx_stopped(&s->port)) {
-		serial_sc16is_stop_tx(&s->port);
-		return;
-	}
-	if (uart_circ_empty(xmit)) {
-		serial_sc16is_stop_tx(&s->port);
+	if (uart_tx_stopped(&s->port) ||uart_circ_empty(xmit)) {
+	  //stopp transmitting
+		s->regs.ier &= ~UART_IER_THRI;
+		serial_out(s, UART_IER, s->regs.ier);
 		return;
 	}
 
@@ -258,8 +255,10 @@ static void transmit_chars(struct sc16is_port *s)
 		uart_write_wakeup(&s->port);
 
 
-	if (uart_circ_empty(xmit))
-		serial_sc16is_stop_tx(&s->port);
+	if (uart_circ_empty(xmit)){
+	  s->regs.ier &= ~UART_IER_THRI;
+	  serial_out(s, UART_IER, s->regs.ier);	
+	}
 }
 
 static void serial_sc16is_handle_port(struct sc16is_port *s)
@@ -268,13 +267,13 @@ static void serial_sc16is_handle_port(struct sc16is_port *s)
 	
 	//spin_lock_irqsave(&s->port.lock, flags);
 
-	status = serial_in(s, UART_LSR);
-	dev_dbg(&s->sc16is->spi_dev->dev, "%s 0x%x\n", __func__, status);
+	s->regs.lsr = serial_in(s, UART_LSR);
+	dev_dbg(&s->sc16is->spi_dev->dev, "%s 0x%x\n", __func__, s->regs.lsr);
 
-	if (status & (UART_LSR_DR | UART_LSR_BI))
-		receive_chars(s, &status);
+	if (s->regs.lsr & (UART_LSR_DR | UART_LSR_BI))
+		receive_chars(s, &s->regs.lsr);
 	get_msr(s);
-	if (status & UART_LSR_THRE)
+	if (s->regs.lsr & UART_LSR_THRE)
 		transmit_chars(s);
 
 	//spin_unlock_irqrestore(&s->port.lock, flags);
@@ -291,6 +290,7 @@ static void serial_sc16is_timeout(unsigned long data)
 {
   struct sc16is_port *s = (struct sc16is_port *)data;
 
+  dev_dbg(&s->sc16is->spi_dev->dev, "%s\n", __func__);
   if (s->port.info) {
     sc16is_dowork(s);
     mod_timer(&s->timer, jiffies + s->poll_time);
@@ -306,13 +306,18 @@ static void serial_sc16is_work(struct work_struct *w)
   dev_dbg(&s->sc16is->spi_dev->dev, "%s\n", __func__);
 
   if (s->regs.lcr != s->saved_regs.lcr)
-    serial_out(s, UART_LCR, s->lcr);
+    serial_out(s, UART_LCR, s->regs.lcr);
   if (s->regs.mcr != s->saved_regs.mcr)
-    serial_out(s, UART_MCR, s->mcr);
+    serial_out(s, UART_MCR, s->regs.mcr);
   if (s->regs.ier != s->saved_regs.ier)
-    serial_out(s, UART_IER, s->ier);
+    serial_out(s, UART_IER, s->regs.ier);
+  if (s->regs.fcr != s->saved_regs.fcr)
+    serial_out(s, UART_FCR, s->regs.fcr);
 
-
+  s->saved_regs.lcr = s->regs.lcr;
+  s->saved_regs.mcr = s->regs.mcr;
+  s->saved_regs.ier = s->regs.ier;
+  s->saved_regs.fcr = s->regs.fcr;
   do {
     serial_sc16is_handle_port(s);
 
@@ -365,7 +370,8 @@ static void serial_sc16is_set_mctrl(struct uart_port *port, unsigned int mctrl)
   if (mctrl & TIOCM_LOOP)
     mcr |= UART_MCR_LOOP;
   
-  s->regs.mcr |= (mcr & s->mcr_mask) | s->mcr_force | UART_MCR_LOOP;
+  //  s->regs.mcr |= (mcr & s->mcr_mask) | s->mcr_force | UART_MCR_LOOP;
+  s->regs.mcr |= (mcr & s->mcr_mask) | s->mcr_force;
   
   sc16is_dowork(s);
   // serial_out(s, UART_MCR, mcr);
@@ -516,7 +522,7 @@ static int serial_sc16is_startup(struct uart_port *port)
 
   s->regs.ier = UART_IER_RLSI | UART_IER_RDI;
   serial_out(s, UART_IER, s->regs.ier);
-
+  
   return 0;
 }
 
@@ -589,7 +595,7 @@ serial_sc16is_set_termios(struct uart_port *port, struct ktermios *termios,
 			    port->uartclk / 16);
   quot = uart_get_divisor(port, baud);
 
-  fcr = UART_FCR_ENABLE_FIFO | UART_FCR_R_TRIG_10 | UART_FCR7_64BYTE;
+  s->regs.fcr = UART_FCR_ENABLE_FIFO | UART_FCR_R_TRIG_10;
   s->regs.mcr &= ~UART_MCR_AFE;
   if (termios->c_cflag & CRTSCTS)
     s->regs.mcr |= UART_MCR_AFE;
@@ -659,7 +665,8 @@ serial_sc16is_set_termios(struct uart_port *port, struct ktermios *termios,
   /* Don't rewrite B0 */
   if (tty_termios_baud_rate(termios))
     tty_termios_encode_baud_rate(termios, baud, baud);
-
+  
+  sc16is_dowork(s);
 }
 
 static void
@@ -807,7 +814,7 @@ static int __devinit sc16is_uart_probe(struct platform_device *pdev)
   sc16is_ports[0].sc16is = dev_get_drvdata(pdev->dev.parent);
   sc16is_ports[0].port.irq = gpio_to_irq(36);
   sc16is_ports[0].port.dev = &pdev->dev;
-  sc16is_ports[0].port.line = 1;
+  sc16is_ports[0].port.line = 0;
   sc16is_ports[0].port.ops = &sc16is_uart_ops;
   sc16is_ports[0].port.fifosize = 64;
   sc16is_ports[0].port.flags = UPF_SKIP_TEST | UPF_BOOT_AUTOCONF;
