@@ -1,7 +1,7 @@
 #include <linux/init.h>
 #include <linux/module.h>
 
-#define DEBUG 1
+//#define DEBUG 1
 
 #include <linux/device.h>
 #include <linux/platform_device.h>
@@ -35,6 +35,8 @@ struct sc16is_port {
   spinlock_t            c_lock;
   struct timer_list     timer;
   
+  unsigned int          quot;
+  unsigned int          saved_quot;
   int                   poll_time;
 
   unsigned char		lsr_saved_flags;
@@ -146,18 +148,27 @@ static void sc16is_clear_fifos(struct sc16is_port *p)
   serial_out(p, UART_FCR, 0);
 }
 
-static void sc16is_set_clock(struct sc16is_port *s, unsigned int quot)
+static void sc16is_set_clock(struct sc16is_port *s)
 {
+  unsigned int dll, dlh;
+
+  dev_dbg(&s->sc16is->spi_dev->dev, "%s 0x%x\n", __func__, s->quot);
+  s->regs.efr = serial_in(s, UART_EFR);
+  s->regs.lcr = serial_in(s, UART_LCR);
+  dev_warn(&s->sc16is->spi_dev->dev, "EFR 0x%x LCR 0x%x\n", s->regs.efr, s->regs.lcr);
+
   serial_out(s, UART_LCR, 0xBF);
   serial_out(s, UART_EFR, s->regs.efr);
 
   serial_out(s, UART_LCR, s->regs.lcr | UART_LCR_DLAB);/* set DLAB */
 
-  serial_out(s, UART_DLL, quot & 0xff);
-  serial_out(s, UART_DLM, quot >> 8 & 0xff);
+  dll = serial_in(s, UART_DLL);
+  dlh = serial_in(s, UART_DLM);
+  dev_warn(&s->sc16is->spi_dev->dev, "Clock Divisor latches 0x%x 0x%x\n", dll, dlh);
+  serial_out(s, UART_DLL, s->quot & 0xff);
+  serial_out(s, UART_DLM, s->quot >> 8 & 0xff);
 
   serial_out(s, UART_LCR, s->regs.lcr);
-  serial_out(s, UART_FCR, s->regs.fcr);		/* set fcr */
 }
 
 static void receive_chars(struct sc16is_port *s, unsigned int *status)
@@ -275,7 +286,6 @@ static void serial_sc16is_handle_port(struct sc16is_port *s)
 	get_msr(s);
 	if (s->regs.lsr & UART_LSR_THRE)
 		transmit_chars(s);
-
 	//spin_unlock_irqrestore(&s->port.lock, flags);
 }
 
@@ -305,6 +315,8 @@ static void serial_sc16is_work(struct work_struct *w)
 
   dev_dbg(&s->sc16is->spi_dev->dev, "%s\n", __func__);
 
+  if (s->quot != s->saved_quot)
+    sc16is_set_clock(s);
   if (s->regs.lcr != s->saved_regs.lcr)
     serial_out(s, UART_LCR, s->regs.lcr);
   if (s->regs.mcr != s->saved_regs.mcr)
@@ -313,11 +325,11 @@ static void serial_sc16is_work(struct work_struct *w)
     serial_out(s, UART_IER, s->regs.ier);
   if (s->regs.fcr != s->saved_regs.fcr)
     serial_out(s, UART_FCR, s->regs.fcr);
-
   s->saved_regs.lcr = s->regs.lcr;
   s->saved_regs.mcr = s->regs.mcr;
   s->saved_regs.ier = s->regs.ier;
   s->saved_regs.fcr = s->regs.fcr;
+  s->saved_quot = s->quot;
   do {
     serial_sc16is_handle_port(s);
 
@@ -473,6 +485,8 @@ static int serial_sc16is_startup(struct uart_port *port)
   
   dev_dbg(&s->sc16is->spi_dev->dev, "%s\n", __func__);
 
+  s->quot = 0;
+  s->saved_quot = 0;
   memset(&s->regs, 0, sizeof(struct sc16is_regs));
   memset(&s->saved_regs, 0, sizeof(struct sc16is_regs));
   sc16is_clear_fifos(s);
@@ -562,7 +576,7 @@ serial_sc16is_set_termios(struct uart_port *port, struct ktermios *termios,
 
 
   unsigned char cval, fcr = 0;
-  unsigned int baud, quot;
+  unsigned int baud;
   
 
   dev_dbg(&s->sc16is->spi_dev->dev, "%s\n", __func__);
@@ -593,14 +607,13 @@ serial_sc16is_set_termios(struct uart_port *port, struct ktermios *termios,
   baud = uart_get_baud_rate(port, termios, old,
 			    port->uartclk / 16 / 0xffff,
 			    port->uartclk / 16);
-  quot = uart_get_divisor(port, baud);
+  s->quot = uart_get_divisor(port, baud);
 
   s->regs.fcr = UART_FCR_ENABLE_FIFO | UART_FCR_R_TRIG_10;
   s->regs.mcr &= ~UART_MCR_AFE;
   if (termios->c_cflag & CRTSCTS)
     s->regs.mcr |= UART_MCR_AFE;
 	     
-  // spin_lock_irqsave(&s->port.lock, flags);
 
   /*
    * Update the per-port timeout.
@@ -661,11 +674,10 @@ serial_sc16is_set_termios(struct uart_port *port, struct ktermios *termios,
   //serial_out(s, UART_FCR, fcr);		/* set fcr */
 
   //serial_sc16is_set_mctrl(&s->port, s->port.mctrl);
-  //spin_unlock_irqrestore(&s->port.lock, flags);
+
   /* Don't rewrite B0 */
   if (tty_termios_baud_rate(termios))
     tty_termios_encode_baud_rate(termios, baud, baud);
-  
   sc16is_dowork(s);
 }
 
