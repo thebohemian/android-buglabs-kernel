@@ -134,7 +134,6 @@ static void wait_for_xmitr(struct sc16is_port *s, int bits)
 			if (msr & UART_MSR_CTS)
 				break;
 			udelay(1);
-			//touch_nmi_watchdog();
 		}
 	}
 }
@@ -155,7 +154,7 @@ static void sc16is_set_clock(struct sc16is_port *s)
   dev_dbg(&s->sc16is->spi_dev->dev, "%s 0x%x\n", __func__, s->quot);
   s->regs.efr = serial_in(s, UART_EFR);
   s->regs.lcr = serial_in(s, UART_LCR);
-  dev_warn(&s->sc16is->spi_dev->dev, "EFR 0x%x LCR 0x%x\n", s->regs.efr, s->regs.lcr);
+  dev_dbg(&s->sc16is->spi_dev->dev, "EFR 0x%x LCR 0x%x\n", s->regs.efr, s->regs.lcr);
 
   serial_out(s, UART_LCR, 0xBF);
   serial_out(s, UART_EFR, s->regs.efr);
@@ -164,14 +163,14 @@ static void sc16is_set_clock(struct sc16is_port *s)
 
   dll = serial_in(s, UART_DLL);
   dlh = serial_in(s, UART_DLM);
-  dev_warn(&s->sc16is->spi_dev->dev, "Clock Divisor latches 0x%x 0x%x\n", dll, dlh);
+  dev_dbg(&s->sc16is->spi_dev->dev, "Clock Divisor latches 0x%x 0x%x\n", dll, dlh);
   serial_out(s, UART_DLL, s->quot & 0xff);
   serial_out(s, UART_DLM, s->quot >> 8 & 0xff);
 
   serial_out(s, UART_LCR, s->regs.lcr);
 }
 
-static void receive_chars(struct sc16is_port *s, unsigned int *status)
+static void receive_chars(struct sc16is_port *s, unsigned char *status)
 {
   struct tty_struct *tty = s->port.info->port.tty;
   unsigned char ch, lsr = *status;
@@ -227,9 +226,7 @@ static void receive_chars(struct sc16is_port *s, unsigned int *status)
 ignore_char:
     lsr = serial_in(s, UART_LSR);
   } while ((lsr & (UART_LSR_DR | UART_LSR_BI)) && (max_count-- > 0));
-  //  spin_unlock(&s->port.lock);
   tty_flip_buffer_push(tty);
-  //  spin_lock(&s->port.lock);
   *status = lsr;
 }
 
@@ -247,7 +244,7 @@ static void transmit_chars(struct sc16is_port *s)
 		return;
 	}
 	if (uart_tx_stopped(&s->port) ||uart_circ_empty(xmit)) {
-	  //stopp transmitting
+	  //stop transmitting
 		s->regs.ier &= ~UART_IER_THRI;
 		serial_out(s, UART_IER, s->regs.ier);
 		return;
@@ -273,11 +270,7 @@ static void transmit_chars(struct sc16is_port *s)
 }
 
 static void serial_sc16is_handle_port(struct sc16is_port *s)
-{
-	unsigned int status;
-	
-	//spin_lock_irqsave(&s->port.lock, flags);
-
+{	
 	s->regs.lsr = serial_in(s, UART_LSR);
 	dev_dbg(&s->sc16is->spi_dev->dev, "%s 0x%x\n", __func__, s->regs.lsr);
 
@@ -286,7 +279,6 @@ static void serial_sc16is_handle_port(struct sc16is_port *s)
 	get_msr(s);
 	if (s->regs.lsr & UART_LSR_THRE)
 		transmit_chars(s);
-	//spin_unlock_irqrestore(&s->port.lock, flags);
 }
 
 static void sc16is_dowork(struct sc16is_port *s)
@@ -348,8 +340,7 @@ static irqreturn_t sc16is_irq(int irqno, void *dev_id)
 	dev_dbg(&s->sc16is->spi_dev->dev, "%s\n", __func__);
 
 	sc16is_dowork(s);
-	//	sc16is_dowork(&s[0]);
-	//	sc16is_dowork(&s[1]);
+
 	return IRQ_HANDLED;
 }
 
@@ -360,10 +351,9 @@ static unsigned int serial_sc16is_tx_empty(struct uart_port *port)
   dev_dbg(&s->sc16is->spi_dev->dev, "%s\n", __func__);
 
   sc16is_dowork(s);
-  //lsr = serial_in(s, UART_LSR);
-  //spin_lock_irqsave(&s->port.lock, flags);
+
   s->lsr_saved_flags |= s->regs.lsr & LSR_SAVE_FLAGS;
-  //spin_unlock_irqrestore(&s->port.lock, flags);
+
   return (s->regs.lsr & BOTH_EMPTY) == BOTH_EMPTY ? TIOCSER_TEMT : 0;
 }
 
@@ -388,7 +378,6 @@ static void serial_sc16is_set_mctrl(struct uart_port *port, unsigned int mctrl)
   s->regs.mcr |= (mcr & s->mcr_mask) | s->mcr_force;
   
   sc16is_dowork(s);
-  // serial_out(s, UART_MCR, mcr);
 }
 
 static unsigned int serial_sc16is_get_mctrl(struct uart_port *port)
@@ -399,7 +388,6 @@ static unsigned int serial_sc16is_get_mctrl(struct uart_port *port)
   
   dev_dbg(&s->sc16is->spi_dev->dev, "%s\n", __func__);
 
-  //status = get_msr(s);
   sc16is_dowork(s);
   status = s->regs.msr;
   ret = 0;
@@ -423,7 +411,7 @@ static void serial_sc16is_stop_tx(struct uart_port *port)
   if (s->regs.ier & UART_IER_THRI) {
     s->regs.ier &= ~UART_IER_THRI;
   }
-  //serial_out(s, UART_IER, s->ier);
+
   sc16is_dowork(s);
 }
 
@@ -436,7 +424,7 @@ static void serial_sc16is_start_tx(struct uart_port *port)
   if (!(s->regs.ier & UART_IER_THRI)) {
     s->regs.ier |= UART_IER_THRI;
   }
-  //serial_out(s, UART_IER, s->ier);
+
   sc16is_dowork(s);
 }
 
@@ -448,7 +436,7 @@ static void serial_sc16is_stop_rx(struct uart_port *port)
 
   s->regs.ier &= ~UART_IER_RLSI;
   s->port.read_status_mask &= ~UART_LSR_DR;
-  //serial_out(s, UART_IER, s->ier);
+
   sc16is_dowork(s);
 }
 
@@ -468,13 +456,11 @@ static void serial_sc16is_break_ctl(struct uart_port *port, int break_state)
 
   dev_dbg(&s->sc16is->spi_dev->dev, "%s\n", __func__);
 
-  //spin_lock_irqsave(&s->port.lock, flags);
   if (break_state == -1)
     s->regs.lcr |= UART_LCR_SBC;
   else
     s->regs.lcr &= ~UART_LCR_SBC;
-  //spin_unlock_irqrestore(&s->port.lock, flags);
-  //serial_out(s, UART_LCR, s->lcr);
+
   sc16is_dowork(s);
 }
 
@@ -482,7 +468,6 @@ static int serial_sc16is_startup(struct uart_port *port)
 {
 
   struct sc16is_port *s = container_of(port, struct sc16is_port, port);
-  unsigned char lsr, iir;
   char q[12];
   
   dev_dbg(&s->sc16is->spi_dev->dev, "%s\n", __func__);
@@ -517,19 +502,6 @@ static int serial_sc16is_startup(struct uart_port *port)
   (void) serial_in(s, UART_MSR);
 
   serial_out(s, UART_LCR, UART_LCR_WLEN8);
-
-  //spin_lock_irqsave(&s->port.lock, flags);
-  disable_irq_nosync(s->port.irq);
-  serial_out(s, UART_IER, UART_IER_THRI);
-  lsr = serial_in(s, UART_LSR);
-  iir = serial_in(s, UART_IIR);
-  serial_out(s, UART_IER, 0);
-  enable_irq(s->port.irq);
-  if (lsr & UART_LSR_TEMT && iir & UART_IIR_NO_INT) {
-    dev_warn(&s->sc16is->spi_dev->dev, "TX Interrupt test failed..\n");
-  }
-
-  //spin_unlock_irqrestore(&s->port.lock, flags);
   
   serial_in(s, UART_LSR);
   serial_in(s, UART_RX);
@@ -577,7 +549,7 @@ serial_sc16is_set_termios(struct uart_port *port, struct ktermios *termios,
  
 
 
-  unsigned char cval, fcr = 0;
+  unsigned char cval;
   unsigned int baud;
   
 
@@ -629,7 +601,7 @@ serial_sc16is_set_termios(struct uart_port *port, struct ktermios *termios,
     s->port.read_status_mask |= UART_LSR_BI;
   
   /*
-   * Characteres to ignore
+   * Characters to ignore
    */
   s->port.ignore_status_mask = 0;
   if (termios->c_iflag & IGNPAR)
@@ -654,30 +626,9 @@ serial_sc16is_set_termios(struct uart_port *port, struct ktermios *termios,
   if (UART_ENABLE_MS(&s->port, termios->c_cflag))
     s->regs.ier |= UART_IER_MSI;
 
-  //serial_out(s, UART_IER, s->ier);
-
-  /*
-   * TI16C752/Startech hardware flow control.  FIXME:
-   * - TI16C752 requires control thresholds to be set.
-   * - UART_MCR_RTS is ineffective if auto-RTS mode is enabled.
-   */
   if (termios->c_cflag & CRTSCTS)
     s->regs.efr |= UART_EFR_CTS;
   
-  //serial_out(s, UART_LCR, 0xBF);
-  //serial_out(s, UART_EFR, efr);
-
-  //serial_out(s, UART_LCR, cval | UART_LCR_DLAB);/* set DLAB */
-
-  //serial_out(s, UART_DLL, quot & 0xff);
-  //serial_out(s, UART_DLM, quot >> 8 & 0xff);
-
-  //serial_out(s, UART_LCR, cval);
-  //serial_out(s, UART_FCR, fcr);		/* set fcr */
-
-  //serial_sc16is_set_mctrl(&s->port, s->port.mctrl);
-
-  /* Don't rewrite B0 */
   if (tty_termios_baud_rate(termios))
     tty_termios_encode_baud_rate(termios, baud, baud);
   sc16is_dowork(s);
@@ -762,10 +713,10 @@ static void serial_sc16is_put_poll_char(struct uart_port *port,
   serial_out(s, UART_IER, 0);
 
   wait_for_xmitr(s, BOTH_EMPTY);
-	/*
-	 *	Send the character out.
-	 *	If a LF, also do CR...
-	 */
+  /*
+   *	Send the character out.
+   *	If a LF, also do CR...
+   */
   serial_out(s, UART_TX, c);
   if (c == 10) {
     wait_for_xmitr(s, BOTH_EMPTY);
@@ -817,16 +768,20 @@ static struct uart_driver sc16is_uart_driver = {
 
 static int __devinit sc16is_uart_probe(struct platform_device *pdev)
 {
-  struct sc16is_uart_platform_data *pdata;
+  struct sc16is_uart_platform_data *pdata = pdev->dev.platform_data;
+  struct sc16is *sc16is;
   int ret =0;
 
   printk(KERN_INFO "sc16is uart probed..\n");
-  ret = gpio_request(36, "spi-uart");
+  sc16is = dev_get_drvdata(pdev->dev.parent);
+  
+  ret = gpio_request(pdata->irq_pin, "spi-uart");
   if (ret)
       printk(KERN_INFO "sc16is uart gpio request failed..\n");
-  gpio_direction_input(36);
-  sc16is_ports[0].sc16is = dev_get_drvdata(pdev->dev.parent);
-  sc16is_ports[0].port.irq = gpio_to_irq(36);
+  gpio_direction_input(pdata->irq_pin);
+  
+  sc16is_ports[0].sc16is = sc16is;
+  sc16is_ports[0].port.irq = gpio_to_irq(pdata->irq_pin);
   sc16is_ports[0].port.dev = &pdev->dev;
   sc16is_ports[0].port.line = 0;
   sc16is_ports[0].port.ops = &sc16is_uart_ops;
@@ -837,9 +792,8 @@ static int __devinit sc16is_uart_probe(struct platform_device *pdev)
   sc16is_ports[0].timer.function = serial_sc16is_timeout;
   sc16is_ports[0].timer.data = (unsigned long)(&sc16is_ports[0]);
 
-
-  sc16is_ports[1].sc16is = dev_get_drvdata(pdev->dev.parent);
-  sc16is_ports[1].port.irq = gpio_to_irq(36);
+  sc16is_ports[1].sc16is = sc16is;
+  sc16is_ports[1].port.irq = gpio_to_irq(pdata->irq_pin);
   sc16is_ports[1].port.dev = &pdev->dev;
   sc16is_ports[1].port.line = 1;
   sc16is_ports[1].port.ops = &sc16is_uart_ops;

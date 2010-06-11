@@ -3,7 +3,7 @@
 struct sc16is {
   struct spi_device *spi_dev;
   struct mutex lock;
-  unsigned irq;
+  unsigned irq_pin;
 };
 
 int sc16is_write_reg(struct sc16is *sc16is, unsigned char channel, unsigned char address, unsigned char data);
@@ -16,7 +16,7 @@ void sc16is_dump_regs(struct sc16is *sc16is);
 
 
 struct sc16is_uart_platform_data {
-  unsigned irq;
+  unsigned irq_pin;
 };
 
 struct sc16is_gpio_platform_data {
@@ -38,7 +38,6 @@ struct sc16is_gpio_platform_data {
 };
 
 struct sc16is_platform_data {
-  unsigned irq_base, irq_end;
   struct sc16is_gpio_platform_data *gpios;
   struct sc16is_uart_platform_data *uarts;
 };

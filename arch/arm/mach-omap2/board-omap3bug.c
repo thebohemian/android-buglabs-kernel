@@ -205,7 +205,7 @@ static struct sc16is_gpio_platform_data bugbase_spi_gpio = {
 };
 
 static struct sc16is_uart_platform_data bugbase_spi_uart = {
-  .irq = 36, //fix this
+  .irq_pin = 36,
 };
 
 static struct sc16is_platform_data bugbase_sc_data = {
