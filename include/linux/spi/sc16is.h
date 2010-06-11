@@ -6,9 +6,9 @@ struct sc16is {
   unsigned irq;
 };
 
-int sc16is_write_reg(struct sc16is *sc16is, unsigned char address, unsigned char data);
+int sc16is_write_reg(struct sc16is *sc16is, unsigned char channel, unsigned char address, unsigned char data);
 
-int sc16is_read_reg(struct sc16is *sc16is, unsigned char address, unsigned char *data);
+int sc16is_read_reg(struct sc16is *sc16is, unsigned char channel, unsigned char address, unsigned char *data);
 
 void sc16is_dump_regs(struct sc16is *sc16is);
 

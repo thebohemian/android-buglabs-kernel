@@ -17,7 +17,7 @@ static void sc16is_complete(void *arg)
 }
 
 
-int sc16is_write_reg(struct sc16is *sc16is, unsigned char address, unsigned char data)
+int sc16is_write_reg(struct sc16is *sc16is, unsigned char channel, unsigned char address, unsigned char data)
 {
   struct spi_message	message;
   struct spi_transfer	x;
@@ -32,7 +32,7 @@ int sc16is_write_reg(struct sc16is *sc16is, unsigned char address, unsigned char
   x.len = 2;
   spi_message_add_tail(&x, &message);
 
-  buf[0] = address << 3;
+  buf[0] = (address << 3) | (channel << 1);
   buf[1] = data;
   
   x.tx_buf = buf;
@@ -52,7 +52,7 @@ int sc16is_write_reg(struct sc16is *sc16is, unsigned char address, unsigned char
 
 EXPORT_SYMBOL(sc16is_write_reg);
 
-int sc16is_read_reg(struct sc16is *sc16is, unsigned char address, unsigned char *data)
+int sc16is_read_reg(struct sc16is *sc16is, unsigned char channel, unsigned char address, unsigned char *data)
 {
   struct spi_message	message;
   struct spi_transfer	x[2];
@@ -69,7 +69,7 @@ int sc16is_read_reg(struct sc16is *sc16is, unsigned char address, unsigned char 
   x[1].len = 1;
   spi_message_add_tail(&x[1], &message);
 
-  buf[0] = 0x80 | (address << 3);
+  buf[0] = 0x80 | (address << 3) | (channel << 1);
   x[0].tx_buf = &buf[0];
   x[1].rx_buf = &buf[1];
 
@@ -95,7 +95,7 @@ void sc16is_dump_regs(struct sc16is *sc16is)
 
   for (i =0; i <= 0xf; i++)
     {
-      res = sc16is_read_reg(sc16is, i, &tmp);
+      res = sc16is_read_reg(sc16is, 0, i, &tmp);
       if (res != 0) {
 	printk(KERN_ERR "%d\n",res);
 	return;

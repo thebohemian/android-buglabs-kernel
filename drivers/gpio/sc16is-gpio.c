@@ -27,7 +27,7 @@ static int sc16is_gpio_direction_input(struct gpio_chip *gc, unsigned off)
   chip = container_of(gc, struct sc16is_gpio_chip, gpio_chip);
 
   reg_val = chip->reg_direction & ~(1u << off);
-  ret = sc16is_write_reg(chip->sc16is, SC16IS_DIRECTION, reg_val);
+  ret = sc16is_write_reg(chip->sc16is, 0, SC16IS_DIRECTION, reg_val);
   if (ret)
     return ret;
 
@@ -46,7 +46,7 @@ static int sc16is_gpio_direction_output(struct gpio_chip *gc, unsigned off, int 
 
   /* Set direction direction */
   reg_val = chip->reg_direction | (1u << off);
-  ret = sc16is_write_reg(chip->sc16is, SC16IS_DIRECTION, reg_val);
+  ret = sc16is_write_reg(chip->sc16is, 0, SC16IS_DIRECTION, reg_val);
   if (ret)
     return ret;
 
@@ -58,7 +58,7 @@ static int sc16is_gpio_direction_output(struct gpio_chip *gc, unsigned off, int 
   else
     reg_val = chip->reg_state & ~(1u << off);
 
-  ret = sc16is_write_reg(chip->sc16is, SC16IS_STATE, reg_val);
+  ret = sc16is_write_reg(chip->sc16is, 0, SC16IS_STATE, reg_val);
   if (ret)
     return ret;
 
@@ -75,7 +75,7 @@ static int sc16is_gpio_get_value(struct gpio_chip *gc, unsigned off)
 
   chip = container_of(gc, struct sc16is_gpio_chip, gpio_chip);
 
-  ret = sc16is_read_reg(chip->sc16is, SC16IS_STATE, &reg_val);
+  ret = sc16is_read_reg(chip->sc16is, 0, SC16IS_STATE, &reg_val);
   if (ret < 0)
     return ret;
 
@@ -95,7 +95,7 @@ static void sc16is_gpio_set_value(struct gpio_chip *gc, unsigned off, int val)
   else
     reg_val = chip->reg_state & ~(1u << off);
 
-  ret = sc16is_write_reg(chip->sc16is, SC16IS_STATE, reg_val);
+  ret = sc16is_write_reg(chip->sc16is, 0, SC16IS_STATE, reg_val);
   if (ret)
     return;
 
@@ -140,11 +140,11 @@ static int sc16is_gpio_probe(struct platform_device *pdev)
 
   sc16is_setup_gpio(chip,8);
 
-  res = sc16is_read_reg(chip->sc16is, SC16IS_STATE, &chip->reg_state);
+  res = sc16is_read_reg(chip->sc16is, 0, SC16IS_STATE, &chip->reg_state);
   if (res)
     goto failed;
   
-  res = sc16is_read_reg(chip->sc16is, SC16IS_DIRECTION, &chip->reg_direction);
+  res = sc16is_read_reg(chip->sc16is, 0, SC16IS_DIRECTION, &chip->reg_direction);
   if (res)
     goto failed;
 

@@ -68,7 +68,7 @@ static unsigned int serial_in(struct sc16is_port *p, int offset)
   u8 data = 0;
   int res = 0;
     
-  res = sc16is_read_reg(p->sc16is, offset, &data);
+  res = sc16is_read_reg(p->sc16is, p->port.line, offset, &data);
   if (res < 0)
     return res;
 
@@ -79,7 +79,7 @@ static void serial_out(struct sc16is_port *p, int offset, int value)
 {
   int res = 0;
 
-  res = sc16is_write_reg(p->sc16is, offset, value);  
+  res = sc16is_write_reg(p->sc16is, p->port.line, offset, value);  
 }
 
 static unsigned int get_msr(struct sc16is_port *s)
@@ -348,6 +348,8 @@ static irqreturn_t sc16is_irq(int irqno, void *dev_id)
 	dev_dbg(&s->sc16is->spi_dev->dev, "%s\n", __func__);
 
 	sc16is_dowork(s);
+	//	sc16is_dowork(&s[0]);
+	//	sc16is_dowork(&s[1]);
 	return IRQ_HANDLED;
 }
 
@@ -501,7 +503,7 @@ static int serial_sc16is_startup(struct uart_port *port)
   INIT_WORK(&s->work, serial_sc16is_work);
   
   if (request_irq(s->port.irq, sc16is_irq,
-		    IRQF_TRIGGER_FALLING, "sc16is", s) < 0){
+		    IRQF_TRIGGER_FALLING | IRQF_SHARED, "sc16is", s) < 0){
     dev_warn(&s->sc16is->spi_dev->dev, "cannot allocate irq %d\n", s->port.irq);
     s->port.irq = 0;
     destroy_workqueue(s->workqueue);
@@ -835,9 +837,26 @@ static int __devinit sc16is_uart_probe(struct platform_device *pdev)
   sc16is_ports[0].timer.function = serial_sc16is_timeout;
   sc16is_ports[0].timer.data = (unsigned long)(&sc16is_ports[0]);
 
+
+  sc16is_ports[1].sc16is = dev_get_drvdata(pdev->dev.parent);
+  sc16is_ports[1].port.irq = gpio_to_irq(36);
+  sc16is_ports[1].port.dev = &pdev->dev;
+  sc16is_ports[1].port.line = 1;
+  sc16is_ports[1].port.ops = &sc16is_uart_ops;
+  sc16is_ports[1].port.fifosize = 64;
+  sc16is_ports[1].port.flags = UPF_SKIP_TEST | UPF_BOOT_AUTOCONF;
+  sc16is_ports[1].port.uartclk = 18432000;
+  sc16is_ports[1].port.type = PORT_16450;
+  sc16is_ports[1].timer.function = serial_sc16is_timeout;
+  sc16is_ports[1].timer.data = (unsigned long)(&sc16is_ports[1]);
   ret = uart_add_one_port(&sc16is_uart_driver, &sc16is_ports[0].port);
   if (ret < 0)
     dev_warn(&sc16is_ports[0].sc16is->spi_dev->dev, 
+	     "uart_add_one_port failed for line %d with error %d\n",
+	     1, ret);
+  ret = uart_add_one_port(&sc16is_uart_driver, &sc16is_ports[1].port);
+  if (ret < 0)
+    dev_warn(&sc16is_ports[1].sc16is->spi_dev->dev, 
 	     "uart_add_one_port failed for line %d with error %d\n",
 	     1, ret);
   return ret;
