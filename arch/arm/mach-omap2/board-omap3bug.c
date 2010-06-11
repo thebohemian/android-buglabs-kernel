@@ -1,3 +1,4 @@
+
 /*
  * linux/arch/arm/mach-omap2/board-omap3bug.c
  *
@@ -23,7 +24,7 @@
 
 #include <linux/spi/spi.h>
 #include <linux/spi/ads7846.h>
-#include <linux/spi/sc16is7x.h>
+#include <linux/spi/sc16is.h>
 #include <linux/i2c.h>
 #include <linux/i2c/twl4030.h>
 #include <linux/i2c/pca953x.h>
@@ -197,20 +198,29 @@ static struct twl4030_platform_data omap3bug_twldata = {
 	.gpio		= &omap3bug_gpio_data,
 };
 
-static struct sc16is7x_platform_data omap3bug_spi_uart_data = {
-  .gpio_base	= OMAP_MAX_GPIO_LINES + TWL4030_GPIO_MAX+16,
+
+static struct sc16is_gpio_platform_data bugbase_spi_gpio = {
+  .gpio_base	= OMAP_MAX_GPIO_LINES + TWL4030_GPIO_MAX + 16,
   .setup	= omap3bug_spi_uart_gpio_setup,
-    /*    .teardown	= omap3bug_ioexp_gpio_teardown,*/
+};
+
+static struct sc16is_uart_platform_data bugbase_spi_uart = {
+  .irq_pin = 36,
+};
+
+static struct sc16is_platform_data bugbase_sc_data = {
+  .gpios = &bugbase_spi_gpio,
+  .uarts = &bugbase_spi_uart,
 };
 
 static struct spi_board_info __initdata omap3bug_spi_board_info[] = {
   {
-    .modalias = "sc16is7x",
+    .modalias = "sc16is",
     .bus_num = 1,
     .chip_select = 0,
     .mode = SPI_MODE_0,
     .max_speed_hz = 2000000,
-    .platform_data = &omap3bug_spi_uart_data,
+    .platform_data = &bugbase_sc_data,
   },
   {
     .modalias			= "spi-lcd",
