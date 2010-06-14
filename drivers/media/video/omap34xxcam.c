@@ -50,18 +50,20 @@
  * Register all I2C subdevices in the board_info array. The array must be
  * terminated by a NULL entry, and the first entry must be the sensor.
  *
- * Return a pointer to the sensor media entity on success, or NULL on failure.
+ * Return a pointer to the sensor media entity if it has been successfully
+ * registered, or NULL otherwise.
  */
 static struct media_entity *
 omap34xxcam_register_subdevs(struct omap34xxcam_device *cam,
 			     struct v4l2_subdev_i2c_board_info *board_info)
 {
-	struct v4l2_subdev *sensor = NULL;
+	struct media_entity *sensor = NULL;
+	unsigned int first;
 
 	if (board_info->board_info == NULL)
 		return NULL;
 
-	for (; board_info->board_info; ++board_info) {
+	for (first = 1; board_info->board_info; ++board_info, first = 0) {
 		struct v4l2_subdev *subdev;
 		struct i2c_adapter *adapter;
 
@@ -71,7 +73,7 @@ omap34xxcam_register_subdevs(struct omap34xxcam_device *cam,
 				"device %s\n", __func__,
 				board_info->i2c_adapter_id,
 				board_info->board_info->type);
-			return NULL;
+			continue;
 		}
 
 		subdev = v4l2_i2c_new_subdev_board(&cam->v4l2_dev,
@@ -80,14 +82,14 @@ omap34xxcam_register_subdevs(struct omap34xxcam_device *cam,
 		if (subdev == NULL) {
 			printk(KERN_ERR "%s: Unable to register subdev %s\n",
 				__func__, board_info->board_info->type);
-			return NULL;
+			continue;
 		}
 
-		if (sensor == NULL)
-			sensor = subdev;
+		if (sensor == NULL && first)
+			sensor = &subdev->entity;
 	}
 
-	return &sensor->entity;
+	return sensor;
 }
 
 static int omap34xxcam_remove(struct platform_device *pdev)
@@ -159,10 +161,8 @@ static int omap34xxcam_probe(struct platform_device *pdev)
 		unsigned int pad;
 
 		sensor = omap34xxcam_register_subdevs(cam, subdevs->subdevs);
-		if (sensor == NULL) {
-			ret = -ENODEV;
-			goto err;
-		}
+		if (sensor == NULL)
+			continue;
 
 		/* Connect the sensor to the correct interface module. Parallel
 		 * sensors are connected directly to the CCDC, while serial
