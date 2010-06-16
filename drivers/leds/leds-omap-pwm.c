@@ -94,6 +94,7 @@ static void omap_pwm_led_power_on(struct omap_pwm_led *led)
 		omap_pwm_led_set_blink(led);
 	}
 
+	omap_dm_timer_write_counter(led->intensity_timer, 0xffffffff);
 	omap_dm_timer_set_load(led->intensity_timer, 1, 0xffffff00);
 }
 

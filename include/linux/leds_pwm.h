@@ -4,6 +4,8 @@
 #ifndef __LINUX_LEDS_PWM_H
 #define __LINUX_LEDS_PWM_H
 
+
+
 struct led_pwm {
 	const char	*name;
 	const char	*default_trigger;
@@ -18,4 +20,10 @@ struct led_pwm_platform_data {
 	struct led_pwm	*leds;
 };
 
+//omap pwm
+
+struct omap_led_pwm_platform_data {
+	int			num_leds;
+	struct led_pwm	       *leds;
+};
 #endif
