@@ -108,6 +108,13 @@
 #define twl_has_watchdog()        false
 #endif
 
+#if defined(CONFIG_TWL4030_STARTON_DISABLE) || \
+	defined(CONFIG_TWL4030_STARTON_DISABLE_MODULE)
+#define twl_has_starton_disable()        true
+#else
+#define twl_has_starton_disable()        false
+#endif
+
 /* Triton Core internal information (BEGIN) */
 
 /* Last - for index max*/
@@ -150,6 +157,15 @@
 
 /* Triton Core internal information (END) */
 
+/* for pm_power_off */
+#define PWR_P1_SW_EVENTS	        0x10
+#define PWR_DEVOFF	 	        (1 << 0)
+
+/* for starton disable */
+#define CFG_P1_TRANSITION               0x00
+#define CFG_P2_TRANSITION               0x01
+#define CFG_P3_TRANSITION               0x02
+#define STARTON_VBAT                    (1 << 4)
 
 /* Few power values */
 #define R_CFG_BOOT			0x05
@@ -659,6 +675,35 @@ static inline int __init unprotect_pm_master(void)
 	return e;
 }
 
+static void twl_starton_disable(void)
+{
+        int e = 0;
+	u8 val; 
+	e |= unprotect_pm_master();
+	if (e < 0)
+		pr_err("%s: starton disable err [%d]\n", DRIVER_NAME, e);
+
+	e |= twl4030_i2c_read_u8(TWL4030_MODULE_PM_MASTER, &val, CFG_P1_TRANSITION);
+	val &= ~(STARTON_VBAT);
+	e |= twl4030_i2c_write_u8(TWL4030_MODULE_PM_MASTER, val, CFG_P1_TRANSITION);
+
+	e |= twl4030_i2c_read_u8(TWL4030_MODULE_PM_MASTER, &val, CFG_P2_TRANSITION);
+	val &= ~(STARTON_VBAT);
+	e |= twl4030_i2c_write_u8(TWL4030_MODULE_PM_MASTER, val, CFG_P2_TRANSITION);
+
+	e |= twl4030_i2c_read_u8(TWL4030_MODULE_PM_MASTER, &val, CFG_P3_TRANSITION);
+	val &= ~(STARTON_VBAT);
+	e |= twl4030_i2c_write_u8(TWL4030_MODULE_PM_MASTER, val, CFG_P3_TRANSITION);
+
+	if (e < 0)
+		pr_err("%s: i2c error %d while writing TWL4030"
+			"PM_MASTER P1_SW_EVENTS\n", DRIVER_NAME, e);
+
+	e |= protect_pm_master();
+	if (e < 0)
+		pr_err("%s: starton disable err [%d]\n", DRIVER_NAME, e);
+}
+
 static void clocks_init(struct device *dev)
 {
 	int e = 0;
@@ -740,6 +785,30 @@ static int twl4030_remove(struct i2c_client *client)
 	return 0;
 }
 
+static void twl4030_poweroff(void)
+{
+	int err;
+	u8 val;
+
+	err = twl4030_i2c_read_u8(TWL4030_MODULE_PM_MASTER, &val,
+				  PWR_P1_SW_EVENTS);
+	if (err) {
+		pr_err("%s: i2c error %d while reading TWL4030"
+			"PM_MASTER P1_SW_EVENTS\n",
+			DRIVER_NAME, err);
+		return;
+	}
+
+	val |= PWR_DEVOFF;
+	err = twl4030_i2c_write_u8(TWL4030_MODULE_PM_MASTER, val,
+				   PWR_P1_SW_EVENTS);
+
+	if (err)
+		pr_err("%s: i2c error %d while writing TWL4030"
+			"PM_MASTER P1_SW_EVENTS\n",
+			DRIVER_NAME, err);
+}
+
 /* NOTE:  this driver only handles a single twl4030/tps659x0 chip */
 static int
 twl4030_probe(struct i2c_client *client, const struct i2c_device_id *id)
@@ -788,6 +857,9 @@ twl4030_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	/* setup clock framework */
 	clocks_init(&client->dev);
 
+	/* initialize pm_power_off routine */
+	pm_power_off = twl4030_poweroff;
+
 	/* Maybe init the T2 Interrupt subsystem */
 	if (client->irq
 			&& pdata->irq_base
@@ -796,6 +868,12 @@ twl4030_probe(struct i2c_client *client, const struct i2c_device_id *id)
 		if (status < 0)
 			goto fail;
 	}
+
+
+	if(twl_has_starton_disable()) {
+	      /* disable TWL start on plug */
+	      twl_starton_disable();
+	} 
 
 	status = add_children(pdata, id->driver_data);
 fail:

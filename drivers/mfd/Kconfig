@@ -115,6 +115,14 @@ config TWL4030_CORE
 	  high speed USB OTG transceiver, an audio codec (on most
 	  versions) and many other features.
 
+config TWL4030_STARTON_DISABLE
+        bool "TWL4030 Disable Startup on VBAT Detection"
+        depends on TWL4030_CORE
+        help
+  	  Select this option to disable startup on detection of VBAT.
+	  With this option enabled, the system will rely on the TWL
+	  PWRON (power button) line to trigger a transition to Active mode.
+ 
 config MFD_TMIO
 	bool
 	default n
