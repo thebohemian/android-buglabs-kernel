@@ -591,48 +591,41 @@ static void __init omap3_bug_init_irq(void)
 }
 
 /*
- * Defines LEDs available on BUGbase.
+ * On/Off LEDs available on OMAP.
  */
 static struct gpio_led gpio_leds[] = {
 		{
-			.name				= "omap3bug:red:battery",
-			.default_trigger	= "default-on",
-			.gpio				= 55,
+			.name		    = "omap3bug:green:battery",
+			.default_trigger    = "none",
+			.gpio		    = 53,
 			.active_low         = false,
 			.default_state      = LEDS_GPIO_DEFSTATE_OFF,
 		},
 		{
-			.name				= "omap3bug:green:battery",
-			.default_trigger	= "default-on",
-			.gpio				= 53,
+			.name		    = "omap3bug:blue:battery",
+			.default_trigger    = "none",
+			.gpio		    = 54,
 			.active_low         = false,
 			.default_state      = LEDS_GPIO_DEFSTATE_OFF,
 		},
 		{
-			.name				= "omap3bug:blue:battery",
-			.default_trigger	= "default-on",
-			.gpio				= 54,
+			.name		    = "omap3bug:red:wlan",
+			.default_trigger    = "none",
+			.gpio		    = 39,
 			.active_low         = false,
 			.default_state      = LEDS_GPIO_DEFSTATE_OFF,
 		},
 		{
-			.name				= "omap3bug:red:wlan",
-			.default_trigger	= "default-on",
-			.gpio				= 39,
+			.name		    = "omap3bug:green:wlan",
+			.default_trigger    = "none",
+			.gpio		    = 40,
 			.active_low         = false,
 			.default_state      = LEDS_GPIO_DEFSTATE_OFF,
 		},
 		{
-			.name				= "omap3bug:green:wlan",
-			.default_trigger	= "default-on",
-			.gpio				= 40,
-			.active_low         = false,
-			.default_state      = LEDS_GPIO_DEFSTATE_OFF,
-		},
-		{
-			.name				= "omap3bug:blue:wlan",
-			.default_trigger	= "default-on",
-			.gpio				= 41,
+			.name		    = "omap3bug:blue:wlan",
+			.default_trigger    = "none",
+			.gpio		    = 41,
 			.active_low         = false,
 			.default_state      = LEDS_GPIO_DEFSTATE_OFF,
 		},
@@ -651,40 +644,63 @@ static struct platform_device leds_gpio = {
        },
 };
 
-static struct led_pwm led_pwms[] =
+/*
+ * PWM LEDs available on TWL.
+ */
+
+static struct led_pwm pwm_leds[] =
 {
 		{
-			.name = "omap3bug:blue:power",
-			.default_trigger = "default-on",
-			.pwm_id = 0,
-			.active_low = false,
-			.max_brightness = 128,
-			.pwm_period_ns = 128,
+			.name               = "omap3bug:blue:power",
+			.default_trigger    = "none",
+			.pwm_id             = 0,
+			.active_low         = false,
+			.max_brightness     = LED_FULL,
+			.pwm_period_ns      = 330,
 		},
 		{
-			.name = "omap3bug:blue:bt",
-			.default_trigger = "default-on",
-			.pwm_id = 1,
-			.active_low = false,
-			.max_brightness = 128,
-			.pwm_period_ns = 128,
+			.name               = "omap3bug:blue:bt",
+			.default_trigger    = "none",
+			.pwm_id             = 1,
+			.active_low         = false,
+			.max_brightness     = LED_FULL,
+			.pwm_period_ns      = 330,
 		},
 };
 
-static struct led_pwm_platform_data led_pwm_info =
+static struct led_pwm_platform_data pwm_led_info =
 {
-		.leds = led_pwms,
-		.num_leds = ARRAY_SIZE(led_pwms),
+		.leds = pwm_leds,
+		.num_leds = ARRAY_SIZE(pwm_leds),
 };
 
 static struct platform_device leds_pwm =
 {
-		.name = "leds_pwm",
+                .name = "leds_pwm",
 		.id = -1,
 		.dev =
 		{
-				.platform_data = &led_pwm_info,
+                                   .platform_data = &pwm_led_info,
 		},
+};
+
+/*
+ * PWM LEDs available on OMAP.
+ */
+
+static struct omap_pwm_led_platform_data omap_pwm_led_gpt9 = {
+       .name                = "omap3bug:red:battery",
+       .intensity_timer     = 9,
+       .blink_timer         = 0,
+       //.set_power           = set_power(&omap_pwm_led_gpt92, 0),
+};
+
+static struct platform_device omap3_bug_pwm_gpt9 = {
+       .name   = "omap_pwm_led",
+       .id     = -1,
+       .dev    = {
+               .platform_data  = &omap_pwm_led_gpt9,
+       },
 };
 
 static struct platform_device *omap3_bug_devices[] __initdata = {
@@ -695,6 +711,7 @@ static struct platform_device *omap3_bug_devices[] __initdata = {
 	&omap3_bug_pwr_switch,
 	&omap3_bug_pwm_a,
 	&omap3_bug_pwm_b,
+	&omap3_bug_pwm_gpt9,
 	&leds_pwm,
 	&leds_gpio
 };
@@ -916,21 +933,26 @@ static void __init omap3_bug_init(void)
 {
 
 	/* Get BUG board version and save it */
-//	omap3bug_board_rev();
-  printk(KERN_INFO "BUGBASE: Init i2c..\n");
+        //omap3bug_board_rev();
+        printk(KERN_INFO "BUGBASE: Init i2c..\n");
 	omap3_bug_i2c_init();
-  printk(KERN_INFO "BUGBASE: Init spi..\n");
+        printk(KERN_INFO "BUGBASE: Init spi..\n");
 	spi_register_board_info(omap3bug_spi_board_info,
 				ARRAY_SIZE(omap3bug_spi_board_info));
 	omap_serial_init();
 	platform_add_devices(omap3_bug_devices, ARRAY_SIZE(omap3_bug_devices));
-	//      omap_init_twl4030();
+	//omap_init_twl4030();
 	usb_gpio_settings();
 	usb_musb_init();
 	usb_ehci_init(&ehci_pdata);
 	gen_gpio_settings();
 	omap3bug_flash_init();
 	omap_init_bmi_slots();
+
+	/* Pin Mux - Set T8 to GPT9_PWM_EVT */
+	// For LED - should probably be moved into uboot
+	omap_cfg_reg(T8_34XX_GPIO55_OUT);
+
 }
 
 static void __init omap3_bug_map_io(void)

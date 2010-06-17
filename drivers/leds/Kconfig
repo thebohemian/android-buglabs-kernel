@@ -286,6 +286,15 @@ config LEDS_TRIGGER_HEARTBEAT
 	  load average.
 	  If unsure, say Y.
 
+config LEDS_TRIGGER_BREATHE
+	tristate "LED Breathe Trigger"
+	depends on LEDS_TRIGGERS
+	help
+	  This allows LEDs to 'breathe'.  When this trigger is activated,
+	  LED brightness will gradually cycle from min -> max -> min. This
+	  feature requires PWM enabled LEDs.
+	  If unsure, say Y.
+
 config LEDS_TRIGGER_BACKLIGHT
 	tristate "LED backlight Trigger"
 	depends on LEDS_TRIGGERS
