@@ -4,8 +4,8 @@
  * Driver Library for ISP Control module in TI's OMAP3 Camera ISP
  * ISP interface and IRQ related APIs are defined here.
  *
- * Copyright (C) 2009 Texas Instruments.
- * Copyright (C) 2009 Nokia.
+ * Copyright (C) 2007--2009 Texas Instruments
+ * Copyright (C) 2006--2010 Nokia Corporation
  *
  * Contributors:
  * 	Sameer Venkatraman <sameerv@ti.com>
@@ -27,14 +27,19 @@
 
 #include <asm/cacheflush.h>
 
-#include <linux/delay.h>
-#include <linux/interrupt.h>
 #include <linux/clk.h>
+#include <linux/delay.h>
+#include <linux/device.h>
 #include <linux/dma-mapping.h>
+#include <linux/i2c.h>
+#include <linux/interrupt.h>
+#include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
 #include <linux/vmalloc.h>
-#include <linux/device.h>
 #include <linux/slab.h>
+
+#include <media/v4l2-common.h>
+#include <media/v4l2-device.h>
 
 #include "isp.h"
 #include "ispreg.h"
@@ -1099,7 +1104,6 @@ out:
 
 	return __isp;
 }
-EXPORT_SYMBOL(isp_get);
 
 /*
  * isp_put - Release the ISP
@@ -1120,7 +1124,6 @@ void isp_put(struct isp_device *isp)
 	}
 	mutex_unlock(&isp->isp_mutex);
 }
-EXPORT_SYMBOL(isp_put);
 
 /*
  * isp_save_context - Saves the values of the ISP module registers.
@@ -1155,51 +1158,23 @@ void isp_restore_context(struct isp_device *isp, struct isp_reg *reg_list)
  */
 
 /*
- * isp_remove - Remove ISP platform device
- * @pdev: Pointer to ISP platform device
- *
- * Always returns 0.
+ * isp_print_status - Prints the values of the ISP Control Module registers
+ * @dev: Device pointer specific to the OMAP3 ISP.
  */
-static int isp_remove(struct platform_device *pdev)
+void isp_print_status(struct isp_device *isp)
 {
-	struct isp_device *isp = platform_get_drvdata(pdev);
-	int i;
-
-	isp_ccp2_cleanup(isp);
-	isp_csi2_cleanup(isp);
-	isp_get(isp);
-	if (isp->iommu)
-		iommu_put(isp->iommu);
-	isp_put(isp);
-	isp_resizer_cleanup(isp);
-	isp_preview_cleanup(isp);
-	isph3a_aewb_cleanup(isp);
-	isph3a_af_cleanup(isp);
-	isphist_cleanup(isp);
-	isp_ccdc_cleanup(isp);
-
-	isp_put_clocks(isp);
-
-	free_irq(isp->irq_num, isp);
-
-	for (i = 0; i < OMAP3_ISP_IOMEM_LAST; i++) {
-		if (isp->mmio_base[i]) {
-			iounmap(isp->mmio_base[i]);
-			isp->mmio_base[i] = NULL;
-		}
-
-		if (isp->mmio_base_phys[i]) {
-			release_mem_region(isp->mmio_base_phys[i],
-					   isp->mmio_size[i]);
-			isp->mmio_base_phys[i] = 0;
-		}
-	}
-
-	regulator_put(isp->isp_csiphy1.vdd);
-	regulator_put(isp->isp_csiphy2.vdd);
-	kfree(isp);
-
-	return 0;
+	dev_dbg(isp->dev, "###ISP_CTRL=0x%x\n",
+		isp_reg_readl(isp, OMAP3_ISP_IOMEM_MAIN, ISP_CTRL));
+	dev_dbg(isp->dev, "###ISP_TCTRL_CTRL=0x%x\n",
+		isp_reg_readl(isp, OMAP3_ISP_IOMEM_MAIN, ISP_TCTRL_CTRL));
+	dev_dbg(isp->dev, "###ISP_SYSCONFIG=0x%x\n",
+		isp_reg_readl(isp, OMAP3_ISP_IOMEM_MAIN, ISP_SYSCONFIG));
+	dev_dbg(isp->dev, "###ISP_SYSSTATUS=0x%x\n",
+		isp_reg_readl(isp, OMAP3_ISP_IOMEM_MAIN, ISP_SYSSTATUS));
+	dev_dbg(isp->dev, "###ISP_IRQ0ENABLE=0x%x\n",
+		isp_reg_readl(isp, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE));
+	dev_dbg(isp->dev, "###ISP_IRQ0STATUS=0x%x\n",
+		isp_reg_readl(isp, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0STATUS));
 }
 
 #ifdef CONFIG_PM
@@ -1263,6 +1238,352 @@ out:
 #define isp_resume	NULL
 
 #endif /* CONFIG_PM */
+
+static void isp_unregister_entities(struct isp_device *isp)
+{
+	isp_csi2_unregister_entities(&isp->isp_csi2a);
+	isp_ccp2_unregister_entities(&isp->isp_ccp2);
+	isp_ccdc_unregister_entities(&isp->isp_ccdc);
+	isp_preview_unregister_entities(&isp->isp_prev);
+	isp_resizer_unregister_entities(&isp->isp_res);
+	ispstat_unregister_entities(&isp->isp_aewb);
+	ispstat_unregister_entities(&isp->isp_af);
+	ispstat_unregister_entities(&isp->isp_hist);
+
+	v4l2_device_unregister(&isp->v4l2_dev);
+	media_device_unregister(&isp->media_dev);
+}
+
+/*
+ * isp_register_subdev_group - Register a group of subdevices
+ * @isp: OMAP3 ISP device
+ * @board_info: I2C subdevs board information array
+ *
+ * Register all I2C subdevices in the board_info array. The array must be
+ * terminated by a NULL entry, and the first entry must be the sensor.
+ *
+ * Return a pointer to the sensor media entity if it has been successfully
+ * registered, or NULL otherwise.
+ */
+static struct media_entity *
+isp_register_subdev_group(struct isp_device *isp,
+		     struct v4l2_subdev_i2c_board_info *board_info)
+{
+	struct media_entity *sensor = NULL;
+	unsigned int first;
+
+	if (board_info->board_info == NULL)
+		return NULL;
+
+	for (first = 1; board_info->board_info; ++board_info, first = 0) {
+		struct v4l2_subdev *subdev;
+		struct i2c_adapter *adapter;
+
+		adapter = i2c_get_adapter(board_info->i2c_adapter_id);
+		if (adapter == NULL) {
+			printk(KERN_ERR "%s: Unable to get I2C adapter %d for "
+				"device %s\n", __func__,
+				board_info->i2c_adapter_id,
+				board_info->board_info->type);
+			continue;
+		}
+
+		subdev = v4l2_i2c_new_subdev_board(&isp->v4l2_dev,
+				adapter, board_info->module_name,
+				board_info->board_info, NULL);
+		if (subdev == NULL) {
+			printk(KERN_ERR "%s: Unable to register subdev %s\n",
+				__func__, board_info->board_info->type);
+			continue;
+		}
+
+		if (sensor == NULL && first)
+			sensor = &subdev->entity;
+	}
+
+	return sensor;
+}
+
+static int isp_register_entities(struct isp_device *isp)
+{
+	struct isp_platform_data *pdata = isp->pdata;
+	struct isp_subdevs_group *subdevs;
+	int ret;
+
+	isp->media_dev.dev = isp->dev;
+	ret = media_device_register(&isp->media_dev);
+	if (ret < 0) {
+		printk(KERN_ERR "%s: Media device registration failed (%d)\n",
+			__func__, ret);
+		return ret;
+	}
+
+	isp->v4l2_dev.mdev = &isp->media_dev;
+	ret = v4l2_device_register(isp->dev, &isp->v4l2_dev);
+	if (ret < 0) {
+		printk(KERN_ERR "%s: V4L2 device registration failed (%d)\n",
+			__func__, ret);
+		goto done;
+	}
+
+	/* Register internal entities */
+	ret = isp_ccp2_register_entities(&isp->isp_ccp2, &isp->v4l2_dev);
+	if (ret < 0)
+		goto done;
+
+	ret = isp_csi2_register_entities(&isp->isp_csi2a, &isp->v4l2_dev);
+	if (ret < 0)
+		goto done;
+
+	ret = isp_ccdc_register_entities(&isp->isp_ccdc, &isp->v4l2_dev);
+	if (ret < 0)
+		goto done;
+
+	ret = isp_preview_register_entities(&isp->isp_prev, &isp->v4l2_dev);
+	if (ret < 0)
+		goto done;
+
+	ret = isp_resizer_register_entities(&isp->isp_res, &isp->v4l2_dev);
+	if (ret < 0)
+		goto done;
+
+	ret = ispstat_register_entities(&isp->isp_aewb, &isp->v4l2_dev);
+	if (ret < 0)
+		goto done;
+
+	ret = ispstat_register_entities(&isp->isp_af, &isp->v4l2_dev);
+	if (ret < 0)
+		goto done;
+
+	ret = ispstat_register_entities(&isp->isp_hist, &isp->v4l2_dev);
+	if (ret < 0)
+		goto done;
+
+	/* Register external entities */
+	for (subdevs = pdata->subdevs; subdevs->subdevs; ++subdevs) {
+		struct media_entity *sensor;
+		struct media_entity *input;
+		unsigned int flags;
+		unsigned int pad;
+
+		sensor = isp_register_subdev_group(isp, subdevs->subdevs);
+		if (sensor == NULL)
+			continue;
+
+		/* Connect the sensor to the correct interface module. Parallel
+		 * sensors are connected directly to the CCDC, while serial
+		 * sensors are connected to the CSI2a, CCP2b or CSI2c receiver
+		 * through CSIPHY1 or CSIPHY2.
+		 */
+		switch (subdevs->interface) {
+		case ISP_INTERFACE_PARALLEL:
+			input = &isp->isp_ccdc.subdev.entity;
+			pad = CCDC_PAD_SINK;
+			flags = 0;
+			break;
+
+		case ISP_INTERFACE_CSI2A_PHY2:
+			input = &isp->isp_csi2a.subdev.entity;
+			pad = CSI2_PAD_SINK;
+			flags = MEDIA_LINK_FLAG_IMMUTABLE
+			      | MEDIA_LINK_FLAG_ACTIVE;
+			break;
+
+		case ISP_INTERFACE_CCP2B_PHY1:
+		case ISP_INTERFACE_CCP2B_PHY2:
+			input = &isp->isp_ccp2.subdev.entity;
+			pad = CCP2_PAD_SINK;
+			flags = 0;
+			break;
+
+		case ISP_INTERFACE_CSI2C_PHY1:
+			input = &isp->isp_csi2c.subdev.entity;
+			pad = CSI2_PAD_SINK;
+			flags = MEDIA_LINK_FLAG_IMMUTABLE
+			      | MEDIA_LINK_FLAG_ACTIVE;
+			break;
+
+		default:
+			printk(KERN_ERR "%s: invalid interface type %u\n",
+			       __func__, subdevs->interface);
+			ret = -EINVAL;
+			goto done;
+		}
+
+		ret = media_entity_create_link(sensor, 0, input, pad, flags);
+		if (ret < 0)
+			goto done;
+	}
+
+done:
+	if (ret < 0)
+		isp_unregister_entities(isp);
+
+	return ret;
+}
+
+static void isp_cleanup_modules(struct isp_device *isp)
+{
+	isph3a_aewb_cleanup(isp);
+	isph3a_af_cleanup(isp);
+	isphist_cleanup(isp);
+	isp_resizer_cleanup(isp);
+	isp_preview_cleanup(isp);
+	isp_ccdc_cleanup(isp);
+	isp_ccp2_cleanup(isp);
+	isp_csi2_cleanup(isp);
+}
+
+static int isp_initialize_modules(struct isp_device *isp)
+{
+	int ret;
+
+	ret = isp_csiphy_init(isp);
+	if (ret < 0) {
+		dev_err(isp->dev, "CSI PHY initialization failed\n");
+		return ret;
+	}
+
+	ret = isp_csi2_init(isp);
+	if (ret < 0) {
+		dev_err(isp->dev, "CSI2 initialization failed\n");
+		return ret;
+	}
+
+	ret = isp_ccp2_init(isp);
+	if (ret < 0) {
+		dev_err(isp->dev, "CCP2 initialization failed\n");
+		return ret;
+	}
+
+	ret = isp_ccdc_init(isp);
+	if (ret < 0) {
+		dev_err(isp->dev, "CCDC initialization failed\n");
+		return ret;
+	}
+
+	ret = isp_preview_init(isp);
+	if (ret < 0) {
+		dev_err(isp->dev, "Preview initialization failed\n");
+		return ret;
+	}
+
+	ret = isp_resizer_init(isp);
+	if (ret < 0) {
+		dev_err(isp->dev, "Resizer initialization failed\n");
+		return ret;
+	}
+
+	ret = isphist_init(isp);
+	if (ret < 0) {
+		dev_err(isp->dev, "Histogram initialization failed\n");
+		return ret;
+	}
+
+	ret = isph3a_aewb_init(isp);
+	if (ret < 0) {
+		dev_err(isp->dev, "H3A AEWB initialization failed\n");
+		return ret;
+	}
+
+	ret = isph3a_af_init(isp);
+	if (ret < 0) {
+		dev_err(isp->dev, "H3A AF initialization failed\n");
+		return ret;
+	}
+
+	/* Connect the submodules. */
+	ret = media_entity_create_link(
+			&isp->isp_csi2a.subdev.entity, CSI2_PAD_SOURCE,
+			&isp->isp_ccdc.subdev.entity, CCDC_PAD_SINK, 0);
+	if (ret < 0)
+		return ret;
+
+	ret = media_entity_create_link(
+			&isp->isp_ccp2.subdev.entity, CCP2_PAD_SOURCE,
+			&isp->isp_ccdc.subdev.entity, CCDC_PAD_SINK, 0);
+	if (ret < 0)
+		return ret;
+
+	ret = media_entity_create_link(
+			&isp->isp_ccdc.subdev.entity, CCDC_PAD_SOURCE_VP,
+			&isp->isp_prev.subdev.entity, PREV_PAD_SINK, 0);
+	if (ret < 0)
+		return ret;
+
+	ret = media_entity_create_link(
+			&isp->isp_ccdc.subdev.entity, CCDC_PAD_SOURCE_OF,
+			&isp->isp_res.subdev.entity, RESZ_PAD_SINK, 0);
+	if (ret < 0)
+		return ret;
+
+	ret = media_entity_create_link(
+			&isp->isp_prev.subdev.entity, PREV_PAD_SOURCE,
+			&isp->isp_res.subdev.entity, RESZ_PAD_SINK, 0);
+	if (ret < 0)
+		return ret;
+
+	ret = media_entity_create_link(
+			&isp->isp_ccdc.subdev.entity, CCDC_PAD_SOURCE_VP,
+			&isp->isp_aewb.subdev.entity, 0, 0);
+	if (ret < 0)
+		return ret;
+
+	ret = media_entity_create_link(
+			&isp->isp_ccdc.subdev.entity, CCDC_PAD_SOURCE_VP,
+			&isp->isp_af.subdev.entity, 0, 0);
+	if (ret < 0)
+		return ret;
+
+	ret = media_entity_create_link(
+			&isp->isp_ccdc.subdev.entity, CCDC_PAD_SOURCE_VP,
+			&isp->isp_hist.subdev.entity, 0, 0);
+	if (ret < 0)
+		return ret;
+
+	return 0;
+}
+
+/*
+ * isp_remove - Remove ISP platform device
+ * @pdev: Pointer to ISP platform device
+ *
+ * Always returns 0.
+ */
+static int isp_remove(struct platform_device *pdev)
+{
+	struct isp_device *isp = platform_get_drvdata(pdev);
+	int i;
+
+	isp_unregister_entities(isp);
+	isp_cleanup_modules(isp);
+
+	isp_get(isp);
+	iommu_put(isp->iommu);
+	isp_put(isp);
+
+	free_irq(isp->irq_num, isp);
+	isp_put_clocks(isp);
+
+	for (i = 0; i < OMAP3_ISP_IOMEM_LAST; i++) {
+		if (isp->mmio_base[i]) {
+			iounmap(isp->mmio_base[i]);
+			isp->mmio_base[i] = NULL;
+		}
+
+		if (isp->mmio_base_phys[i]) {
+			release_mem_region(isp->mmio_base_phys[i],
+					   isp->mmio_size[i]);
+			isp->mmio_base_phys[i] = 0;
+		}
+	}
+
+	regulator_put(isp->isp_csiphy1.vdd);
+	regulator_put(isp->isp_csiphy2.vdd);
+	kfree(isp);
+
+	return 0;
+}
 
 static int isp_map_mem_resource(struct platform_device *pdev,
 				struct isp_device *isp,
@@ -1361,7 +1682,7 @@ static int isp_probe(struct platform_device *pdev)
 {
 	struct isp_platform_data *pdata = pdev->dev.platform_data;
 	struct isp_device *isp;
-	int ret_err = 0;
+	int ret;
 	int i, m;
 
 	if (pdata == NULL)
@@ -1373,115 +1694,94 @@ static int isp_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	isp->pdata = pdata;
-
-	isp->isp_csiphy1.vdd = regulator_get(&pdev->dev, "VDD_CSIPHY1");
-	isp->isp_csiphy2.vdd = regulator_get(&pdev->dev, "VDD_CSIPHY2");
-
-	platform_set_drvdata(pdev, isp);
-
-	isp->dev = &pdev->dev;
-
-	ret_err = isp_map_mem_resource(pdev, isp, OMAP3_ISP_IOMEM_MAIN);
-	if (ret_err)
-		goto out_iomem_main_fail;
-
-	ret_err = isp_get_clocks(isp);
-	if (ret_err < 0)
-		goto out_free_mmio;
-
-	isp->ref_count = 0;
-
 	mutex_init(&isp->isp_mutex);
 	spin_lock_init(&isp->stat_lock);
+
+	isp->dev = &pdev->dev;
+	isp->pdata = pdata;
+	isp->ref_count = 0;
 
 	isp->raw_dmamask = DMA_BIT_MASK(32);
 	isp->dev->dma_mask = &isp->raw_dmamask;
 	isp->dev->coherent_dma_mask = DMA_BIT_MASK(32);
 
-	if (!isp_get(isp))
-		goto out_free_mmio;
+	platform_set_drvdata(pdev, isp);
 
-	ret_err = isp_reset(isp);
-	if (ret_err < 0)
-		goto out_free_mmio;
+	/* Regulators */
+	isp->isp_csiphy1.vdd = regulator_get(&pdev->dev, "VDD_CSIPHY1");
+	isp->isp_csiphy2.vdd = regulator_get(&pdev->dev, "VDD_CSIPHY2");
 
-	/* Get ISP revision */
-	isp->revision = isp_reg_readl(isp,
-				      OMAP3_ISP_IOMEM_MAIN, ISP_REVISION);
+	/* Clocks */
+	ret = isp_map_mem_resource(pdev, isp, OMAP3_ISP_IOMEM_MAIN);
+	if (ret < 0)
+		goto error;
+
+	ret = isp_get_clocks(isp);
+	if (ret < 0)
+		goto error;
+
+	if (isp_get(isp) == NULL)
+		goto error;
+
+	ret = isp_reset(isp);
+	if (ret < 0)
+		goto error_isp;
+
+	/* Memory resources */
+	isp->revision = isp_reg_readl(isp, OMAP3_ISP_IOMEM_MAIN, ISP_REVISION);
 	dev_info(isp->dev, "Revision %d.%d found\n",
-		 (isp->revision & 0xF0) >> 4, isp->revision & 0xF);
+		 (isp->revision & 0xf0) >> 4, isp->revision & 0x0f);
 
 	for (m = 0; m < ARRAY_SIZE(isp_res_maps); m++)
 		if (isp->revision == isp_res_maps[m].isp_rev)
 			break;
 
 	if (m == ARRAY_SIZE(isp_res_maps)) {
-		dev_err(isp->dev, "no resource map found for ISP rev %d.%d\n",
+		dev_err(isp->dev, "No resource map found for ISP rev %d.%d\n",
 			(isp->revision & 0xf0) >> 4, isp->revision & 0xf);
-		ret_err = -ENODEV;
-		goto out_free_mmio;
+		ret = -ENODEV;
+		goto error_isp;
 	}
 
 	for (i = 1; i < OMAP3_ISP_IOMEM_LAST; i++) {
 		if (isp_res_maps[m].map & 1 << i) {
-			ret_err = isp_map_mem_resource(pdev, isp, i);
-			if (ret_err)
-				goto out_free_mmio;
+			ret = isp_map_mem_resource(pdev, isp, i);
+			if (ret)
+				goto error_isp;
 		}
 	}
 
-	isp->irq_num = platform_get_irq(pdev, 0);
-	if (isp->irq_num <= 0) {
-		dev_err(isp->dev, "no irq for camera?\n");
-		ret_err = -ENODEV;
-		goto out_free_mmio;
-	}
-
-	if (request_irq(isp->irq_num, isp_isr, IRQF_SHARED,
-			"Omap 3 Camera ISP", isp)) {
-		dev_err(isp->dev, "could not install isr\n");
-		ret_err = -EINVAL;
-		goto out_request_irq;
-	}
-
+	/* IOMMU */
 	isp->iommu = iommu_get("isp");
 	if (IS_ERR(isp->iommu)) {
-		ret_err = PTR_ERR(isp->iommu);
+		ret = PTR_ERR(isp->iommu);
 		isp->iommu = NULL;
 	}
-	if (!isp->iommu) {
-		isp_put(isp);
-		goto out_iommu_get;
+	if (!isp->iommu)
+		goto error_isp;
+
+	/* Interrupt */
+	isp->irq_num = platform_get_irq(pdev, 0);
+	if (isp->irq_num <= 0) {
+		dev_err(isp->dev, "No IRQ resource\n");
+		ret = -ENODEV;
+		goto error_isp;
 	}
 
-	ret_err = isp_ccdc_init(isp);
-	if (ret_err)
-		dev_err(isp->dev, "could not init ispccdc\n");
-	ret_err = isphist_init(isp);
-	if (ret_err)
-		dev_err(isp->dev, "could not init isphist\n");
-	ret_err = isph3a_aewb_init(isp);
-	if (ret_err)
-		dev_err(isp->dev, "could not init isph3a_aewb\n");
-	ret_err = isph3a_af_init(isp);
-	if (ret_err)
-		dev_err(isp->dev, "could not init isph3a_af\n");
-	ret_err = isp_preview_init(isp);
-	if (ret_err)
-		dev_err(isp->dev, "could not init isppreview\n");
-	ret_err = isp_resizer_init(isp);
-	if (ret_err)
-		dev_err(isp->dev, "could not init ispresizer\n");
-	ret_err = isp_csiphy_init(isp);
-	if (ret_err)
-		dev_err(isp->dev, "could not init ispcsiphy\n");
-	ret_err = isp_csi2_init(isp);
-	if (ret_err)
-		dev_err(isp->dev, "could not init ispcsi2\n");
-	ret_err = isp_ccp2_init(isp);
-	if (ret_err)
-		dev_err(isp->dev, "could not init ispccp2\n");
+	if (request_irq(isp->irq_num, isp_isr, IRQF_SHARED, "OMAP3 ISP", isp)) {
+		dev_err(isp->dev, "Unable to request IRQ\n");
+		ret = -EINVAL;
+		goto error_isp;
+	}
+
+	/* Entities */
+	ret = isp_initialize_modules(isp);
+	if (ret < 0)
+		goto error_irq;
+
+	ret = isp_register_entities(isp);
+	if (ret < 0)
+		goto error_irq;
 
 	isp_power_settings(isp, 1);
 	
@@ -1490,63 +1790,17 @@ static int isp_probe(struct platform_device *pdev)
 
 	isp_put(isp);
 
-	/* Connect the submodules. */
-	ret_err = media_entity_create_link(
-			&isp->isp_csi2a.subdev.entity, CSI2_PAD_SOURCE,
-			&isp->isp_ccdc.subdev.entity, CCDC_PAD_SINK, 0);
-	if (ret_err < 0)
-		goto out_iommu_get;
-
-	ret_err = media_entity_create_link(
-			&isp->isp_ccp2.subdev.entity, CCP2_PAD_SOURCE,
-			&isp->isp_ccdc.subdev.entity, CCDC_PAD_SINK, 0);
-	if (ret_err < 0)
-		goto out_iommu_get;
-
-	ret_err = media_entity_create_link(
-			&isp->isp_ccdc.subdev.entity, CCDC_PAD_SOURCE_VP,
-			&isp->isp_prev.subdev.entity, PREV_PAD_SINK, 0);
-	if (ret_err < 0)
-		goto out_iommu_get;
-
-	ret_err = media_entity_create_link(
-			&isp->isp_ccdc.subdev.entity, CCDC_PAD_SOURCE_OF,
-			&isp->isp_res.subdev.entity, RESZ_PAD_SINK, 0);
-	if (ret_err < 0)
-		goto out_iommu_get;
-
-	ret_err = media_entity_create_link(
-			&isp->isp_prev.subdev.entity, PREV_PAD_SOURCE,
-			&isp->isp_res.subdev.entity, RESZ_PAD_SINK, 0);
-	if (ret_err < 0)
-		goto out_iommu_get;
-
-	ret_err = media_entity_create_link(
-			&isp->isp_ccdc.subdev.entity, CCDC_PAD_SOURCE_VP,
-			&isp->isp_aewb.subdev.entity, 0, 0);
-	if (ret_err < 0)
-		goto out_iommu_get;
-
-	ret_err = media_entity_create_link(
-			&isp->isp_ccdc.subdev.entity, CCDC_PAD_SOURCE_VP,
-			&isp->isp_af.subdev.entity, 0, 0);
-	if (ret_err < 0)
-		goto out_iommu_get;
-
-	ret_err = media_entity_create_link(
-			&isp->isp_ccdc.subdev.entity, CCDC_PAD_SOURCE_VP,
-			&isp->isp_hist.subdev.entity, 0, 0);
-
-	if (ret_err < 0)
-		goto out_iommu_get;
-
 	return 0;
 
-out_iommu_get:
+error_irq:
+	isp_unregister_entities(isp);
+	isp_cleanup_modules(isp);
 	free_irq(isp->irq_num, isp);
-out_request_irq:
+error_isp:
+	isp_put(isp);
+error:
 	isp_put_clocks(isp);
-out_free_mmio:
+
 	for (i = 0; i < OMAP3_ISP_IOMEM_LAST; i++) {
 		if (isp->mmio_base[i]) {
 			iounmap(isp->mmio_base[i]);
@@ -1559,12 +1813,12 @@ out_free_mmio:
 			isp->mmio_base_phys[i] = 0;
 		}
 	}
-out_iomem_main_fail:
 	regulator_put(isp->isp_csiphy2.vdd);
 	regulator_put(isp->isp_csiphy1.vdd);
-	kfree(isp);
 	platform_set_drvdata(pdev, NULL);
-	return ret_err;
+	kfree(isp);
+
+	return ret;
 }
 
 static struct dev_pm_ops omap3isp_pm_ops = {
@@ -1597,97 +1851,10 @@ static void __exit isp_cleanup(void)
 	platform_driver_unregister(&omap3isp_driver);
 }
 
-/*
- * isp_print_status - Prints the values of the ISP Control Module registers
- * @dev: Device pointer specific to the OMAP3 ISP.
- */
-void isp_print_status(struct isp_device *isp)
-{
-	dev_dbg(isp->dev, "###ISP_CTRL=0x%x\n",
-		isp_reg_readl(isp, OMAP3_ISP_IOMEM_MAIN, ISP_CTRL));
-	dev_dbg(isp->dev, "###ISP_TCTRL_CTRL=0x%x\n",
-		isp_reg_readl(isp, OMAP3_ISP_IOMEM_MAIN, ISP_TCTRL_CTRL));
-	dev_dbg(isp->dev, "###ISP_SYSCONFIG=0x%x\n",
-		isp_reg_readl(isp, OMAP3_ISP_IOMEM_MAIN, ISP_SYSCONFIG));
-	dev_dbg(isp->dev, "###ISP_SYSSTATUS=0x%x\n",
-		isp_reg_readl(isp, OMAP3_ISP_IOMEM_MAIN, ISP_SYSSTATUS));
-	dev_dbg(isp->dev, "###ISP_IRQ0ENABLE=0x%x\n",
-		isp_reg_readl(isp, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE));
-	dev_dbg(isp->dev, "###ISP_IRQ0STATUS=0x%x\n",
-		isp_reg_readl(isp, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0STATUS));
-}
-
-void omap3isp_unregister_entities(struct platform_device *pdev)
-{
-	struct isp_device *isp = platform_get_drvdata(pdev);
-
-	if (isp == NULL)
-		return;
-
-	isp_csi2_unregister_entities(&isp->isp_csi2a);
-	isp_ccp2_unregister_entities(&isp->isp_ccp2);
-	isp_ccdc_unregister_entities(&isp->isp_ccdc);
-	isp_preview_unregister_entities(&isp->isp_prev);
-	isp_resizer_unregister_entities(&isp->isp_res);
-	ispstat_unregister_entities(&isp->isp_aewb);
-	ispstat_unregister_entities(&isp->isp_af);
-	ispstat_unregister_entities(&isp->isp_hist);
-}
-EXPORT_SYMBOL(omap3isp_unregister_entities);
-
-int omap3isp_register_entities(struct platform_device *pdev,
-			       struct v4l2_device *v4l2_dev)
-{
-	struct isp_device *isp;
-	int ret = 0;
-
-	isp = platform_get_drvdata(pdev);
-	if (isp == NULL) {
-		ret = -ENODEV;
-		goto done;
-	}
-
-	ret = isp_ccp2_register_entities(&isp->isp_ccp2, v4l2_dev);
-	if (ret < 0)
-		goto done;
-
-	ret = isp_csi2_register_entities(&isp->isp_csi2a, v4l2_dev);
-	if (ret < 0)
-		goto done;
-
-	ret = isp_ccdc_register_entities(&isp->isp_ccdc, v4l2_dev);
-	if (ret < 0)
-		goto done;
-
-	ret = isp_preview_register_entities(&isp->isp_prev, v4l2_dev);
-	if (ret < 0)
-		goto done;
-
-	ret = isp_resizer_register_entities(&isp->isp_res, v4l2_dev);
-	if (ret < 0)
-		goto done;
-
-	ret = ispstat_register_entities(&isp->isp_aewb, v4l2_dev);
-	if (ret < 0)
-		goto done;
-
-	ret = ispstat_register_entities(&isp->isp_af, v4l2_dev);
-	if (ret < 0)
-		goto done;
-
-	ret = ispstat_register_entities(&isp->isp_hist, v4l2_dev);
-
-done:
-	if (ret)
-		omap3isp_unregister_entities(pdev);
-
-	return ret;
-}
-EXPORT_SYMBOL_GPL(omap3isp_register_entities);
-
 module_init(isp_init);
 module_exit(isp_cleanup);
 
 MODULE_AUTHOR("Texas Instruments");
-MODULE_DESCRIPTION("ISP Control Module Library");
+MODULE_DESCRIPTION("OMAP3 ISP driver");
 MODULE_LICENSE("GPL");
+

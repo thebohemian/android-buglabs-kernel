@@ -180,11 +180,17 @@ struct isp_csi2_platform_data {
 	unsigned vpclk_div:2;
 };
 
+struct isp_subdevs_group {
+	struct v4l2_subdev_i2c_board_info *subdevs;
+	enum isp_interface_type interface;
+};
+
 struct isp_platform_data {
 	struct isp_parallel_platform_data parallel;
 	struct isp_ccp2_platform_data ccp2;
 	struct isp_csi2_platform_data csi2a;
 	struct isp_csi2_platform_data csi2c;
+	struct isp_subdevs_group *subdevs;
 };
 
 /*
@@ -220,6 +226,8 @@ struct isp_platform_data {
  * This structure is used to store the OMAP ISP Information.
  */
 struct isp_device {
+	struct v4l2_device v4l2_dev;
+	struct media_device media_dev;
 	struct device *dev;
 	u32 revision;
 
@@ -264,6 +272,9 @@ struct isp_device {
 	struct iommu *iommu;
 };
 
+#define v4l2_dev_to_isp_device(dev) \
+	container_of(dev, struct isp_device, v4l2_dev)
+
 void isphist_dma_done(struct isp_device *isp);
 
 void isp_flush(struct isp_device *isp);
@@ -272,6 +283,10 @@ int isp_pipeline_set_stream(struct isp_device *isp, struct isp_video *node,
 			    enum isp_pipeline_stream_state state);
 void isp_select_bridge_input(struct isp_device *isp,
 			     enum ccdc_input_entity input);
+
+#define ISP_XCLK_NONE			-1
+#define ISP_XCLK_A			0
+#define ISP_XCLK_B			1
 
 u32 isp_set_xclk(struct isp_device *isp, u32 xclk, u8 xclksel);
 

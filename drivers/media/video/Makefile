@@ -125,9 +125,7 @@ obj-$(CONFIG_VIDEO_CX2341X) += cx2341x.o
 
 obj-$(CONFIG_VIDEO_CAFE_CCIC) += cafe_ccic.o
 
-obj-y				+= isp/
-
-obj-$(CONFIG_VIDEO_OMAP3) += omap34xxcam.o
+obj-$(CONFIG_VIDEO_OMAP3)	+= isp/
 
 obj-$(CONFIG_VIDEO_SMIAREGS)  += smiaregs.o
 
