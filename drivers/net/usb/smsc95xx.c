@@ -19,6 +19,8 @@
  *****************************************************************************/
 
 #include <linux/module.h>
+#include <linux/moduleparam.h>
+#include <linux/stat.h>
 #include <linux/kmod.h>
 #include <linux/init.h>
 #include <linux/netdevice.h>
@@ -46,6 +48,7 @@
 #define SMSC95XX_TX_OVERHEAD		(8)
 #define SMSC95XX_TX_OVERHEAD_CSUM	(12)
 
+
 struct smsc95xx_priv {
 	u32 mac_cr;
 	spinlock_t mac_cr_lock;
@@ -61,6 +64,14 @@ struct usb_context {
 static int turbo_mode = true;
 module_param(turbo_mode, bool, 0644);
 MODULE_PARM_DESC(turbo_mode, "Enable multiple frames per Rx transaction");
+
+static long lmac = -1;
+module_param(lmac, long, S_IRUGO);
+MODULE_PARM_DESC(lmac, "MAC Address (least significant 6 bytes)");
+
+static long hmac = -1;
+module_param(hmac, long, S_IRUGO);
+MODULE_PARM_DESC(hmac, "MAC Address (most significant 6 bytes)");
 
 static int smsc95xx_read_reg(struct usbnet *dev, u32 index, u32 *data)
 {
@@ -670,7 +681,25 @@ static void smsc95xx_init_mac_address(struct usbnet *dev)
 		}
 	}
 
-	/* no eeprom, or eeprom values are invalid. generate random MAC */
+	/* try getting mac address from module parameters*/
+	if (lmac > -1 && hmac > -1) {
+	        dev->net->dev_addr[0] = (hmac & 0xFF0000) >> 16;
+		dev->net->dev_addr[1] = (hmac & 0x00FF00) >> 8;
+		dev->net->dev_addr[2] = (hmac & 0x0000FF);
+		dev->net->dev_addr[3] = (lmac & 0xFF0000) >> 16;
+		dev->net->dev_addr[4] = (lmac & 0x00FF00) >> 8;
+		dev->net->dev_addr[5] = (lmac & 0x0000FF);
+
+		if (is_valid_ether_addr(dev->net->dev_addr)) {
+			//lmac and hmac param values are valid so use them
+			if (netif_msg_ifup(dev))
+				devdbg(dev, "MAC address set from params");
+			return;
+		}
+		devwarn(dev, "Invalid MAC parameters");
+	}
+
+	/* no/invalid eeprom, no/invalid mac params. generate random MAC */
 	random_ether_addr(dev->net->dev_addr);
 	if (netif_msg_ifup(dev))
 		devdbg(dev, "MAC address set to random_ether_addr");
