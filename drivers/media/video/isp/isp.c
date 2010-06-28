@@ -820,7 +820,7 @@ static void isp_resume_modules(struct isp_device *isp)
  * isp_reset - Reset ISP with a timeout wait for idle.
  * @dev: Device pointer specific to the OMAP3 ISP.
  */
-static void isp_reset(struct isp_device *isp)
+static int isp_reset(struct isp_device *isp)
 {
 	unsigned long timeout = 0;
 
@@ -832,10 +832,12 @@ static void isp_reset(struct isp_device *isp)
 			       ISP_SYSSTATUS) & 0x1)) {
 		if (timeout++ > 10000) {
 			dev_alert(isp->dev, "cannot reset ISP\n");
-			break;
+			return -ETIMEDOUT;
 		}
 		udelay(1);
 	}
+
+	return 0;
 }
 
 /**
@@ -1445,6 +1447,10 @@ static int isp_probe(struct platform_device *pdev)
 	isp->dev->coherent_dma_mask = DMA_BIT_MASK(32);
 
 	if (!isp_get(isp))
+		goto out_free_mmio;
+
+	ret_err = isp_reset(isp);
+	if (ret_err < 0)
 		goto out_free_mmio;
 
 	/* Get ISP revision */
