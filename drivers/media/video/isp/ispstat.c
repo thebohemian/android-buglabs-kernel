@@ -30,17 +30,28 @@
 #define MAGIC_NUM		0x55
 #define MAGIC_SIZE		32
 
+/* HACK: AF module seems to be writing one more paxel data than it should. */
+#define AF_EXTRA_DATA		AF_PAXEL_SIZE
+
+/*
+ * HACK: Because of HW issues the generic layer sometimes need to have
+ * different behaviour for different statistic modules.
+ */
+#define IS_H3A_AF(stat)		((stat) == &(stat)->isp->isp_af)
+#define IS_H3A_AEWB(stat)	((stat) == &(stat)->isp->isp_aewb)
+
 static int ispstat_buf_check_magic(struct ispstat *stat,
 				   struct ispstat_buffer *buf)
 {
-	const int size = buf->buf_size >= MAGIC_SIZE ?
-					  MAGIC_SIZE : buf->buf_size;
+	const u32 buf_size = IS_H3A_AF(stat) ?
+			     buf->buf_size + AF_EXTRA_DATA : buf->buf_size;
+	const int init_size = buf_size >= MAGIC_SIZE ? MAGIC_SIZE : buf_size;
 	u8 *w;
 	u8 *end;
 	int ret = -EINVAL;
 
 	/* Checking initial magic numbers. They shouldn't be here anymore. */
-	for (w = buf->virt_addr, end = w + size; w < end; w++)
+	for (w = buf->virt_addr, end = w + init_size; w < end; w++)
 		if (likely(*w != MAGIC_NUM))
 			ret = 0;
 
@@ -51,7 +62,7 @@ static int ispstat_buf_check_magic(struct ispstat *stat,
 	}
 
 	/* Checking magic numbers at the end. They must be still here. */
-	for (w = buf->virt_addr + buf->buf_size, end = w + MAGIC_SIZE;
+	for (w = buf->virt_addr + buf_size, end = w + MAGIC_SIZE;
 	     w < end; w++) {
 		if (unlikely(*w != MAGIC_NUM)) {
 			dev_dbg(stat->isp->dev, "%s: endding magic check does "
@@ -66,19 +77,18 @@ static int ispstat_buf_check_magic(struct ispstat *stat,
 static void ispstat_buf_insert_magic(struct ispstat *stat,
 				     struct ispstat_buffer *buf)
 {
+	const u32 buf_size = IS_H3A_AF(stat) ?
+			     buf->buf_size + AF_EXTRA_DATA : buf->buf_size;
+	const int init_size = buf_size >= MAGIC_SIZE ? MAGIC_SIZE : buf_size;
+
 	/*
 	 * Inserting MAGIC_NUM at the beginning and end of the buffer.
 	 * buf->buf_size is set only after the buffer is queued. For now the
 	 * right buf_size for the current configuration is pointed by
 	 * stat->buf_size.
 	 */
-	BUG_ON(!buf);
-	BUG_ON(!buf->virt_addr);
-	if (stat->buf_size >= MAGIC_SIZE)
-		memset(buf->virt_addr, MAGIC_NUM, MAGIC_SIZE);
-	else
-		memset(buf->virt_addr, MAGIC_NUM, stat->buf_size);
-	memset(buf->virt_addr + stat->buf_size, MAGIC_NUM, MAGIC_SIZE);
+	memset(buf->virt_addr, MAGIC_NUM, init_size);
+	memset(buf->virt_addr + buf_size, MAGIC_NUM, MAGIC_SIZE);
 }
 
 static void ispstat_buf_clear(struct ispstat *stat)
@@ -464,9 +474,15 @@ int ispstat_config(struct ispstat *stat, void *new_conf)
 	 * The buffer size is always PAGE_ALIGNED.
 	 * Hack 2: MAGIC_SIZE is added to buf_size so a magic word can be
 	 * inserted at the end to data integrity check purpose.
+	 * Hack 3: AF module writes one paxel data more than it should, so
+	 * the buffer allocation must consider it to avoid invalid memory
+	 * access.
 	 */
-	if (stat == &stat->isp->isp_aewb || stat == &stat->isp->isp_af)
+	if (IS_H3A_AEWB(stat))
 		buf_size = PAGE_ALIGN(user_cfg->buf_size * 2 + MAGIC_SIZE);
+	else if (IS_H3A_AF(stat))
+		buf_size = PAGE_ALIGN(user_cfg->buf_size * 2 + MAGIC_SIZE +
+				      AF_EXTRA_DATA);
 	else
 		buf_size = PAGE_ALIGN(user_cfg->buf_size + MAGIC_SIZE);
 
