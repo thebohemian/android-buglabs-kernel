@@ -1010,6 +1010,44 @@ omap34xxcam_video_init(struct isp_video *video)
 
 	mutex_lock(&vdev->mutex);
 
+	/* Reset all links not handled by legacy video nodes to inactive. */
+	link = media_entity_find_link(
+			&isp->isp_ccp2.video_in.video.entity.pads[0],
+			&isp->isp_ccp2.subdev.entity.pads[CCP2_PAD_SINK]);
+	media_entity_setup_link(link, 0);
+	link = media_entity_find_link(
+			&isp->isp_ccp2.subdev.entity.pads[CCP2_PAD_SOURCE],
+			&isp->isp_ccdc.subdev.entity.pads[CCDC_PAD_SINK]);
+	media_entity_setup_link(link, 0);
+	link = media_entity_find_link(
+			&isp->isp_csi2a.subdev.entity.pads[CSI2_PAD_SOURCE],
+			&isp->isp_csi2a.video_out.video.entity.pads[0]);
+	media_entity_setup_link(link, 0);
+	link = media_entity_find_link(
+			&isp->isp_csi2a.subdev.entity.pads[CSI2_PAD_SOURCE],
+			&isp->isp_ccdc.subdev.entity.pads[CCDC_PAD_SINK]);
+	media_entity_setup_link(link, 0);
+	link = media_entity_find_link(
+			&isp->isp_ccdc.subdev.entity.pads[CCDC_PAD_SOURCE_OF],
+			&isp->isp_ccdc.video_out.video.entity.pads[0]);
+	media_entity_setup_link(link, 0);
+	link = media_entity_find_link(
+			&isp->isp_prev.video_in.video.entity.pads[0],
+			&isp->isp_prev.subdev.entity.pads[PREV_PAD_SINK]);
+	media_entity_setup_link(link, 0);
+	link = media_entity_find_link(
+			&isp->isp_prev.subdev.entity.pads[PREV_PAD_SOURCE],
+			&isp->isp_prev.video_out.video.entity.pads[0]);
+	media_entity_setup_link(link, 0);
+	link = media_entity_find_link(
+			&isp->isp_res.video_in.video.entity.pads[0],
+			&isp->isp_res.subdev.entity.pads[RESZ_PAD_SINK]);
+	media_entity_setup_link(link, 0);
+	link = media_entity_find_link(
+			&isp->isp_res.subdev.entity.pads[RESZ_PAD_SOURCE],
+			&isp->isp_res.video_out.video.entity.pads[0]);
+	media_entity_setup_link(link, 0);
+
 	/* Activate the CSI2a -> CCDC (primary sensor) or CCP2 -> CCDC
 	 * (secondary sensor) link.
 	 */
