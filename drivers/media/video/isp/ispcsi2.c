@@ -998,10 +998,10 @@ static int csi2_set_stream(struct v4l2_subdev *sd, int enable)
 		csi2->underrun = true;
 
 	if (!enable) {
-		isp_csiphy_release(csi2->phy);
 		isp_csi2_ctx_enable(isp, csi2, 0, 0);
 		isp_csi2_if_enable(isp, csi2, 0);
 		isp_csi2_irq_ctx_set(isp, csi2, 0);
+		isp_csiphy_release(csi2->phy);
 	}
 	return 0;
 }
