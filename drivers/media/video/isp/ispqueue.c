@@ -937,10 +937,8 @@ done:
  * Drivers must stop the hardware and synchronize with interrupt handlers and/or
  * delayed works before calling this function to make sure no buffer will be
  * touched by the driver and/or hardware.
- *
- * Return 0 on success.
  */
-int isp_video_queue_streamoff(struct isp_video_queue *queue)
+void isp_video_queue_streamoff(struct isp_video_queue *queue)
 {
 	struct isp_video_buffer *buf;
 	unsigned long flags;
@@ -968,7 +966,6 @@ int isp_video_queue_streamoff(struct isp_video_queue *queue)
 
 done:
 	mutex_unlock(&queue->lock);
-	return 0;
 }
 
 /**

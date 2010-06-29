@@ -165,7 +165,7 @@ int isp_video_queue_qbuf(struct isp_video_queue *queue,
 int isp_video_queue_dqbuf(struct isp_video_queue *queue,
 			  struct v4l2_buffer *vbuf, int nonblocking);
 int isp_video_queue_streamon(struct isp_video_queue *queue);
-int isp_video_queue_streamoff(struct isp_video_queue *queue);
+void isp_video_queue_streamoff(struct isp_video_queue *queue);
 int isp_video_queue_mmap(struct isp_video_queue *queue,
 			 struct vm_area_struct *vma);
 unsigned int isp_video_queue_poll(struct isp_video_queue *queue,
