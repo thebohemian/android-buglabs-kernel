@@ -164,12 +164,12 @@ static void ispccp2_mem_enable(struct isp_ccp2_device *ccp2, u8 enable)
 {
 	struct isp_device *isp = to_isp_device(ccp2);
 
+	if (enable)
+		ispccp2_if_enable(isp, 0);
+
 	/* Enable/Disable ccp2 interface in ccp2 mode */
 	isp_reg_and_or(isp, OMAP3_ISP_IOMEM_CCP2, ISPCCP2_CTRL,
 		       ~ISPCCP2_CTRL_MODE, enable ? ISPCCP2_CTRL_MODE : 0);
-
-	if (enable)
-		ispccp2_if_enable(isp, 0);
 
 	isp_reg_and_or(isp, OMAP3_ISP_IOMEM_CCP2, ISPCCP2_LCM_CTRL,
 		       ~ISPCCP2_LCM_CTRL_CHAN_EN,
