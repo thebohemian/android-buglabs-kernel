@@ -1578,10 +1578,9 @@ static int preview_video_queue(struct isp_video *video,
 
 		/* We now have a buffer queued on the output, restart the
 		 * pipeline on the next sync interrupt if running in continuous
-		 * mode.
+		 * mode (or when the stream is started).
 		 */
-		if (prev->state == ISP_PIPELINE_STREAM_CONTINUOUS)
-			prev->underrun = 1;
+		prev->underrun = 1;
 	}
 
 	return 0;
@@ -1771,9 +1770,10 @@ static int preview_set_stream(struct v4l2_subdev *sd, int enable)
 		if (prev->output & PREVIEW_OUTPUT_MEMORY)
 			isp_sbl_enable(isp, OMAP3_ISP_SBL_PREVIEW_WRITE);
 
-		prev->underrun = 0;
-		if (!(prev->output & PREVIEW_OUTPUT_MEMORY))
+		if (prev->underrun || !(prev->output & PREVIEW_OUTPUT_MEMORY))
 			preview_enable_oneshot(prev);
+
+		prev->underrun = 0;
 		break;
 
 	case ISP_PIPELINE_STREAM_SINGLESHOT:
@@ -1790,6 +1790,7 @@ static int preview_set_stream(struct v4l2_subdev *sd, int enable)
 		isp_sbl_disable(isp, OMAP3_ISP_SBL_PREVIEW_WRITE);
 		isp_reg_and(isp, OMAP3_ISP_IOMEM_MAIN, ISP_CTRL,
 			    ~(ISPCTRL_PREV_CLK_EN | ISPCTRL_PREV_RAM_EN));
+		prev->underrun = 0;
 		break;
 	}
 

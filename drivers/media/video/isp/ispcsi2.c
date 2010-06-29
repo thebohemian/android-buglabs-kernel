@@ -683,6 +683,7 @@ static void isp_csi2_isr_buffer(struct isp_csi2_device *csi2)
 
 	buffer = isp_video_buffer_next(&csi2->video_out, 0);
 	if (buffer == NULL) {
+		csi2->buffers_ready = false;
 		csi2->underrun = true;
 		return;
 	}
@@ -789,6 +790,8 @@ static int csi2_queue(struct isp_video *video, struct isp_buffer *buffer)
 		isp_csi2_if_enable(isp, csi2, 1);
 		isp_csi2_irq_ctx_set(isp, csi2, 1);
 	}
+
+	csi2->buffers_ready = true;
 	return 0;
 }
 
@@ -982,27 +985,30 @@ static int csi2_set_stream(struct v4l2_subdev *sd, int enable)
 			return ret;
 
 		isp_csi2_configure(csi2);
-	}
+	} else {
+		csi2->buffers_ready = false;
+		csi2->underrun = false;
 
-	/* Not using memory output? Enable HW and be done with it. */
-	if (enable && !(csi2->output & CSI2_OUTPUT_MEMORY)) {
-		/* Enable context 0 and IRQs */
-		isp_csi2_ctx_enable(isp, csi2, 0, 1);
-		isp_csi2_if_enable(isp, csi2, 1);
-		isp_csi2_irq_ctx_set(isp, csi2, 1);
-		return 0;
-	}
-
-	/* Using memory output. Tell csi2_queue to start the HW. */
-	if (enable)
-		csi2->underrun = true;
-
-	if (!enable) {
 		isp_csi2_ctx_enable(isp, csi2, 0, 0);
 		isp_csi2_if_enable(isp, csi2, 0);
 		isp_csi2_irq_ctx_set(isp, csi2, 0);
 		isp_csiphy_release(csi2->phy);
+		return 0;
 	}
+
+	/* When not outputting to memory, or when outputting to memory with at
+	 * last one buffer available on the output, start the CSI2 immediately.
+	 * Otherwise flag an underrun condition, and let the buffer queue
+	 * handler start the hardware.
+	 */
+	if (!(csi2->output & CSI2_OUTPUT_MEMORY) || csi2->buffers_ready) {
+		/* Enable context 0 and IRQs */
+		isp_csi2_ctx_enable(isp, csi2, 0, 1);
+		isp_csi2_if_enable(isp, csi2, 1);
+		isp_csi2_irq_ctx_set(isp, csi2, 1);
+	} else
+		csi2->underrun = true;
+
 	return 0;
 }
 

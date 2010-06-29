@@ -1348,10 +1348,10 @@ static int ccdc_video_queue(struct isp_video *video, struct isp_buffer *buffer)
 	ispccdc_set_outaddr(ccdc, buffer->isp_addr);
 
 	/* We now have a buffer queued on the output, restart the pipeline in
-	 * on the next CCDC interrupt if running in continuous mode.
+	 * on the next CCDC interrupt if running in continuous mode (or when
+	 * starting the stream).
 	 */
-	if (ccdc->state == ISP_PIPELINE_STREAM_CONTINUOUS)
-		ccdc->underrun = 1;
+	ccdc->underrun = 1;
 
 	return 0;
 }
@@ -1487,8 +1487,6 @@ static int ccdc_set_stream(struct v4l2_subdev *sd, int enable)
 	struct isp_ccdc_device *ccdc = v4l2_get_subdevdata(sd);
 	struct isp_device *isp = to_isp_device(ccdc);
 
-	ccdc->underrun = 0;
-
 	if (enable != ISP_PIPELINE_STREAM_STOPPED &&
 	    ccdc->state == ISP_PIPELINE_STREAM_STOPPED) {
 		isp_reg_or(isp, OMAP3_ISP_IOMEM_MAIN, ISP_CTRL,
@@ -1511,8 +1509,11 @@ static int ccdc_set_stream(struct v4l2_subdev *sd, int enable)
 	case ISP_PIPELINE_STREAM_CONTINUOUS:
 		if (ccdc->output & CCDC_OUTPUT_MEMORY)
 			isp_sbl_enable(isp, OMAP3_ISP_SBL_CCDC_WRITE);
-		else
+
+		if (ccdc->underrun || !(ccdc->output & CCDC_OUTPUT_MEMORY))
 			ispccdc_enable(ccdc, 1);
+
+		ccdc->underrun = 0;
 		break;
 
 	case ISP_PIPELINE_STREAM_SINGLESHOT:
@@ -1531,6 +1532,7 @@ static int ccdc_set_stream(struct v4l2_subdev *sd, int enable)
 		}
 		isp_reg_and(isp, OMAP3_ISP_IOMEM_MAIN, ISP_CTRL,
 			    ~(ISPCTRL_CCDC_CLK_EN | ISPCTRL_CCDC_RAM_EN));
+		ccdc->underrun = 0;
 		break;
 	}
 

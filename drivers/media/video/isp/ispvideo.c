@@ -897,6 +897,10 @@ isp_video_streamon(struct file *file, void *fh, enum v4l2_buf_type type)
 	 */
 	omap_pm_set_min_bus_tput(video->isp->dev, OCP_INITIATOR_AGENT, 740000);
 
+	ret = isp_video_queue_streamon(&vfh->queue);
+	if (ret < 0)
+		goto error;
+
 	/* In sensor-to-memory mode, the stream can be started synchronously
 	 * to the stream on command. In memory-to-memory mode, it will be
 	 * started when buffers are queued on both the input and output.
@@ -908,17 +912,9 @@ isp_video_streamon(struct file *file, void *fh, enum v4l2_buf_type type)
 			goto error;
 	}
 
-	ret = isp_video_queue_streamon(&vfh->queue);
-	if (ret < 0 && video->pipe->input == NULL) {
-		if (video->ops->stream_off)
-			video->ops->stream_off(video);
-		else
-			isp_pipeline_set_stream(video->isp, video,
-						ISP_PIPELINE_STREAM_STOPPED);
-	}
-
 error:
 	if (ret < 0) {
+		isp_video_queue_streamoff(&vfh->queue);
 		omap_pm_set_min_bus_tput(video->isp->dev,
 					 OCP_INITIATOR_AGENT, 0);
 		video->pipe = NULL;

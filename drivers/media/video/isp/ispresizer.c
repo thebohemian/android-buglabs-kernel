@@ -1012,10 +1012,9 @@ static int resizer_video_queue(struct isp_video *video,
 		 * frame correctly.
 		 *
 		 * Restart the resizer on the next sync interrupt if running in
-		 * continuous mode.
+		 * continuous mode or when starting the stream.
 		 */
-		if (res->state == ISP_PIPELINE_STREAM_CONTINUOUS)
-			res->underrun = 1;
+		res->underrun = 1;
 	}
 
 	return 0;
@@ -1065,8 +1064,6 @@ static int resizer_set_stream(struct v4l2_subdev *sd, int enable)
 	struct isp_res_device *res = v4l2_get_subdevdata(sd);
 	struct isp_device *isp = to_isp_device(res);
 
-	res->underrun = 0;
-
 	if (enable != ISP_PIPELINE_STREAM_STOPPED &&
 	    res->state == ISP_PIPELINE_STREAM_STOPPED) {
 		isp_reg_or(isp, OMAP3_ISP_IOMEM_MAIN, ISP_CTRL,
@@ -1077,6 +1074,10 @@ static int resizer_set_stream(struct v4l2_subdev *sd, int enable)
 	switch (enable) {
 	case ISP_PIPELINE_STREAM_CONTINUOUS:
 		isp_sbl_enable(isp, OMAP3_ISP_SBL_RESIZER_WRITE);
+		if (res->underrun) {
+			resizer_enable_oneshot(res);
+			res->underrun = 0;
+		}
 		break;
 
 	case ISP_PIPELINE_STREAM_SINGLESHOT:
@@ -1092,6 +1093,7 @@ static int resizer_set_stream(struct v4l2_subdev *sd, int enable)
 				OMAP3_ISP_SBL_RESIZER_WRITE);
 		isp_reg_and(isp, OMAP3_ISP_IOMEM_MAIN, ISP_CTRL,
 			    ~ISPCTRL_RSZ_CLK_EN);
+		res->underrun = 0;
 		break;
 	}
 
