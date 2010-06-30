@@ -59,7 +59,6 @@ struct isp_interface_mem_config {
 	u32 hsize_count;
 	u32 src_ofst;
 	u32 dst_ofst;
-	u32 buf_addr;
 };
 
 /* CCP2 device */

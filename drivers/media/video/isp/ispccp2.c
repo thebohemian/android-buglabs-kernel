@@ -41,7 +41,6 @@
 
 /* Number of LCX channels */
 #define CCP2_LCx_CHANS_NUM			3
-#define ISP_BITS_PER_PIXEL			16
 /* Max/Min size for CCP2 video port */
 #define ISPCCP2_DAT_START_MIN			0
 #define ISPCCP2_DAT_START_MAX			4095
@@ -61,6 +60,8 @@
 #define ISPCCP2_LCM_HWORDS_MAX			4095
 #define ISPCCP2_LCM_CTRL_BURST_SIZE_32X		5
 #define ISPCCP2_LCM_CTRL_READ_THROTTLE_FULL	0
+#define ISPCCP2_LCM_CTRL_SRC_DECOMPR_DPCM10	2
+#define ISPCCP2_LCM_CTRL_SRC_FORMAT_RAW8	2
 #define ISPCCP2_LCM_CTRL_SRC_FORMAT_RAW10	3
 #define ISPCCP2_LCM_CTRL_DST_FORMAT_RAW10	3
 #define ISPCCP2_LCM_CTRL_DST_PORT_VP		0
@@ -309,53 +310,80 @@ static void ispccp2_lcx_config(struct isp_device *isp,
 }
 
 /*
- * ispccp2_mem_in_config - Initialize CCP2 memory input interface
- * @isp: Pointer to ISP device structure
+ * ispccp2_mem_configure - Initialize CCP2 memory input/output interface
+ * @ccp2: Pointer to CCP2 device structure
  * @config: Pointer to ISP mem interface config structure
  *
  * This will analyze the parameters passed by the interface config
  * structure, and configure the respective registers for proper
  * CSI1/CCP2 memory input.
  */
-static void ispccp2_mem_in_config(struct isp_device *isp,
-			struct isp_interface_mem_config *config)
+static void ispccp2_mem_configure(struct isp_ccp2_device *ccp2,
+				  struct isp_interface_mem_config *config)
 {
+	struct isp_device *isp = to_isp_device(ccp2);
+	u32 sink_pixcode = ccp2->formats[CCP2_PAD_SINK].code;
+	u32 source_pixcode = ccp2->formats[CCP2_PAD_SOURCE].code;
+	unsigned int dpcm_decompress = 0;
 	u32 val, hwords;
+
+	if (sink_pixcode != source_pixcode &&
+	    sink_pixcode == V4L2_MBUS_FMT_SGRBG10_DPCM8_1X8) {
+		dpcm_decompress = 1;
+		config->src_ofst = 0;
+	}
 
 	isp_reg_writel(isp, (ISPCSI1_MIDLEMODE_SMARTSTANDBY <<
 		       ISPCSI1_MIDLEMODE_SHIFT),
 		       OMAP3_ISP_IOMEM_CCP2, ISP_CSIB_SYSCONFIG);
-	isp_reg_or(isp, OMAP3_ISP_IOMEM_CCP2, ISPCCP2_CTRL,
-		   ISPCCP2_CTRL_IO_OUT_SEL | ISPCCP2_CTRL_MODE);
-	/* Burst size to 32x64 */
-	val = isp_reg_readl(isp, OMAP3_ISP_IOMEM_CCP2, ISPCCP2_LCM_CTRL);
-	BIT_SET(val, ISPCCP2_LCM_CTRL_BURST_SIZE_SHIFT,
-		ISPCCP2_LCM_CTRL_BURST_SIZE_MASK,
-		ISPCCP2_LCM_CTRL_BURST_SIZE_32X);
-	isp_reg_writel(isp, val, OMAP3_ISP_IOMEM_CCP2, ISPCCP2_LCM_CTRL);
+
 	/* Hsize, Skip */
 	isp_reg_writel(isp, ISPCCP2_LCM_HSIZE_SKIP_MIN |
 		       (config->hsize_count << ISPCCP2_LCM_HSIZE_SHIFT),
 		       OMAP3_ISP_IOMEM_CCP2, ISPCCP2_LCM_HSIZE);
 
-	isp_reg_writel(isp, config->src_ofst, OMAP3_ISP_IOMEM_CCP2,
-		       ISPCCP2_LCM_SRC_OFST);
-	/* Src format */
-	val = isp_reg_readl(isp, OMAP3_ISP_IOMEM_CCP2, ISPCCP2_LCM_CTRL);
-	BIT_SET(val, ISPCCP2_LCM_CTRL_SRC_FORMAT_SHIFT,
-		ISPCCP2_LCM_CTRL_SRC_FORMAT_MASK,
-		ISPCCP2_LCM_CTRL_SRC_FORMAT_RAW10);
-	/* Destination format */
-	BIT_SET(val, ISPCCP2_LCM_CTRL_DST_FORMAT_SHIFT,
-		ISPCCP2_LCM_CTRL_DST_FORMAT_MASK,
-		ISPCCP2_LCM_CTRL_DST_FORMAT_RAW10);
-	isp_reg_writel(isp, val, OMAP3_ISP_IOMEM_CCP2, ISPCCP2_LCM_CTRL);
 	/* Vsize, no. of lines */
 	isp_reg_writel(isp, config->vsize_count << ISPCCP2_LCM_VSIZE_SHIFT,
 		       OMAP3_ISP_IOMEM_CCP2, ISPCCP2_LCM_VSIZE);
-	/* Prefetch, to use ceil value */
-	hwords = 4 * (((ISPCCP2_LCM_HSIZE_SKIP_MIN + config->hsize_count)
-		 * ISP_BITS_PER_PIXEL) / 256);
+
+	isp_reg_writel(isp, config->src_ofst, OMAP3_ISP_IOMEM_CCP2,
+		       ISPCCP2_LCM_SRC_OFST);
+
+	/* Source and Destination formats */
+	val = ISPCCP2_LCM_CTRL_DST_FORMAT_RAW10 <<
+	      ISPCCP2_LCM_CTRL_DST_FORMAT_SHIFT;
+
+	if (dpcm_decompress) {
+		/* source format is RAW8 */
+		val |= ISPCCP2_LCM_CTRL_SRC_FORMAT_RAW8 <<
+		       ISPCCP2_LCM_CTRL_SRC_FORMAT_SHIFT;
+
+		/* RAW8 + DPCM10 - simple predictor */
+		val |= ISPCCP2_LCM_CTRL_SRC_DPCM_PRED;
+
+		/* enable source DPCM decompression */
+		val |= ISPCCP2_LCM_CTRL_SRC_DECOMPR_DPCM10 <<
+		       ISPCCP2_LCM_CTRL_SRC_DECOMPR_SHIFT;
+	} else {
+		/* source format is RAW10 */
+		val |= ISPCCP2_LCM_CTRL_SRC_FORMAT_RAW10 <<
+		       ISPCCP2_LCM_CTRL_SRC_FORMAT_SHIFT;
+	}
+
+	/* Burst size to 32x64 */
+	val |= ISPCCP2_LCM_CTRL_BURST_SIZE_32X <<
+	       ISPCCP2_LCM_CTRL_BURST_SIZE_SHIFT;
+
+	isp_reg_writel(isp, val, OMAP3_ISP_IOMEM_CCP2, ISPCCP2_LCM_CTRL);
+
+	/* Prefetch setup */
+	if (dpcm_decompress)
+		hwords = (ISPCCP2_LCM_HSIZE_SKIP_MIN +
+			  config->hsize_count) >> 3;
+	else
+		hwords = (ISPCCP2_LCM_HSIZE_SKIP_MIN +
+			  config->hsize_count) >> 2;
+
 	isp_reg_writel(isp, hwords << ISPCCP2_LCM_PREFETCH_SHIFT,
 		       OMAP3_ISP_IOMEM_CCP2, ISPCCP2_LCM_PREFETCH);
 
@@ -363,6 +391,7 @@ static void ispccp2_mem_in_config(struct isp_device *isp,
 	val = isp_reg_readl(isp, OMAP3_ISP_IOMEM_CCP2, ISPCCP2_CTRL);
 	BIT_SET(val, ISPCCP2_CTRL_VPCLK_DIV_SHIFT, ISPCCP2_CTRL_VPCLK_DIV_MASK,
 		ISPCCP2_VPCLK_FRACDIV / 2);
+	val |= ISPCCP2_CTRL_IO_OUT_SEL | ISPCCP2_CTRL_MODE;
 	isp_reg_writel(isp, val, OMAP3_ISP_IOMEM_CCP2, ISPCCP2_CTRL);
 
 	/* Clear LCM interrupts */
@@ -521,9 +550,14 @@ static void ispccp2_try_format(struct isp_ccp2_device *ccp2,
 		break;
 
 	case CCP2_PAD_SOURCE:
-		/* Source format same as sink's format */
+		/* Source format - copy sink format and change pixel code
+		 * to SGRBG10_1X10 as we don't support CCP2 write to memory.
+		 * When CCP2 write to memory feature will be added this
+		 * should be changed properly.
+		 */
 		format = __ispccp2_get_format(ccp2, fh, CCP2_PAD_SINK, which);
 		memcpy(fmt, format, sizeof(*fmt));
+		fmt->code = V4L2_MBUS_FMT_SGRBG10_1X10;
 		break;
 	}
 
@@ -739,8 +773,8 @@ static int ispccp2_s_stream(struct v4l2_subdev *sd, int enable)
 			ccp2->mem_cfg.vsize_count = format->height;
 			ccp2->mem_cfg.src_ofst = pix.bytesperline;
 
+			ispccp2_mem_configure(ccp2, &ccp2->mem_cfg);
 			isp_sbl_enable(isp, OMAP3_ISP_SBL_CSI1_READ);
-			ispccp2_mem_in_config(isp, &ccp2->mem_cfg);
 		}
 		ispccp2_mem_enable(ccp2, 1);
 		break;
