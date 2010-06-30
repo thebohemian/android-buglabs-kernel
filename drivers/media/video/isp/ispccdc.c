@@ -1296,13 +1296,14 @@ int ispccdc_isr(struct isp_ccdc_device *ccdc)
 	if (ccdc->output & CCDC_OUTPUT_MEMORY)
 		ispccdc_isr_buffer(ccdc);
 
+	spin_lock_irqsave(&ccdc->lock, flags);
 	if (ccdc->stopping) {
 		ccdc->stopping = 0;
+		spin_unlock_irqrestore(&ccdc->lock, flags);
 		wake_up(&ccdc->wait);
 		return 0;
 	}
 
-	spin_lock_irqsave(&ccdc->lock, flags);
 	if (ccdc->shadow_update)
 		goto out;
 
@@ -1457,6 +1458,11 @@ static int __ispccdc_stop(struct isp_ccdc_device *ccdc)
 	int ret;
 
 	spin_lock_irqsave(&ccdc->lock, flags);
+	/* If the ccdc is already stopped then return without waiting */
+	if (!ispccdc_busy(ccdc)) {
+		spin_unlock_irqrestore(&ccdc->lock, flags);
+		return 0;
+	}
 	ccdc->stopping = 1;
 	spin_unlock_irqrestore(&ccdc->lock, flags);
 
