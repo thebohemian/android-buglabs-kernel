@@ -37,6 +37,7 @@ enum isp_csi2_pix_formats {
 	CSI2_PIX_FMT_RAW8_VP = 0x12a,
 	CSI2_USERDEF_8BIT_DATA1_DPCM10_VP = 0x340,
 	CSI2_USERDEF_8BIT_DATA1_DPCM10 = 0x2c0,
+	CSI2_USERDEF_8BIT_DATA1 = 0x40,
 };
 
 enum isp_csi2_irqevents {

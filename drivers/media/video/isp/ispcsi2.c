@@ -136,7 +136,7 @@ static const u16 __csi2_fmt_map[2][2][2][2] = {
 		/* Output to memory */
 		{
 			/* No DPCM decompression */
-			{ CSI2_PIX_FMT_RAW8, CSI2_PIX_FMT_RAW8 },
+			{ CSI2_PIX_FMT_RAW8, CSI2_USERDEF_8BIT_DATA1 },
 			/* DPCM decompression */
 			{ CSI2_PIX_FMT_RAW8_DPCM10_EXP16,
 			  CSI2_USERDEF_8BIT_DATA1_DPCM10 },
@@ -578,7 +578,8 @@ static int isp_csi2_configure(struct isp_csi2_device *csi2)
 	 * The contents of that register do not matter if not using
 	 * memory output.
 	 */
-	if (csi2->output & CSI2_OUTPUT_MEMORY) {
+	if (csi2->output & CSI2_OUTPUT_MEMORY &&
+	    csi2->dpcm_decompress == true) {
 		isp_video_mbus_to_pix(&csi2->video_out,
 				      &csi2->formats[CSI2_PAD_SOURCE], &pix);
 		csi2->contexts[0].data_offset = pix.bytesperline;
@@ -786,9 +787,9 @@ static int csi2_queue(struct isp_video *video, struct isp_buffer *buffer)
 	if (csi2->underrun) {
 		csi2->underrun = false;
 		/* Enable / disable context 0 and IRQs */
-		isp_csi2_ctx_enable(isp, csi2, 0, 1);
 		isp_csi2_if_enable(isp, csi2, 1);
 		isp_csi2_irq_ctx_set(isp, csi2, 1);
+		isp_csi2_ctx_enable(isp, csi2, 0, 1);
 	}
 
 	csi2->buffers_ready = true;
