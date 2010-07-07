@@ -78,7 +78,7 @@ static void ispstat_buf_insert_magic(struct ispstat *stat,
 				     struct ispstat_buffer *buf)
 {
 	const u32 buf_size = IS_H3A_AF(stat) ?
-			     buf->buf_size + AF_EXTRA_DATA : buf->buf_size;
+			     stat->buf_size + AF_EXTRA_DATA : stat->buf_size;
 	const int init_size = buf_size >= MAGIC_SIZE ? MAGIC_SIZE : buf_size;
 
 	/*
