@@ -26,7 +26,7 @@
 
 #include "isp.h"
 
-#define IS_DMA_BUF(stat)	((stat)->dma_ch >= 0)
+#define IS_COHERENT_BUF(stat)	((stat)->dma_ch >= 0)
 #define MAGIC_NUM		0x55
 #define MAGIC_SIZE		32
 
@@ -253,7 +253,7 @@ static void ispstat_bufs_free(struct ispstat *stat)
 	for (i = 0; i < STAT_MAX_BUFS; i++) {
 		struct ispstat_buffer *buf = &stat->buf[i];
 
-		if (!IS_DMA_BUF(stat)) {
+		if (!IS_COHERENT_BUF(stat)) {
 			if (IS_ERR_OR_NULL((void *)buf->iommu_addr))
 				continue;
 			iommu_vfree(isp->iommu, buf->iommu_addr);
@@ -365,7 +365,7 @@ static int ispstat_bufs_alloc(struct ispstat *stat, u32 size)
 
 	ispstat_bufs_free(stat);
 
-	if (IS_DMA_BUF(stat))
+	if (IS_COHERENT_BUF(stat))
 		return ispstat_bufs_alloc_dma(stat, size);
 	else
 		return ispstat_bufs_alloc_iommu(stat, size);
