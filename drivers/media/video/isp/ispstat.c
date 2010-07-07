@@ -27,8 +27,13 @@
 #include "isp.h"
 
 #define IS_COHERENT_BUF(stat)	((stat)->dma_ch >= 0)
+
+/*
+ * MAGIC_SIZE must always be the greatest common divisor of
+ * AEWB_PACKET_SIZE and AF_PAXEL_SIZE.
+ */
+#define MAGIC_SIZE		16
 #define MAGIC_NUM		0x55
-#define MAGIC_SIZE		32
 
 /* HACK: AF module seems to be writing one more paxel data than it should. */
 #define AF_EXTRA_DATA		AF_PAXEL_SIZE
@@ -45,13 +50,12 @@ static int ispstat_buf_check_magic(struct ispstat *stat,
 {
 	const u32 buf_size = IS_H3A_AF(stat) ?
 			     buf->buf_size + AF_EXTRA_DATA : buf->buf_size;
-	const int init_size = buf_size >= MAGIC_SIZE ? MAGIC_SIZE : buf_size;
 	u8 *w;
 	u8 *end;
 	int ret = -EINVAL;
 
 	/* Checking initial magic numbers. They shouldn't be here anymore. */
-	for (w = buf->virt_addr, end = w + init_size; w < end; w++)
+	for (w = buf->virt_addr, end = w + MAGIC_SIZE; w < end; w++)
 		if (likely(*w != MAGIC_NUM))
 			ret = 0;
 
@@ -79,7 +83,6 @@ static void ispstat_buf_insert_magic(struct ispstat *stat,
 {
 	const u32 buf_size = IS_H3A_AF(stat) ?
 			     stat->buf_size + AF_EXTRA_DATA : stat->buf_size;
-	const int init_size = buf_size >= MAGIC_SIZE ? MAGIC_SIZE : buf_size;
 
 	/*
 	 * Inserting MAGIC_NUM at the beginning and end of the buffer.
@@ -87,7 +90,7 @@ static void ispstat_buf_insert_magic(struct ispstat *stat,
 	 * right buf_size for the current configuration is pointed by
 	 * stat->buf_size.
 	 */
-	memset(buf->virt_addr, MAGIC_NUM, init_size);
+	memset(buf->virt_addr, MAGIC_NUM, MAGIC_SIZE);
 	memset(buf->virt_addr + buf_size, MAGIC_NUM, MAGIC_SIZE);
 }
 
