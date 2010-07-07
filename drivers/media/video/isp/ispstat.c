@@ -45,6 +45,55 @@
 #define IS_H3A_AF(stat)		((stat) == &(stat)->isp->isp_af)
 #define IS_H3A_AEWB(stat)	((stat) == &(stat)->isp->isp_aewb)
 
+static void __ispstat_buf_sync_magic(struct ispstat *stat,
+				     struct ispstat_buffer *buf,
+				     u32 buf_size,
+				     enum dma_data_direction dir,
+				     void (*dma_sync)(struct device *,
+					dma_addr_t, unsigned long, size_t,
+					enum dma_data_direction))
+{
+	struct device *dev = stat->isp->dev;
+	struct page *pg;
+	dma_addr_t dma_addr;
+	u32 offset;
+
+	/* Initial magic words */
+	pg = vmalloc_to_page(buf->virt_addr);
+	dma_addr = page_to_dma(dev, pg);
+	dma_sync(dev, dma_addr, 0, MAGIC_SIZE, dir);
+
+	/* Final magic words */
+	pg = vmalloc_to_page(buf->virt_addr + buf_size);
+	dma_addr = page_to_dma(dev, pg);
+	offset = ((u32)buf->virt_addr + buf_size) & ~PAGE_MASK;
+	dma_sync(dev, dma_addr, offset, MAGIC_SIZE, dir);
+}
+
+static void ispstat_buf_sync_magic_for_device(struct ispstat *stat,
+					      struct ispstat_buffer *buf,
+					      u32 buf_size,
+					      enum dma_data_direction dir)
+{
+	if (IS_COHERENT_BUF(stat))
+		return;
+
+	__ispstat_buf_sync_magic(stat, buf, buf_size, dir,
+				 dma_sync_single_range_for_device);
+}
+
+static void ispstat_buf_sync_magic_for_cpu(struct ispstat *stat,
+					   struct ispstat_buffer *buf,
+					   u32 buf_size,
+					   enum dma_data_direction dir)
+{
+	if (IS_COHERENT_BUF(stat))
+		return;
+
+	__ispstat_buf_sync_magic(stat, buf, buf_size, dir,
+				 dma_sync_single_range_for_cpu);
+}
+
 static int ispstat_buf_check_magic(struct ispstat *stat,
 				   struct ispstat_buffer *buf)
 {
@@ -53,6 +102,8 @@ static int ispstat_buf_check_magic(struct ispstat *stat,
 	u8 *w;
 	u8 *end;
 	int ret = -EINVAL;
+
+	ispstat_buf_sync_magic_for_cpu(stat, buf, buf_size, DMA_FROM_DEVICE);
 
 	/* Checking initial magic numbers. They shouldn't be here anymore. */
 	for (w = buf->virt_addr, end = w + MAGIC_SIZE; w < end; w++)
@@ -75,6 +126,8 @@ static int ispstat_buf_check_magic(struct ispstat *stat,
 		}
 	}
 
+	ispstat_buf_sync_magic_for_device(stat, buf, buf_size, DMA_FROM_DEVICE);
+
 	return 0;
 }
 
@@ -84,6 +137,8 @@ static void ispstat_buf_insert_magic(struct ispstat *stat,
 	const u32 buf_size = IS_H3A_AF(stat) ?
 			     stat->buf_size + AF_EXTRA_DATA : stat->buf_size;
 
+	ispstat_buf_sync_magic_for_cpu(stat, buf, buf_size, DMA_FROM_DEVICE);
+
 	/*
 	 * Inserting MAGIC_NUM at the beginning and end of the buffer.
 	 * buf->buf_size is set only after the buffer is queued. For now the
@@ -92,6 +147,29 @@ static void ispstat_buf_insert_magic(struct ispstat *stat,
 	 */
 	memset(buf->virt_addr, MAGIC_NUM, MAGIC_SIZE);
 	memset(buf->virt_addr + buf_size, MAGIC_NUM, MAGIC_SIZE);
+
+	ispstat_buf_sync_magic_for_device(stat, buf, buf_size,
+					  DMA_BIDIRECTIONAL);
+}
+
+static void ispstat_buf_sync_for_device(struct ispstat *stat,
+					struct ispstat_buffer *buf)
+{
+	if (IS_COHERENT_BUF(stat))
+		return;
+
+	dma_sync_sg_for_device(stat->isp->dev, buf->iovm->sgt->sgl,
+			       buf->iovm->sgt->nents, DMA_FROM_DEVICE);
+}
+
+static void ispstat_buf_sync_for_cpu(struct ispstat *stat,
+				     struct ispstat_buffer *buf)
+{
+	if (IS_COHERENT_BUF(stat))
+		return;
+
+	dma_sync_sg_for_cpu(stat->isp->dev, buf->iovm->sgt->sgl,
+			    buf->iovm->sgt->nents, DMA_FROM_DEVICE);
 }
 
 static void ispstat_buf_clear(struct ispstat *stat)
@@ -188,6 +266,7 @@ static void ispstat_buf_release(struct ispstat *stat)
 {
 	unsigned long flags;
 
+	ispstat_buf_sync_for_device(stat, stat->locked_buf);
 	spin_lock_irqsave(&stat->isp->stat_lock, flags);
 	stat->locked_buf = NULL;
 	spin_unlock_irqrestore(&stat->isp->stat_lock, flags);
@@ -233,6 +312,8 @@ static struct ispstat_buffer *ispstat_buf_get(struct ispstat *stat,
 		return ERR_PTR(-EINVAL);
 	}
 
+	ispstat_buf_sync_for_cpu(stat, buf);
+
 	rval = copy_to_user(data->buf,
 			    buf->virt_addr,
 			    buf->buf_size);
@@ -259,6 +340,10 @@ static void ispstat_bufs_free(struct ispstat *stat)
 		if (!IS_COHERENT_BUF(stat)) {
 			if (IS_ERR_OR_NULL((void *)buf->iommu_addr))
 				continue;
+			if (buf->iovm)
+				dma_unmap_sg(isp->dev, buf->iovm->sgt->sgl,
+					     buf->iovm->sgt->nents,
+					     DMA_FROM_DEVICE);
 			iommu_vfree(isp->iommu, buf->iommu_addr);
 		} else {
 			if (!buf->virt_addr)
@@ -267,6 +352,7 @@ static void ispstat_bufs_free(struct ispstat *stat)
 					  buf->virt_addr, buf->dma_addr);
 		}
 		buf->iommu_addr = 0;
+		buf->iovm = NULL;
 		buf->dma_addr = 0;
 		buf->virt_addr = NULL;
 		buf->empty = 1;
@@ -288,6 +374,7 @@ static int ispstat_bufs_alloc_iommu(struct ispstat *stat, unsigned int size)
 
 	for (i = 0; i < STAT_MAX_BUFS; i++) {
 		struct ispstat_buffer *buf = &stat->buf[i];
+		struct iovm_struct *iovm;
 
 		WARN_ON(buf->dma_addr);
 		buf->iommu_addr = iommu_vmalloc(isp->iommu, 0, size,
@@ -299,6 +386,16 @@ static int ispstat_bufs_alloc_iommu(struct ispstat *stat, unsigned int size)
 			ispstat_bufs_free(stat);
 			return -ENOMEM;
 		}
+
+		iovm = find_iovm_area(isp->iommu, buf->iommu_addr);
+		if (!iovm ||
+		    !dma_map_sg(isp->dev, iovm->sgt->sgl, iovm->sgt->nents,
+				DMA_FROM_DEVICE)) {
+			ispstat_bufs_free(stat);
+			return -ENOMEM;
+		}
+		buf->iovm = iovm;
+
 		buf->virt_addr = da_to_va(stat->isp->iommu,
 					  (u32)buf->iommu_addr);
 		buf->empty = 1;
