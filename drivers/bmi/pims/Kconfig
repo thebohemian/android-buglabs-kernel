@@ -94,5 +94,14 @@ config BMI_GSM
 
 	  This driver can also be built as a module.
 
+config BMI_ACCNT
+        tristate "Accenture BMI Accelerometer Module support"
+        depends on BMI_PIMS
+        default n
+        ---help---
+          BMI Sensor plug-in module
+
+          This driver can also be built as a module.
+
 endmenu
 

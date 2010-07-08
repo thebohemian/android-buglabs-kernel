@@ -22,6 +22,6 @@
 #define BMI_SENSOR_IOCTL	('s')
 #define BMI_LCD2X_IOCTL		('x')
 #define BMI_RFID_IOCTL		('r')
-
+#define BMI_ACCNT_IOCTL		('A')
 #endif	/* BMI_IOCTL_H */
 
