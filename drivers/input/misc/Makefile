@@ -4,6 +4,9 @@
 
 # Each configuration option enables a list of files.
 
+obj-$(CONFIG_INPUT_ADXL34X)		+= adxl34x.o
+obj-$(CONFIG_INPUT_ADXL34X_I2C)		+= adxl34x-i2c.o
+obj-$(CONFIG_INPUT_ADXL34X_SPI)		+= adxl34x-spi.o
 obj-$(CONFIG_INPUT_APANEL)		+= apanel.o
 obj-$(CONFIG_INPUT_ATI_REMOTE)		+= ati_remote.o
 obj-$(CONFIG_INPUT_ATI_REMOTE2)		+= ati_remote2.o
