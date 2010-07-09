@@ -1296,6 +1296,54 @@ static int isp_map_mem_resource(struct platform_device *pdev,
 	return 0;
 }
 
+
+int sysfs_addr;
+static ssize_t show_isp_value(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	u32 val;
+	struct isp_device *isp = dev_get_drvdata(dev);
+	isp_get(isp);
+	val = isp_reg_readl(isp, OMAP3_ISP_IOMEM_MAIN, sysfs_addr);
+	isp_put(isp);
+	return sprintf(buf, "0x%08x\n", val);
+}
+static ssize_t store_isp_value(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	long value;
+	ssize_t status;
+	struct isp_device *isp = dev_get_drvdata(dev);
+	status = strict_strtol(buf, 0, &value);
+	if (status == 0) {
+		isp_get(isp);
+		isp_reg_writel(isp, value, OMAP3_ISP_IOMEM_MAIN, sysfs_addr);
+		isp_put(isp);
+	}
+	return size;
+}
+
+static ssize_t show_isp_addr(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf, "0x%08x\n", sysfs_addr);
+}
+
+static ssize_t store_isp_addr(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	long value;
+	ssize_t status;
+	status = strict_strtol(buf, 0, &value);
+	if (status == 0) {
+		sysfs_addr = value;
+	}
+	return size;
+}
+static DEVICE_ATTR(isp_value, S_IWUGO|S_IRUGO, show_isp_value, store_isp_value);
+static DEVICE_ATTR(isp_addr,  S_IWUGO|S_IRUGO, show_isp_addr, store_isp_addr);
+
+
 /*
  * isp_probe - Probe ISP platform device
  * @pdev: Pointer to ISP platform device
@@ -1430,6 +1478,10 @@ static int isp_probe(struct platform_device *pdev)
 		dev_err(isp->dev, "could not init ispccp2\n");
 
 	isp_power_settings(isp, 1);
+	
+	ret_err = device_create_file(&pdev->dev, &dev_attr_isp_addr);
+	ret_err = device_create_file(&pdev->dev, &dev_attr_isp_value);
+
 	isp_put(isp);
 
 	/* Connect the submodules. */
