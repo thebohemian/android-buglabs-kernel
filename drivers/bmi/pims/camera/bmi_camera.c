@@ -127,7 +127,6 @@ bmi_camera_set_config(struct v4l2_subdev *subdev, int irq, void *platform_data)
 	int ret;
 	struct bmi_camera_ops *ops = NULL;
 	struct bmi_device *bdev = NULL;
-	printk(KERN_INFO "%s enter\n", __func__);
 	ret = bmi_camera_mux_get_selected(&ops, &bdev);
 	if(ret < 0) 
 		return ret;
@@ -169,7 +168,6 @@ static int bmi_camera_set_power(struct v4l2_subdev *subdev, int on)
 	int ret;
 	struct bmi_camera_ops *ops = NULL;
 	struct bmi_device *bdev = NULL;
-	printk(KERN_INFO "%s enter on=%d\n", __func__, on);
 	ret = bmi_camera_mux_get_selected(&ops, &bdev);
 	if(ret < 0) 
 		return ret;
@@ -229,7 +227,6 @@ static int bmi_camera_get_pad_format(struct v4l2_subdev *subdev,
 	int ret;
 	struct bmi_camera_ops *ops = NULL;
 	struct bmi_device *bdev = NULL;
-	printk(KERN_INFO "%s enter which=%d\n", __func__, which);
 	ret = bmi_camera_mux_get_selected(&ops, &bdev);
 	if(ret < 0) 
 		return ret;

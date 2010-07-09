@@ -581,16 +581,12 @@ static struct v4l2_mbus_framefmt *
 __li3m02cm_get_pad_format(struct bmi_li3m02cm *cam, struct v4l2_subdev_fh *fh,
 			unsigned int pad, enum v4l2_subdev_format which)
 {
-	printk(KERN_INFO "%s enter which=%d\n", __func__, which);
 	switch (which) {
 	case V4L2_SUBDEV_FORMAT_PROBE:
-		printk(KERN_INFO "%s PROBE\n", __func__);
 		return v4l2_subdev_get_probe_format(fh, pad);
 	case V4L2_SUBDEV_FORMAT_ACTIVE:
-		printk(KERN_INFO "%s ACTIVE\n", __func__);
 		return &cam->format;
 	default: 
-		printk(KERN_INFO "%s UNKNOWN\n", __func__);
 		return NULL;
 	}
 }
@@ -609,7 +605,6 @@ static int li3m02cm_get_pad_format(struct bmi_device *bdev,
 		return -EINVAL;
 
 	*fmt = *format;
-	printk(KERN_INFO "%s exit\n", __func__);
 	return 0;
 }
 

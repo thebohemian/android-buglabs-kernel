@@ -138,13 +138,12 @@ static int mt9t111_detect(struct i2c_client *client)
 	return 0;
 }
 
-#define MT9T111_APPLY_PATCH(client, x) mt9t111_write_regs(client, x, sizeof(x)/sizeof(x[0])); printk(KERN_INFO "%s APPLYING PATCH " #x "\n", __func__);
+#define MT9T111_APPLY_PATCH(client, x) mt9t111_write_regs(client, x, sizeof(x)/sizeof(x[0]));
 
 static void mt9t111_refresh(struct i2c_client *client){	
 	int i, err;	
 	unsigned short value;		
 	// MCU_ADDRESS [SEQ_CMD] -- refresh	
-	printk(KERN_INFO "%s enter\n", __func__);
 	mt9t111_write_reg(client, 0x098E, 0x8400);	
 	mt9t111_write_reg(client, 0x0990, 0x0006);	
 	for (i=0;i<100;i++){
@@ -162,8 +161,8 @@ static void mt9t111_refresh(struct i2c_client *client){
 			break;		
 		mdelay(5);	
 	}
-	mt9t111_write_reg(client, 0x098E, 0x8400);	
-	mt9t111_write_reg(client, 0x0990, 0x0002);	
+//	mt9t111_write_reg(client, 0x098E, 0x8400);	
+//	mt9t111_write_reg(client, 0x0990, 0x0002);	
 }
 
 static int mt9t111_enable_pll(struct i2c_client *client)
