@@ -51,6 +51,9 @@
 #include <linux/string.h>
 #include <linux/errno.h>
 #include <linux/i2c.h>
+#if defined(CONFIG_SPI)
+#include <linux/spi/spi.h>
+#endif
 #include <asm/uaccess.h>
 #include <asm/system.h>
 #include <asm/pgtable.h>
@@ -85,10 +88,9 @@ MODULE_LICENSE("GPL");
 			      val == V4L2_PRIORITY_INTERACTIVE  || \
 			      val == V4L2_PRIORITY_RECORD)
 
-int v4l2_prio_init(struct v4l2_prio_state *global)
+void v4l2_prio_init(struct v4l2_prio_state *global)
 {
-	memset(global,0,sizeof(*global));
-	return 0;
+	memset(global, 0, sizeof(*global));
 }
 EXPORT_SYMBOL(v4l2_prio_init);
 
@@ -108,17 +110,16 @@ int v4l2_prio_change(struct v4l2_prio_state *global, enum v4l2_priority *local,
 }
 EXPORT_SYMBOL(v4l2_prio_change);
 
-int v4l2_prio_open(struct v4l2_prio_state *global, enum v4l2_priority *local)
+void v4l2_prio_open(struct v4l2_prio_state *global, enum v4l2_priority *local)
 {
-	return v4l2_prio_change(global,local,V4L2_PRIORITY_DEFAULT);
+	v4l2_prio_change(global, local, V4L2_PRIORITY_DEFAULT);
 }
 EXPORT_SYMBOL(v4l2_prio_open);
 
-int v4l2_prio_close(struct v4l2_prio_state *global, enum v4l2_priority *local)
+void v4l2_prio_close(struct v4l2_prio_state *global, enum v4l2_priority local)
 {
-	if (V4L2_PRIO_VALID(*local))
-		atomic_dec(&global->prios[*local]);
-	return 0;
+	if (V4L2_PRIO_VALID(local))
+		atomic_dec(&global->prios[local]);
 }
 EXPORT_SYMBOL(v4l2_prio_close);
 
@@ -134,11 +135,9 @@ enum v4l2_priority v4l2_prio_max(struct v4l2_prio_state *global)
 }
 EXPORT_SYMBOL(v4l2_prio_max);
 
-int v4l2_prio_check(struct v4l2_prio_state *global, enum v4l2_priority *local)
+int v4l2_prio_check(struct v4l2_prio_state *global, enum v4l2_priority local)
 {
-	if (*local < v4l2_prio_max(global))
-		return -EBUSY;
-	return 0;
+	return (local < v4l2_prio_max(global)) ? -EBUSY : 0;
 }
 EXPORT_SYMBOL(v4l2_prio_check);
 
@@ -156,6 +155,8 @@ int v4l2_ctrl_check(struct v4l2_ext_control *ctrl, struct v4l2_queryctrl *qctrl,
 		return -EINVAL;
 	if (qctrl->flags & V4L2_CTRL_FLAG_GRABBED)
 		return -EBUSY;
+	if (qctrl->type == V4L2_CTRL_TYPE_STRING)
+		return 0;
 	if (qctrl->type == V4L2_CTRL_TYPE_BUTTON ||
 	    qctrl->type == V4L2_CTRL_TYPE_INTEGER64 ||
 	    qctrl->type == V4L2_CTRL_TYPE_CTRL_CLASS)
@@ -338,7 +339,20 @@ const char **v4l2_ctrl_get_menu(u32 id)
 		"None",
 		"Black & White",
 		"Sepia",
+		"Negative",
+		"Emboss",
+		"Sketch",
+		"Sky blue",
+		"Grass green",
+		"Skin whiten",
+		"Vivid",
 		NULL
+	};
+	static const char *tune_preemphasis[] = {
+		"No preemphasis",
+		"50 useconds",
+		"75 useconds",
+		NULL,
 	};
 
 	switch (id) {
@@ -378,6 +392,8 @@ const char **v4l2_ctrl_get_menu(u32 id)
 			return camera_exposure_auto;
 		case V4L2_CID_COLORFX:
 			return colorfx;
+		case V4L2_CID_TUNE_PREEMPHASIS:
+			return tune_preemphasis;
 		default:
 			return NULL;
 	}
@@ -419,8 +435,13 @@ const char *v4l2_ctrl_get_name(u32 id)
 	case V4L2_CID_SHARPNESS:		return "Sharpness";
 	case V4L2_CID_BACKLIGHT_COMPENSATION:	return "Backlight Compensation";
 	case V4L2_CID_CHROMA_AGC:		return "Chroma AGC";
+	case V4L2_CID_CHROMA_GAIN:		return "Chroma Gain";
 	case V4L2_CID_COLOR_KILLER:		return "Color Killer";
 	case V4L2_CID_COLORFX:			return "Color Effects";
+	case V4L2_CID_AUTOBRIGHTNESS:		return "Brightness, Automatic";
+	case V4L2_CID_BAND_STOP_FILTER:		return "Band-Stop Filter";
+	case V4L2_CID_ROTATE:			return "Rotate";
+	case V4L2_CID_BG_COLOR:			return "Background Color";
 
 	/* MPEG controls */
 	case V4L2_CID_MPEG_CLASS: 		return "MPEG Encoder Controls";
@@ -471,10 +492,34 @@ const char *v4l2_ctrl_get_name(u32 id)
 	case V4L2_CID_FOCUS_ABSOLUTE:		return "Focus, Absolute";
 	case V4L2_CID_FOCUS_RELATIVE:		return "Focus, Relative";
 	case V4L2_CID_FOCUS_AUTO:		return "Focus, Automatic";
+	case V4L2_CID_IRIS_ABSOLUTE:		return "Iris, Absolute";
+	case V4L2_CID_IRIS_RELATIVE:		return "Iris, Relative";
 	case V4L2_CID_ZOOM_ABSOLUTE:		return "Zoom, Absolute";
 	case V4L2_CID_ZOOM_RELATIVE:		return "Zoom, Relative";
 	case V4L2_CID_ZOOM_CONTINUOUS:		return "Zoom, Continuous";
 	case V4L2_CID_PRIVACY:			return "Privacy";
+
+	/* FM Radio Modulator control */
+	case V4L2_CID_FM_TX_CLASS:		return "FM Radio Modulator Controls";
+	case V4L2_CID_RDS_TX_DEVIATION:		return "RDS Signal Deviation";
+	case V4L2_CID_RDS_TX_PI:		return "RDS Program ID";
+	case V4L2_CID_RDS_TX_PTY:		return "RDS Program Type";
+	case V4L2_CID_RDS_TX_PS_NAME:		return "RDS PS Name";
+	case V4L2_CID_RDS_TX_RADIO_TEXT:	return "RDS Radio Text";
+	case V4L2_CID_AUDIO_LIMITER_ENABLED:	return "Audio Limiter Feature Enabled";
+	case V4L2_CID_AUDIO_LIMITER_RELEASE_TIME: return "Audio Limiter Release Time";
+	case V4L2_CID_AUDIO_LIMITER_DEVIATION:	return "Audio Limiter Deviation";
+	case V4L2_CID_AUDIO_COMPRESSION_ENABLED: return "Audio Compression Feature Enabled";
+	case V4L2_CID_AUDIO_COMPRESSION_GAIN:	return "Audio Compression Gain";
+	case V4L2_CID_AUDIO_COMPRESSION_THRESHOLD: return "Audio Compression Threshold";
+	case V4L2_CID_AUDIO_COMPRESSION_ATTACK_TIME: return "Audio Compression Attack Time";
+	case V4L2_CID_AUDIO_COMPRESSION_RELEASE_TIME: return "Audio Compression Release Time";
+	case V4L2_CID_PILOT_TONE_ENABLED:	return "Pilot Tone Feature Enabled";
+	case V4L2_CID_PILOT_TONE_DEVIATION:	return "Pilot Tone Deviation";
+	case V4L2_CID_PILOT_TONE_FREQUENCY:	return "Pilot Tone Frequency";
+	case V4L2_CID_TUNE_PREEMPHASIS:	return "Pre-emphasis settings";
+	case V4L2_CID_TUNE_POWER_LEVEL:		return "Tune Power Level";
+	case V4L2_CID_TUNE_ANTENNA_CAPACITOR:	return "Tune Antenna Capacitor";
 
 	default:
 		return NULL;
@@ -508,6 +553,9 @@ int v4l2_ctrl_query_fill(struct v4l2_queryctrl *qctrl, s32 min, s32 max, s32 ste
 	case V4L2_CID_EXPOSURE_AUTO_PRIORITY:
 	case V4L2_CID_FOCUS_AUTO:
 	case V4L2_CID_PRIVACY:
+	case V4L2_CID_AUDIO_LIMITER_ENABLED:
+	case V4L2_CID_AUDIO_COMPRESSION_ENABLED:
+	case V4L2_CID_PILOT_TONE_ENABLED:
 		qctrl->type = V4L2_CTRL_TYPE_BOOLEAN;
 		min = 0;
 		max = step = 1;
@@ -536,15 +584,28 @@ int v4l2_ctrl_query_fill(struct v4l2_queryctrl *qctrl, s32 min, s32 max, s32 ste
 	case V4L2_CID_MPEG_STREAM_VBI_FMT:
 	case V4L2_CID_EXPOSURE_AUTO:
 	case V4L2_CID_COLORFX:
+	case V4L2_CID_TUNE_PREEMPHASIS:
 		qctrl->type = V4L2_CTRL_TYPE_MENU;
 		step = 1;
+		break;
+	case V4L2_CID_RDS_TX_PS_NAME:
+	case V4L2_CID_RDS_TX_RADIO_TEXT:
+		qctrl->type = V4L2_CTRL_TYPE_STRING;
 		break;
 	case V4L2_CID_USER_CLASS:
 	case V4L2_CID_CAMERA_CLASS:
 	case V4L2_CID_MPEG_CLASS:
+	case V4L2_CID_FM_TX_CLASS:
 		qctrl->type = V4L2_CTRL_TYPE_CTRL_CLASS;
 		qctrl->flags |= V4L2_CTRL_FLAG_READ_ONLY;
 		min = max = step = def = 0;
+		break;
+	case V4L2_CID_BG_COLOR:
+		qctrl->type = V4L2_CTRL_TYPE_INTEGER;
+		step = 1;
+		min = 0;
+		/* Max is calculated as RGB888 that is 2^24 */
+		max = 0xFFFFFF;
 		break;
 	default:
 		qctrl->type = V4L2_CTRL_TYPE_INTEGER;
@@ -570,11 +631,24 @@ int v4l2_ctrl_query_fill(struct v4l2_queryctrl *qctrl, s32 min, s32 max, s32 ste
 	case V4L2_CID_BLUE_BALANCE:
 	case V4L2_CID_GAMMA:
 	case V4L2_CID_SHARPNESS:
+	case V4L2_CID_CHROMA_GAIN:
+	case V4L2_CID_RDS_TX_DEVIATION:
+	case V4L2_CID_AUDIO_LIMITER_RELEASE_TIME:
+	case V4L2_CID_AUDIO_LIMITER_DEVIATION:
+	case V4L2_CID_AUDIO_COMPRESSION_GAIN:
+	case V4L2_CID_AUDIO_COMPRESSION_THRESHOLD:
+	case V4L2_CID_AUDIO_COMPRESSION_ATTACK_TIME:
+	case V4L2_CID_AUDIO_COMPRESSION_RELEASE_TIME:
+	case V4L2_CID_PILOT_TONE_DEVIATION:
+	case V4L2_CID_PILOT_TONE_FREQUENCY:
+	case V4L2_CID_TUNE_POWER_LEVEL:
+	case V4L2_CID_TUNE_ANTENNA_CAPACITOR:
 		qctrl->flags |= V4L2_CTRL_FLAG_SLIDER;
 		break;
 	case V4L2_CID_PAN_RELATIVE:
 	case V4L2_CID_TILT_RELATIVE:
 	case V4L2_CID_FOCUS_RELATIVE:
+	case V4L2_CID_IRIS_RELATIVE:
 	case V4L2_CID_ZOOM_RELATIVE:
 		qctrl->flags |= V4L2_CTRL_FLAG_WRITE_ONLY;
 		break;
@@ -762,139 +836,6 @@ EXPORT_SYMBOL_GPL(v4l2_i2c_subdev_init);
 
 
 /* Load an i2c sub-device. */
-struct v4l2_subdev *v4l2_i2c_new_subdev(struct v4l2_device *v4l2_dev,
-		struct i2c_adapter *adapter,
-		const char *module_name, const char *client_type, u8 addr)
-{
-	struct v4l2_subdev *sd = NULL;
-	struct i2c_client *client;
-	struct i2c_board_info info;
-
-	BUG_ON(!v4l2_dev);
-
-	if (module_name)
-		request_module(module_name);
-
-	/* Setup the i2c board info with the device type and
-	   the device address. */
-	memset(&info, 0, sizeof(info));
-	strlcpy(info.type, client_type, sizeof(info.type));
-	info.addr = addr;
-
-	/* Create the i2c client */
-	client = i2c_new_device(adapter, &info);
-	/* Note: it is possible in the future that
-	   c->driver is NULL if the driver is still being loaded.
-	   We need better support from the kernel so that we
-	   can easily wait for the load to finish. */
-	if (client == NULL || client->driver == NULL)
-		goto error;
-
-	/* Lock the module so we can safely get the v4l2_subdev pointer */
-	if (!try_module_get(client->driver->driver.owner))
-		goto error;
-	sd = i2c_get_clientdata(client);
-
-	/* Register with the v4l2_device which increases the module's
-	   use count as well. */
-	if (v4l2_device_register_subdev(v4l2_dev, sd))
-		sd = NULL;
-	/* Decrease the module use count to match the first try_module_get. */
-	module_put(client->driver->driver.owner);
-
-	if (sd) {
-		/* We return errors from v4l2_subdev_call only if we have the
-		   callback as the .s_config is not mandatory */
-		int err = v4l2_subdev_call(sd, core, s_config, 0, NULL);
-
-		if (err && err != -ENOIOCTLCMD) {
-			v4l2_device_unregister_subdev(sd);
-			sd = NULL;
-		}
-	}
-
-error:
-	/* If we have a client but no subdev, then something went wrong and
-	   we must unregister the client. */
-	if (client && sd == NULL)
-		i2c_unregister_device(client);
-	return sd;
-}
-EXPORT_SYMBOL_GPL(v4l2_i2c_new_subdev);
-
-/* Probe and load an i2c sub-device. */
-struct v4l2_subdev *v4l2_i2c_new_probed_subdev(struct v4l2_device *v4l2_dev,
-	struct i2c_adapter *adapter,
-	const char *module_name, const char *client_type,
-	const unsigned short *addrs)
-{
-	struct v4l2_subdev *sd = NULL;
-	struct i2c_client *client = NULL;
-	struct i2c_board_info info;
-
-	BUG_ON(!v4l2_dev);
-
-	if (module_name)
-		request_module(module_name);
-
-	/* Setup the i2c board info with the device type and
-	   the device address. */
-	memset(&info, 0, sizeof(info));
-	strlcpy(info.type, client_type, sizeof(info.type));
-
-	/* Probe and create the i2c client */
-	client = i2c_new_probed_device(adapter, &info, addrs);
-	/* Note: it is possible in the future that
-	   c->driver is NULL if the driver is still being loaded.
-	   We need better support from the kernel so that we
-	   can easily wait for the load to finish. */
-	if (client == NULL || client->driver == NULL)
-		goto error;
-
-	/* Lock the module so we can safely get the v4l2_subdev pointer */
-	if (!try_module_get(client->driver->driver.owner))
-		goto error;
-	sd = i2c_get_clientdata(client);
-
-	/* Register with the v4l2_device which increases the module's
-	   use count as well. */
-	if (v4l2_device_register_subdev(v4l2_dev, sd))
-		sd = NULL;
-	/* Decrease the module use count to match the first try_module_get. */
-	module_put(client->driver->driver.owner);
-
-	if (sd) {
-		/* We return errors from v4l2_subdev_call only if we have the
-		   callback as the .s_config is not mandatory */
-		int err = v4l2_subdev_call(sd, core, s_config, 0, NULL);
-
-		if (err && err != -ENOIOCTLCMD) {
-			v4l2_device_unregister_subdev(sd);
-			sd = NULL;
-		}
-	}
-
-error:
-	/* If we have a client but no subdev, then something went wrong and
-	   we must unregister the client. */
-	if (client && sd == NULL)
-		i2c_unregister_device(client);
-	return sd;
-}
-EXPORT_SYMBOL_GPL(v4l2_i2c_new_probed_subdev);
-
-struct v4l2_subdev *v4l2_i2c_new_probed_subdev_addr(struct v4l2_device *v4l2_dev,
-		struct i2c_adapter *adapter,
-		const char *module_name, const char *client_type, u8 addr)
-{
-	unsigned short addrs[2] = { addr, I2C_CLIENT_END };
-
-	return v4l2_i2c_new_probed_subdev(v4l2_dev, adapter,
-			module_name, client_type, addrs);
-}
-EXPORT_SYMBOL_GPL(v4l2_i2c_new_probed_subdev_addr);
-
-/* Load an i2c sub-device. */
 struct v4l2_subdev *v4l2_i2c_new_subdev_board(struct v4l2_device *v4l2_dev,
 		struct i2c_adapter *adapter, const char *module_name,
 		struct i2c_board_info *info, const unsigned short *probe_addrs)
@@ -930,6 +871,7 @@ struct v4l2_subdev *v4l2_i2c_new_subdev_board(struct v4l2_device *v4l2_dev,
 
 	/* Register with the v4l2_device which increases the module's
 	   use count as well. */
+	sd->initialized = 0;
 	if (v4l2_device_register_subdev(v4l2_dev, sd))
 		sd = NULL;
 	/* Decrease the module use count to match the first try_module_get. */
@@ -944,6 +886,8 @@ struct v4l2_subdev *v4l2_i2c_new_subdev_board(struct v4l2_device *v4l2_dev,
 		if (err && err != -ENOIOCTLCMD) {
 			v4l2_device_unregister_subdev(sd);
 			sd = NULL;
+		} else {
+			sd->initialized = 1;
 		}
 	}
 
@@ -1023,6 +967,66 @@ EXPORT_SYMBOL_GPL(v4l2_i2c_tuner_addrs);
 
 #endif /* defined(CONFIG_I2C) */
 
+#if defined(CONFIG_SPI)
+
+/* Load a spi sub-device. */
+
+void v4l2_spi_subdev_init(struct v4l2_subdev *sd, struct spi_device *spi,
+		const struct v4l2_subdev_ops *ops)
+{
+	v4l2_subdev_init(sd, ops);
+	sd->flags |= V4L2_SUBDEV_FL_IS_SPI;
+	/* the owner is the same as the spi_device's driver owner */
+	sd->owner = spi->dev.driver->owner;
+	/* spi_device and v4l2_subdev point to one another */
+	v4l2_set_subdevdata(sd, spi);
+	spi_set_drvdata(spi, sd);
+	/* initialize name */
+	strlcpy(sd->name, spi->dev.driver->name, sizeof(sd->name));
+}
+EXPORT_SYMBOL_GPL(v4l2_spi_subdev_init);
+
+struct v4l2_subdev *v4l2_spi_new_subdev(struct v4l2_device *v4l2_dev,
+		struct spi_master *master, struct spi_board_info *info)
+{
+	struct v4l2_subdev *sd = NULL;
+	struct spi_device *spi = NULL;
+
+	BUG_ON(!v4l2_dev);
+
+	if (info->modalias)
+		request_module(info->modalias);
+
+	spi = spi_new_device(master, info);
+
+	if (spi == NULL || spi->dev.driver == NULL)
+		goto error;
+
+	if (!try_module_get(spi->dev.driver->owner))
+		goto error;
+
+	sd = spi_get_drvdata(spi);
+
+	/* Register with the v4l2_device which increases the module's
+	   use count as well. */
+	if (v4l2_device_register_subdev(v4l2_dev, sd))
+		sd = NULL;
+
+	/* Decrease the module use count to match the first try_module_get. */
+	module_put(spi->dev.driver->owner);
+
+error:
+	/* If we have a client but no subdev, then something went wrong and
+	   we must unregister the client. */
+	if (spi && sd == NULL)
+		spi_unregister_device(spi);
+
+	return sd;
+}
+EXPORT_SYMBOL_GPL(v4l2_spi_new_subdev);
+
+#endif /* defined(CONFIG_SPI) */
+
 /* Clamp x to be between min and max, aligned to a multiple of 2^align.  min
  * and max don't have to be aligned, but there must be at least one valid
  * value.  E.g., min=17,max=31,align=4 is not allowed as there are no multiples
@@ -1096,3 +1100,50 @@ void v4l_bound_align_image(u32 *w, unsigned int wmin, unsigned int wmax,
 	}
 }
 EXPORT_SYMBOL_GPL(v4l_bound_align_image);
+
+/**
+ * v4l_fill_dv_preset_info - fill description of a digital video preset
+ * @preset - preset value
+ * @info - pointer to struct v4l2_dv_enum_preset
+ *
+ * drivers can use this helper function to fill description of dv preset
+ * in info.
+ */
+int v4l_fill_dv_preset_info(u32 preset, struct v4l2_dv_enum_preset *info)
+{
+	static const struct v4l2_dv_preset_info {
+		u16 width;
+		u16 height;
+		const char *name;
+	} dv_presets[] = {
+		{ 0, 0, "Invalid" },		/* V4L2_DV_INVALID */
+		{ 720,  480, "480p@59.94" },	/* V4L2_DV_480P59_94 */
+		{ 720,  576, "576p@50" },	/* V4L2_DV_576P50 */
+		{ 1280, 720, "720p@24" },	/* V4L2_DV_720P24 */
+		{ 1280, 720, "720p@25" },	/* V4L2_DV_720P25 */
+		{ 1280, 720, "720p@30" },	/* V4L2_DV_720P30 */
+		{ 1280, 720, "720p@50" },	/* V4L2_DV_720P50 */
+		{ 1280, 720, "720p@59.94" },	/* V4L2_DV_720P59_94 */
+		{ 1280, 720, "720p@60" },	/* V4L2_DV_720P60 */
+		{ 1920, 1080, "1080i@29.97" },	/* V4L2_DV_1080I29_97 */
+		{ 1920, 1080, "1080i@30" },	/* V4L2_DV_1080I30 */
+		{ 1920, 1080, "1080i@25" },	/* V4L2_DV_1080I25 */
+		{ 1920, 1080, "1080i@50" },	/* V4L2_DV_1080I50 */
+		{ 1920, 1080, "1080i@60" },	/* V4L2_DV_1080I60 */
+		{ 1920, 1080, "1080p@24" },	/* V4L2_DV_1080P24 */
+		{ 1920, 1080, "1080p@25" },	/* V4L2_DV_1080P25 */
+		{ 1920, 1080, "1080p@30" },	/* V4L2_DV_1080P30 */
+		{ 1920, 1080, "1080p@50" },	/* V4L2_DV_1080P50 */
+		{ 1920, 1080, "1080p@60" },	/* V4L2_DV_1080P60 */
+	};
+
+	if (info == NULL || preset >= ARRAY_SIZE(dv_presets))
+		return -EINVAL;
+
+	info->preset = preset;
+	info->width = dv_presets[preset].width;
+	info->height = dv_presets[preset].height;
+	strlcpy(info->name, dv_presets[preset].name, sizeof(info->name));
+	return 0;
+}
+EXPORT_SYMBOL_GPL(v4l_fill_dv_preset_info);

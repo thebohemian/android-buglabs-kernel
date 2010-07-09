@@ -288,7 +288,7 @@ static int get_v4l2_window32(struct v4l2_window *kp, struct v4l2_window32 __user
 
 static int put_v4l2_window32(struct v4l2_window *kp, struct v4l2_window32 __user *up)
 {
-	if (copy_to_user(&up->w, &kp->w, sizeof(up->w)) ||
+	if (copy_to_user(&up->w, &kp->w, sizeof(kp->w)) ||
 		put_user(kp->field, &up->field) ||
 		put_user(kp->chromakey, &up->chromakey) ||
 		put_user(kp->clipcount, &up->clipcount))
@@ -475,6 +475,9 @@ static int get_v4l2_buffer32(struct v4l2_buffer *kp, struct v4l2_buffer32 __user
 			return -EFAULT;
 	switch (kp->memory) {
 	case V4L2_MEMORY_MMAP:
+		if (get_user(kp->length, &up->length) ||
+			get_user(kp->m.offset, &up->m.offset))
+			return -EFAULT;
 		break;
 	case V4L2_MEMORY_USERPTR:
 		{
@@ -600,9 +603,37 @@ struct v4l2_ext_controls32 {
        compat_caddr_t controls; /* actually struct v4l2_ext_control32 * */
 };
 
+struct v4l2_ext_control32 {
+	__u32 id;
+	__u32 size;
+	__u32 reserved2[1];
+	union {
+		__s32 value;
+		__s64 value64;
+		compat_caddr_t string; /* actually char * */
+	};
+} __attribute__ ((packed));
+
+/* The following function really belong in v4l2-common, but that causes
+   a circular dependency between modules. We need to think about this, but
+   for now this will do. */
+
+/* Return non-zero if this control is a pointer type. Currently only
+   type STRING is a pointer type. */
+static inline int ctrl_is_pointer(u32 id)
+{
+	switch (id) {
+	case V4L2_CID_RDS_TX_PS_NAME:
+	case V4L2_CID_RDS_TX_RADIO_TEXT:
+		return 1;
+	default:
+		return 0;
+	}
+}
+
 static int get_v4l2_ext_controls32(struct v4l2_ext_controls *kp, struct v4l2_ext_controls32 __user *up)
 {
-	struct v4l2_ext_control __user *ucontrols;
+	struct v4l2_ext_control32 __user *ucontrols;
 	struct v4l2_ext_control __user *kcontrols;
 	int n;
 	compat_caddr_t p;
@@ -626,15 +657,17 @@ static int get_v4l2_ext_controls32(struct v4l2_ext_controls *kp, struct v4l2_ext
 	kcontrols = compat_alloc_user_space(n * sizeof(struct v4l2_ext_control));
 	kp->controls = kcontrols;
 	while (--n >= 0) {
-		if (copy_in_user(&kcontrols->id, &ucontrols->id, sizeof(__u32)))
+		if (copy_in_user(kcontrols, ucontrols, sizeof(*kcontrols)))
 			return -EFAULT;
-		if (copy_in_user(&kcontrols->reserved2, &ucontrols->reserved2, sizeof(ucontrols->reserved2)))
-			return -EFAULT;
-		/* Note: if the void * part of the union ever becomes relevant
-		   then we need to know the type of the control in order to do
-		   the right thing here. Luckily, that is not yet an issue. */
-		if (copy_in_user(&kcontrols->value, &ucontrols->value, sizeof(ucontrols->value)))
-			return -EFAULT;
+		if (ctrl_is_pointer(kcontrols->id)) {
+			void __user *s;
+
+			if (get_user(p, &ucontrols->string))
+				return -EFAULT;
+			s = compat_ptr(p);
+			if (put_user(s, &kcontrols->string))
+				return -EFAULT;
+		}
 		ucontrols++;
 		kcontrols++;
 	}
@@ -643,7 +676,7 @@ static int get_v4l2_ext_controls32(struct v4l2_ext_controls *kp, struct v4l2_ext
 
 static int put_v4l2_ext_controls32(struct v4l2_ext_controls *kp, struct v4l2_ext_controls32 __user *up)
 {
-	struct v4l2_ext_control __user *ucontrols;
+	struct v4l2_ext_control32 __user *ucontrols;
 	struct v4l2_ext_control __user *kcontrols = kp->controls;
 	int n = kp->count;
 	compat_caddr_t p;
@@ -664,15 +697,14 @@ static int put_v4l2_ext_controls32(struct v4l2_ext_controls *kp, struct v4l2_ext
 		return -EFAULT;
 
 	while (--n >= 0) {
-		if (copy_in_user(&ucontrols->id, &kcontrols->id, sizeof(__u32)))
-			return -EFAULT;
-		if (copy_in_user(&ucontrols->reserved2, &kcontrols->reserved2,
-					sizeof(ucontrols->reserved2)))
-			return -EFAULT;
-		/* Note: if the void * part of the union ever becomes relevant
-		   then we need to know the type of the control in order to do
-		   the right thing here. Luckily, that is not yet an issue. */
-		if (copy_in_user(&ucontrols->value, &kcontrols->value, sizeof(ucontrols->value)))
+		unsigned size = sizeof(*ucontrols);
+
+		/* Do not modify the pointer when copying a pointer control.
+		   The contents of the pointer was changed, not the pointer
+		   itself. */
+		if (ctrl_is_pointer(kcontrols->id))
+			size -= sizeof(ucontrols->value64);
+		if (copy_in_user(ucontrols, kcontrols, size))
 			return -EFAULT;
 		ucontrols++;
 		kcontrols++;
@@ -1048,6 +1080,15 @@ long v4l2_compat_ioctl32(struct file *file, unsigned int cmd, unsigned long arg)
 	case VIDIOC_DBG_G_REGISTER:
 	case VIDIOC_DBG_G_CHIP_IDENT:
 	case VIDIOC_S_HW_FREQ_SEEK:
+	case VIDIOC_ENUM_DV_PRESETS:
+	case VIDIOC_S_DV_PRESET:
+	case VIDIOC_G_DV_PRESET:
+	case VIDIOC_QUERY_DV_PRESET:
+	case VIDIOC_S_DV_TIMINGS:
+	case VIDIOC_G_DV_TIMINGS:
+	case VIDIOC_DQEVENT:
+	case VIDIOC_SUBSCRIBE_EVENT:
+	case VIDIOC_UNSUBSCRIBE_EVENT:
 		ret = do_video_ioctl(file, cmd, arg);
 		break;
 

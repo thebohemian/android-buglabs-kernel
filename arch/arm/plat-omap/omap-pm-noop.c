@@ -84,6 +84,7 @@ void omap_pm_set_min_bus_tput(struct device *dev, u8 agent_id, unsigned long r)
 	 * TI CDP code can call constraint_set here on the VDD2 OPP.
 	 */
 }
+EXPORT_SYMBOL(omap_pm_set_min_bus_tput);
 
 void omap_pm_set_max_dev_wakeup_lat(struct device *dev, long t)
 {
