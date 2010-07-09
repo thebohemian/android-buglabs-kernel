@@ -12,4 +12,4 @@
 
 obj-$(CONFIG_BMI_CAMERA) += bmi_camera_mux.o bmi_camera.o
 
-+obj-$(CONFIG_BMI_CAMERA_LI3M02CM) += bmi_li3m02cm.o mt9t111.o
+obj-$(CONFIG_BMI_CAMERA_LI3M02CM) += bmi_li3m02cm.o mt9t111.o
