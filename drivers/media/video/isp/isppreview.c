@@ -998,21 +998,31 @@ static int isppreview_config(struct isp_prev_device *prev,
 	}
 
 	for (i = 0; i < ARRAY_SIZE(update_attrs); i++) {
-		attr = &update_attrs[i];
-		bit = 0;
+		void *kern = NULL, __user *user = NULL;
+		unsigned long sz = 0;
 
-		if (!(cfg->update & attr->cfg_bit))
+		attr = &update_attrs[i];
+
+		if (!(cfg->update & attr->cfg_bit)) {
+			// when not selected for update, copy current kernel
+			// state into the user struct for user read access.
+			sz = __isppreview_get_ptrs(params, &kern, cfg, &user,
+						   attr->cfg_bit);
+			if (kern && user && sz) {
+				if (copy_to_user(user, kern, sz)) {
+					rval = -EFAULT;
+					break;
+				}
+			}
 			continue;
+		}
 
 		bit = cfg->flag & attr->cfg_bit;
 		if (bit) {
-			void *to = NULL, __user *from = NULL;
-			unsigned long sz = 0;
-
-			sz = __isppreview_get_ptrs(params, &to, cfg, &from,
+			sz = __isppreview_get_ptrs(params, &kern, cfg, &user,
 						   bit);
-			if (to && from && sz) {
-				if (copy_from_user(to, from, sz)) {
+			if (kern && user && sz) {
+				if (copy_from_user(kern, user, sz)) {
 					rval = -EFAULT;
 					break;
 				}
@@ -1812,6 +1822,7 @@ static void preview_try_format(struct isp_prev_device *prev,
 	struct v4l2_mbus_framefmt *format;
 	unsigned int max_out_width;
 	enum v4l2_mbus_pixelcode pixelcode;
+
 
 	max_out_width = preview_max_out_width(prev);
 
