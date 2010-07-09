@@ -19,4 +19,9 @@ choice
 #        ---help---
 #          If you plan to use the Omnivision OV2640 Camera with your BUG system, say Y here.
 #
+config BMI_CAMERA_LI3M02CM
+        tristate "Leopard Imaging 3M02CM / Aptina MT9T111 camera support"
+        ---help---
+          If you plan to use the "Leopard Imaging 3M02CM / Aptina MT9T11 camera with your BUG system, say Y here.
+
 endchoice
