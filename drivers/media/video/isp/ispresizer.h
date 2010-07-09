@@ -99,7 +99,6 @@ struct isp_res_device {
 	enum resizer_input_entity input;
 	struct isp_video video_in;
 	struct isp_video video_out;
-	struct isp_video *video;
 	unsigned int error;
 
 	u32 addr_base;   /* stored source buffer address in memory mode */

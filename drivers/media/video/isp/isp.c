@@ -838,53 +838,6 @@ static void isp_reset(struct isp_device *isp)
 	}
 }
 
-/**
- * isp_stop - Stop ISP.
- * @dev: Device pointer specific to the OMAP3 ISP.
- **/
-void isp_stop(struct isp_device *isp, struct isp_video *video)
-{
-	if (!isp_pipeline_disable(isp, video))
-		return;
-
-	isp_save_ctx(isp);
-	isp_reset(isp);
-	isp_restore_ctx(isp);
-}
-EXPORT_SYMBOL(isp_stop);
-
-/**
- * isp_handle_private - Handle all private ioctls for isp module.
- * @dev: Device pointer specific to the OMAP3 ISP.
- * @cmd: ioctl cmd value
- * @arg: ioctl arg value
- *
- * Return 0 if successful, -EINVAL if chosen cmd value is not handled or value
- * is out of bounds, -EFAULT if ioctl arg value is not valid.
- * Function simply routes the input ioctl cmd id to the appropriate handler in
- * the isp module.
- **/
-int isp_handle_private(struct isp_device *isp, int cmd, void *arg)
-{
-	int rval = 0;
-
-	switch (cmd) {
-	case VIDIOC_PRIVATE_ISP_CCDC_CFG:
-		rval = v4l2_subdev_call(&isp->isp_ccdc.subdev, core, ioctl,
-					cmd, arg);
-		break;
-	case VIDIOC_PRIVATE_ISP_PRV_CFG:
-		rval = v4l2_subdev_call(&isp->isp_prev.subdev, core, ioctl,
-					cmd, arg);
-		break;
-	default:
-		rval = -EINVAL;
-		break;
-	}
-	return rval;
-}
-EXPORT_SYMBOL(isp_handle_private);
-
 /*
  * isp_save_ctx - Saves ISP, CCDC, HIST, H3A, PREV, RESZ & MMU context.
  * @dev: Device pointer specific to the OMAP3 ISP.

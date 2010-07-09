@@ -40,7 +40,6 @@ static struct v4l2_subdev *
 isp_video_remote_subdev(struct isp_video *video, u32 *pad)
 {
 	struct media_entity_pad *remote;
-
 	remote = media_entity_remote_pad(&video->pad);
 
 	if (remote == NULL || remote->entity->type != MEDIA_ENTITY_TYPE_SUBDEV)
@@ -130,8 +129,11 @@ isp_video_validate_pipeline(struct isp_pipeline *pipe)
 		/* Check if the two ends match */
 		if (fmt_source.code != fmt_sink.code ||
 		    fmt_source.width != fmt_sink.width ||
-		    fmt_source.height != fmt_sink.height)
+		    fmt_source.height != fmt_sink.height) {
+
+			printk(KERN_ERR "%s sink(name=%s code=%d width=%d height=%d) source(name=%s code=%d width=%d height=%d\n", __func__, pad->entity->name, fmt_sink.code, fmt_sink.width, fmt_sink.height, pad->entity->name, fmt_source.code, fmt_source.width, fmt_source.height);
 			return -EPIPE;
+		}
 	}
 
 	return 0;
@@ -170,10 +172,15 @@ isp_video_check_format(struct isp_video *video, struct isp_video_fh *vfh)
 {
 	struct v4l2_format format;
 	int ret;
-
 	ret = __isp_video_get_format(video, &format);
 	if (ret < 0)
 		return ret;
+
+	printk(KERN_INFO "%s pixelformat  = %d %d\n", __func__, vfh->format.fmt.pix.pixelformat, format.fmt.pix.pixelformat  );
+	printk(KERN_INFO "%s height       = %d %d\n", __func__, vfh->format.fmt.pix.height,      format.fmt.pix.height	   );
+	printk(KERN_INFO "%s width        = %d %d\n", __func__, vfh->format.fmt.pix.width,       format.fmt.pix.width	   );
+	printk(KERN_INFO "%s bytesperline = %d %d\n", __func__, vfh->format.fmt.pix.bytesperline,format.fmt.pix.bytesperline );
+	printk(KERN_INFO "%s sizeimage    = %d %d\n", __func__, vfh->format.fmt.pix.sizeimage,   format.fmt.pix.sizeimage    );
 
 	if (vfh->format.fmt.pix.pixelformat != format.fmt.pix.pixelformat ||
 	    vfh->format.fmt.pix.height != format.fmt.pix.height ||
@@ -493,44 +500,6 @@ isp_video_querycap(struct file *file, void *fh, struct v4l2_capability *cap)
 }
 
 static int
-isp_video_enum_formats(struct file *file, void *fh, struct v4l2_fmtdesc *f)
-{
-	struct isp_video *video = video_drvdata(file);
-	const struct v4l2_ioctl_ops *ops = video->ioctl_ops;
-
-	if (ops == NULL || ops->vidioc_enum_fmt_vid_cap == NULL)
-		return -EINVAL;
-
-	return ops->vidioc_enum_fmt_vid_cap(file, fh, f);
-}
-
-static int
-isp_video_enum_framesizes(struct file *file, void *fh,
-			  struct v4l2_frmsizeenum *fsize)
-{
-	struct isp_video *video = video_drvdata(file);
-	const struct v4l2_ioctl_ops *ops = video->ioctl_ops;
-
-	if (ops == NULL || ops->vidioc_enum_framesizes == NULL)
-		return -EINVAL;
-
-	return ops->vidioc_enum_framesizes(file, fh, fsize);
-}
-
-static int
-isp_video_enum_frameintervals(struct file *file, void *fh,
-			      struct v4l2_frmivalenum *fival)
-{
-	struct isp_video *video = video_drvdata(file);
-	const struct v4l2_ioctl_ops *ops = video->ioctl_ops;
-
-	if (ops == NULL || ops->vidioc_enum_frameintervals == NULL)
-		return -EINVAL;
-
-	return ops->vidioc_enum_frameintervals(file, fh, fival);
-}
-
-static int
 isp_video_get_format(struct file *file, void *fh, struct v4l2_format *format)
 {
 	struct isp_video_fh *vfh = to_isp_video_fh(fh);
@@ -551,9 +520,7 @@ isp_video_set_format(struct file *file, void *fh, struct v4l2_format *format)
 {
 	struct isp_video_fh *vfh = to_isp_video_fh(fh);
 	struct isp_video *video = video_drvdata(file);
-	const struct v4l2_ioctl_ops *ops = video->ioctl_ops;
 	struct v4l2_mbus_framefmt fmt;
-	int ret = 0;
 
 	if (format->type != video->type)
 		return -EINVAL;
@@ -566,27 +533,16 @@ isp_video_set_format(struct file *file, void *fh, struct v4l2_format *format)
 	isp_video_pix_to_mbus(&format->fmt.pix, &fmt);
 	isp_video_mbus_to_pix(video, &fmt, &format->fmt.pix);
 
-	/* For legacy video nodes, set the format directly. New video nodes just
-	 * store the format in the file handle and verify it at stream on time.
-	 */
-	if (ops != NULL && ops->vidioc_s_fmt_vid_cap != NULL) {
-		ret = ops->vidioc_s_fmt_vid_cap(file, fh, format);
-		if (ret < 0)
-			goto done;
-	}
-
 	vfh->format = *format;
 
-done:
 	mutex_unlock(&video->mutex);
-	return ret;
+	return 0;
 }
 
 static int
 isp_video_try_format(struct file *file, void *fh, struct v4l2_format *format)
 {
 	struct isp_video *video = video_drvdata(file);
-	const struct v4l2_ioctl_ops *ops = video->ioctl_ops;
 	struct v4l2_mbus_framefmt fmt;
 	struct v4l2_subdev *subdev;
 	u32 pad;
@@ -594,12 +550,6 @@ isp_video_try_format(struct file *file, void *fh, struct v4l2_format *format)
 
 	if (format->type != video->type)
 		return -EINVAL;
-
-	/* Try the legacy ioctl operation if available or the subdev pad
-	 * operation otherwise.
-	 */
-	if (ops != NULL && ops->vidioc_try_fmt_vid_cap != NULL)
-		return ops->vidioc_try_fmt_vid_cap(file, fh, format);
 
 	subdev = isp_video_remote_subdev(video, &pad);
 	if (subdev == NULL)
@@ -614,58 +564,6 @@ isp_video_try_format(struct file *file, void *fh, struct v4l2_format *format)
 
 	isp_video_mbus_to_pix(video, &fmt, &format->fmt.pix);
 	return 0;
-}
-
-static int
-isp_video_query_control(struct file *file, void *fh,
-			struct v4l2_queryctrl *query)
-{
-	struct isp_video *video = video_drvdata(file);
-	const struct v4l2_ioctl_ops *ops = video->ioctl_ops;
-
-	if (ops == NULL || ops->vidioc_queryctrl == NULL)
-		return -EINVAL;
-
-	return ops->vidioc_queryctrl(file, fh, query);
-}
-
-static int
-isp_video_get_controls(struct file *file, void *fh,
-		       struct v4l2_ext_controls *ctrls)
-{
-	struct isp_video *video = video_drvdata(file);
-	const struct v4l2_ioctl_ops *ops = video->ioctl_ops;
-
-	if (ops == NULL || ops->vidioc_g_ext_ctrls == NULL)
-		return -EINVAL;
-
-	return ops->vidioc_g_ext_ctrls(file, fh, ctrls);
-}
-
-static int
-isp_video_set_controls(struct file *file, void *fh,
-		       struct v4l2_ext_controls *ctrls)
-{
-	struct isp_video *video = video_drvdata(file);
-	const struct v4l2_ioctl_ops *ops = video->ioctl_ops;
-
-	if (ops == NULL || ops->vidioc_s_ext_ctrls == NULL)
-		return -EINVAL;
-
-	return ops->vidioc_s_ext_ctrls(file, fh, ctrls);
-}
-
-static int
-isp_video_query_menu(struct file *file, void *fh,
-		     struct v4l2_querymenu *query)
-{
-	struct isp_video *video = video_drvdata(file);
-	const struct v4l2_ioctl_ops *ops = video->ioctl_ops;
-
-	if (ops == NULL || ops->vidioc_querymenu == NULL)
-		return -EINVAL;
-
-	return ops->vidioc_querymenu(file, fh, query);
 }
 
 static int
@@ -735,30 +633,6 @@ isp_video_set_crop(struct file *file, void *fh, struct v4l2_crop *crop)
 	mutex_unlock(&video->mutex);
 
 	return ret == -ENOIOCTLCMD ? -EINVAL : ret;
-}
-
-static int
-isp_video_get_param(struct file *file, void *fh, struct v4l2_streamparm *a)
-{
-	struct isp_video *video = video_drvdata(file);
-	const struct v4l2_ioctl_ops *ops = video->ioctl_ops;
-
-	if (ops == NULL || ops->vidioc_g_parm == NULL)
-		return -EINVAL;
-
-	return ops->vidioc_g_parm(file, fh, a);
-}
-
-static int
-isp_video_set_param(struct file *file, void *fh, struct v4l2_streamparm *a)
-{
-	struct isp_video *video = video_drvdata(file);
-	const struct v4l2_ioctl_ops *ops = video->ioctl_ops;
-
-	if (ops == NULL || ops->vidioc_s_parm == NULL)
-		return -EINVAL;
-
-	return ops->vidioc_s_parm(file, fh, a);
 }
 
 static int
@@ -835,7 +709,6 @@ isp_video_streamon(struct file *file, void *fh, enum v4l2_buf_type type)
 	unsigned int streaming;
 	unsigned long flags;
 	int ret;
-
 	if (type != video->type)
 		return -EINVAL;
 
@@ -910,9 +783,9 @@ isp_video_streamon(struct file *file, void *fh, enum v4l2_buf_type type)
 
 	ret = isp_video_queue_streamon(&vfh->queue);
 	if (ret < 0 && video->pipe->input == NULL) {
-		if (video->ops->stream_off)
-			video->ops->stream_off(video);
-		else
+//		if (video->ops->stream_off)
+//			video->ops->stream_off(video);
+//		else
 			isp_pipeline_set_stream(video->isp, video,
 						ISP_PIPELINE_STREAM_STOPPED);
 	}
@@ -923,6 +796,7 @@ error:
 					 OCP_INITIATOR_AGENT, 0);
 		video->pipe = NULL;
 		video->queue = NULL;
+		printk(KERN_INFO "%s error\n", __func__);
 	}
 
 	mutex_unlock(&video->stream_lock);
@@ -963,11 +837,8 @@ isp_video_streamoff(struct file *file, void *fh, enum v4l2_buf_type type)
 	spin_unlock_irqrestore(&video->pipe->lock, flags);
 
 	/* Stop the stream. */
-	if (video->ops->stream_off)
-		video->ops->stream_off(video);
-	else
-		isp_pipeline_set_stream(video->isp, video->pipe->output,
-					ISP_PIPELINE_STREAM_STOPPED);
+	isp_pipeline_set_stream(video->isp, video->pipe->output,
+				ISP_PIPELINE_STREAM_STOPPED);
 
 	isp_video_queue_streamoff(&vfh->queue);
 	video->pipe = NULL;
@@ -1006,39 +877,17 @@ isp_video_s_input(struct file *file, void *fh, unsigned int input)
 	return input == 0 ? 0 : -EINVAL;
 }
 
-static long
-isp_video_ioctl_default(struct file *file, void *fh, int cmd, void *arg)
-{
-	struct isp_video *video = video_drvdata(file);
-	int ret;
-
-	mutex_lock(&video->mutex);
-	ret = isp_handle_private(video->isp, cmd, arg);
-	mutex_unlock(&video->mutex);
-
-	return ret;
-}
-
 static const struct v4l2_ioctl_ops isp_video_ioctl_ops = {
 	.vidioc_querycap		= isp_video_querycap,
-	.vidioc_enum_fmt_vid_cap	= isp_video_enum_formats,
-	.vidioc_enum_framesizes		= isp_video_enum_framesizes,
-	.vidioc_enum_frameintervals	= isp_video_enum_frameintervals,
 	.vidioc_g_fmt_vid_cap		= isp_video_get_format,
 	.vidioc_s_fmt_vid_cap		= isp_video_set_format,
 	.vidioc_try_fmt_vid_cap		= isp_video_try_format,
 	.vidioc_g_fmt_vid_out		= isp_video_get_format,
 	.vidioc_s_fmt_vid_out		= isp_video_set_format,
 	.vidioc_try_fmt_vid_out		= isp_video_try_format,
-	.vidioc_queryctrl		= isp_video_query_control,
-	.vidioc_g_ext_ctrls		= isp_video_get_controls,
-	.vidioc_s_ext_ctrls		= isp_video_set_controls,
-	.vidioc_querymenu		= isp_video_query_menu,
 	.vidioc_cropcap			= isp_video_cropcap,
 	.vidioc_g_crop			= isp_video_get_crop,
 	.vidioc_s_crop			= isp_video_set_crop,
-	.vidioc_g_parm			= isp_video_get_param,
-	.vidioc_s_parm			= isp_video_set_param,
 	.vidioc_reqbufs			= isp_video_reqbufs,
 	.vidioc_querybuf		= isp_video_querybuf,
 	.vidioc_qbuf			= isp_video_qbuf,
@@ -1048,7 +897,6 @@ static const struct v4l2_ioctl_ops isp_video_ioctl_ops = {
 	.vidioc_enum_input		= isp_video_enum_input,
 	.vidioc_g_input			= isp_video_g_input,
 	.vidioc_s_input			= isp_video_s_input,
-	.vidioc_default			= isp_video_ioctl_default,
 };
 
 /* -----------------------------------------------------------------------------
@@ -1074,15 +922,6 @@ static int isp_video_open(struct file *file)
 			ret = -EBUSY;
 			goto done;
 		}
-
-		if (video->ops->init) {
-			ret = video->ops->init(video);
-			if (ret < 0) {
-				isp_put(video->isp);
-				goto done;
-			}
-		}
-
 	}
 
 	isp_video_queue_init(&handle->queue, video->type, &isp_video_queue_ops,
@@ -1123,11 +962,8 @@ static int isp_video_release(struct file *file)
 	file->private_data = NULL;
 
 	/* If this was the last user, clean up the pipeline. */
-	if (atomic_dec_return(&video->users) == 0) {
-		if (video->ops->cleanup)
-			video->ops->cleanup(video);
+	if (atomic_dec_return(&video->users) == 0)
 		isp_put(video->isp);
-	}
 
 	return 0;
 }
@@ -1185,15 +1021,6 @@ int isp_video_init(struct isp_video *video, const char *name)
 	ret = media_entity_init(&video->video.entity, 1, &video->pad, 0);
 	if (ret < 0)
 		return ret;
-
-	/* FIXME Those three fields are initialized in video_register_device,
-	 * but we need them earlier to setup links before all video device nodes
-	 * are registered. The removal of legacy nodes in omap34xxcam will
-	 * alleviate this constraint.
-	 */
-	video->video.entity.type = MEDIA_ENTITY_TYPE_NODE;
-	video->video.entity.subtype = MEDIA_NODE_TYPE_V4L;
-	video->video.entity.name = video->video.name;
 
 	mutex_init(&video->mutex);
 	atomic_set(&video->active, 0);
