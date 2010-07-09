@@ -614,12 +614,15 @@ int ispstat_config(struct ispstat *stat, void *new_conf)
 
 /*
  * ispstat_buf_process - Process statistic buffers.
+ * @buf_state: points out if buffer is ready to be processed. It's necessary
+ * 	       because histogram needs to copy the data from internal memory
+ * 	       before be able to process the buffer.
  */
-static int ispstat_buf_process(struct ispstat *stat)
+static int ispstat_buf_process(struct ispstat *stat, int buf_state)
 {
 	int ret = STAT_NO_BUF;
 
-	if (likely(!atomic_read(&stat->buf_err) &&
+	if (likely(!atomic_read(&stat->buf_err) && buf_state == STAT_BUF_DONE &&
 		   stat->state == ISPSTAT_ENABLED)) {
 		ret = ispstat_buf_queue(stat);
 		ispstat_buf_next(stat);
@@ -840,9 +843,12 @@ static void __ispstat_isr(struct ispstat *stat, int from_dma)
 			return;
 
 		spin_lock_irqsave(&stat->isp->stat_lock, irqflags);
-		if (ret == STAT_BUF_DONE)
-			/* Buffer is ready to be processed */
-			ret = ispstat_buf_process(stat);
+		/*
+		 * Before this point, 'ret' stores the buffer's status if it's
+		 * ready to be processed. Afterwards, it holds the status if
+		 * it was processed successfully.
+		 */
+		ret = ispstat_buf_process(stat, ret);
 		stat->ops->setup_regs(stat);
 		ispstat_buf_insert_magic(stat, stat->active_buf);
 		spin_unlock_irqrestore(&stat->isp->stat_lock, irqflags);
