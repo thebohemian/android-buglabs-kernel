@@ -56,7 +56,7 @@ config BMI_AUDIO
 
 	  Select M to make a kernel-loadable module.
 
-#source "drivers/bmi/pims/camera/Kconfig"
+source "drivers/bmi/pims/camera/Kconfig"
 
 config BMI_VH
 	tristate "BMI von Hippel Module support"
