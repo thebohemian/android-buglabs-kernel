@@ -870,9 +870,10 @@ static void ispccdc_config_vp(struct isp_ccdc_device *ccdc,
 
 	if (vpcfg->pixelclk) {
 		unsigned long l3_ick = clk_get_rate(isp->clock[ISP_CLK_L3_ICK]);
+		unsigned int max = isp->revision == ISP_REVISION_15_0 ? 64 : 8;
 		unsigned int div = l3_ick / vpcfg->pixelclk;
 
-		div = clamp_t(unsigned int, div, 2, 6);
+		div = clamp(div, 2U, max);
 		fmtcfg_vp |= (div - 2) << ISPCCDC_FMTCFG_VPIF_FRQ_SHIFT;
 	}
 
