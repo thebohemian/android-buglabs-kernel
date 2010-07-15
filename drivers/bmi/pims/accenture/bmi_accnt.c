@@ -45,7 +45,7 @@
 /*
  * 	Global variables
  */
-#define BMI_ACC_I2C_ADDRESS 0x71
+#define BMI_ACC_I2C_ADDRESS 0x1D
 
 static struct adxl34x_platform_data acc_plat_data = {
 	.x_axis_offset = 0,
@@ -77,7 +77,7 @@ static struct adxl34x_platform_data acc_plat_data = {
  
 	.ev_code_ff = KEY_F,
 	.ev_code_act_inactivity = KEY_A,
-	.power_mode = ADXL_AUTO_SLEEP | ADXL_LINK,
+	.power_mode = 0, //ADXL_AUTO_SLEEP | ADXL_LINK,
 	.fifo_mode = ADXL_FIFO_STREAM,
 };
 
@@ -310,10 +310,12 @@ int bmi_accnt_probe(struct bmi_device *bdev)
 	bmi_slot_gpio_set_value (slot, GREEN_LED, 1);		// Red, Green LED=OFF 		
 
 
+	irq = bdev->slot->status_irq;
+	acc_info.irq = irq;
 	accnt->acc = i2c_new_device(bdev->slot->adap, &acc_info);
 	// request PIM interrupt
-	irq = bdev->slot->status_irq;
 	sprintf (accnt->int_name, "bmi_accnt%d", slot);
+	/*
 	if (request_irq(irq, &module_irq_handler, 0, accnt->int_name, accnt)) {
 		printk (KERN_ERR "bmi_accnt.c: Can't allocate irq %d or find von Hippel in slot %d\n", 
 			irq, slot); 
@@ -322,7 +324,7 @@ int bmi_accnt_probe(struct bmi_device *bdev)
 
 		//return -EBUSY;
 	}
-
+	*/
 	return 0;
 
  err1:	
@@ -348,7 +350,6 @@ void bmi_accnt_remove(struct bmi_device *bdev)
 	accnt = &bmi_accnt[slot];
 
 	irq = bdev->slot->status_irq;
-	free_irq (irq, accnt);
 
 	for (i = 0; i < 4; i++)
 	  bmi_slot_gpio_direction_in(slot, i);
