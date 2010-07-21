@@ -259,6 +259,8 @@ static inline void omap_init_sti(void) {}
 
 static struct omap2_mcspi_platform_config omap2_mcspi1_config = {
 	.num_cs		= 4,
+	.num_gpio_cs	= 3,
+	.gpio_cs	= {56,57,58},
 };
 
 static struct resource omap2_mcspi1_resources[] = {

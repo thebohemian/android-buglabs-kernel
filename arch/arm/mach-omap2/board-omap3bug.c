@@ -484,7 +484,7 @@ static struct resource bmi_slot4_resources[] = {
 static struct omap_bmi_platform_data bmi_slot_pdata1 = {
   .gpios = {218, 219, 220, 221},
   .i2c_bus_no = 4,
-  .spi_cs = 1,  
+  .spi_cs = 4,  
 };
 
 static struct omap_bmi_platform_data bmi_slot_pdata2 = {
@@ -496,13 +496,13 @@ static struct omap_bmi_platform_data bmi_slot_pdata2 = {
 static struct omap_bmi_platform_data bmi_slot_pdata3 = {
   .gpios = {214, 215, 222, 223},
   .i2c_bus_no = 6,
-  .spi_cs = 3,  
+  .spi_cs = 5,  
 };
 
 static struct omap_bmi_platform_data bmi_slot_pdata4 = {
   .gpios = {210, 211, 212, 213},
   .i2c_bus_no = 7,
-  .spi_cs = 4,  
+  .spi_cs = 6,  
 };
 
 static struct platform_device bmi_slot_devices[] = {
