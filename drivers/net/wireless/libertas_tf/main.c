@@ -22,6 +22,7 @@
 
 /* Module parameters */
 //unsigned int lbtf_debug = 0xffffffff;
+unsigned int lbtf_debug;
 EXPORT_SYMBOL_GPL(lbtf_debug);
 module_param_named(libertas_tf_debug, lbtf_debug, int, 0644);
 
