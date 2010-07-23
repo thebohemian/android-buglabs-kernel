@@ -78,6 +78,7 @@ enum lbtf_mode {
 	LBTF_PASSIVE_MODE,
 	LBTF_STA_MODE,
 	LBTF_AP_MODE,
+	LBTF_FULLMAC_MODE,
 };
 
 /** Card Event definition */
@@ -101,6 +102,7 @@ enum lbtf_mode {
 #define LBS_CMD_BUFFER_SIZE             (2 * 1024)
 #define MRVDRV_MAX_CHANNEL_SIZE		14
 #define MRVDRV_SNAP_HEADER_LEN          8
+#define LBS_NUM_BUFFERS				7
 
 #define	LBS_UPLD_SIZE			2312
 #define DEV_NAME_LEN			32
@@ -188,9 +190,13 @@ struct lbtf_private {
 	struct work_struct tx_work;
 	/** Hardware access */
 	int (*hw_host_to_card) (struct lbtf_private *priv, u8 type, u8 *payload, u16 nb);
-	int (*hw_prog_firmware) (struct if_usb_card *cardp);
-	int (*hw_reset_device) (struct if_usb_card *cardp);
-
+	int (*hw_prog_firmware) (void *cardp);
+	int (*hw_reset_device) (void *cardp);
+	int (*enter_deep_sleep) (struct lbtf_private *priv);
+	int (*exit_deep_sleep) (struct lbtf_private *priv);
+	int (*reset_deep_sleep_wakeup) (struct lbtf_private *priv);
+	int (*enable_interrupts) (struct lbtf_private *priv);
+	int (*disable_interrupts) (struct lbtf_private *priv);
 
 	/** Wlan adapter data structure*/
 	/** STATUS variables */
@@ -234,6 +240,8 @@ struct lbtf_private {
 
 	struct sk_buff *skb_to_tx;
 	struct sk_buff *tx_skb;
+	struct sk_buff *tx_skb_old;
+	struct sk_buff_head tx_skb_buf;
 
 	/** NIC Operation characteristics */
 	u16 mac_control;
@@ -251,6 +259,18 @@ struct lbtf_private {
 	u8 fw_ready;
 	u8 surpriseremoved;
 	struct sk_buff_head bc_ps_buf;
+
+	/* Command responses sent from the hardware to the driver */
+	int cur_cmd_retcode;
+	u8 resp_idx;
+	u8 resp_buf[2][LBS_UPLD_SIZE];
+	u32 resp_len[2];
+	
+	/* beacon status info */
+	bool beacon_enable;
+	u16 beacon_int;
+
+
 };
 
 /* 802.11-related definitions */
@@ -481,11 +501,11 @@ void lbtf_cmd_response_rx(struct lbtf_private *priv);
 /* main.c */
 struct chan_freq_power *lbtf_get_region_cfp_table(u8 region,
 	int *cfp_no);
-struct lbtf_private *lbtf_add_card(void *card, struct device *dmdev);
+struct lbtf_private *lbtf_add_card(void *card, struct device *dmdev, u8 mac_addr[ETH_ALEN]);
 int lbtf_remove_card(struct lbtf_private *priv);
-int lbtf_start_card(struct lbtf_private *priv);
 int lbtf_rx(struct lbtf_private *priv, struct sk_buff *skb);
 void lbtf_send_tx_feedback(struct lbtf_private *priv, u8 retrycnt, u8 fail);
+void lbtf_host_to_card_done(struct lbtf_private *priv );
 void lbtf_bcn_sent(struct lbtf_private *priv);
 
 /* support functions for cmd.c */
