@@ -928,7 +928,7 @@ void ispresizer_isr_frame_sync(struct isp_res_device *res)
 
 static void ispresizer_isr_buffer(struct isp_res_device *res)
 {
-	struct isp_device *isp = to_isp_device(res);
+	struct isp_video *video_out = res->video;
 	struct isp_buffer *buffer;
 	int restart = 0;
 
@@ -938,7 +938,7 @@ static void ispresizer_isr_buffer(struct isp_res_device *res)
 	/* Complete the output buffer and, if reading from memory, the input
 	 * buffer.
 	 */
-	buffer = isp_video_buffer_next(&res->video_out, res->error);
+	buffer = isp_video_buffer_next(video_out, res->error);
 	if (buffer != NULL) {
 		ispresizer_set_outaddr(res, buffer->isp_addr);
 		restart = 1;
@@ -951,8 +951,8 @@ static void ispresizer_isr_buffer(struct isp_res_device *res)
 	}
 
 	if (res->state == ISP_PIPELINE_STREAM_SINGLESHOT) {
-		if (isp_pipeline_ready(res->video_out.pipe))
-			isp_pipeline_set_stream(isp, &res->video_out,
+		if (isp_pipeline_ready(video_out->pipe))
+			isp_pipeline_set_stream(video_out->isp, video_out,
 						ISP_PIPELINE_STREAM_SINGLESHOT);
 	} else {
 		/* If an underrun occurs, the video queue operation handler will
@@ -1492,6 +1492,9 @@ static int resizer_link_setup(struct media_entity *entity,
 
 	case RESZ_PAD_SOURCE | (MEDIA_ENTITY_TYPE_NODE << 16):
 		/* resizer always write to memory */
+		if (flags & MEDIA_LINK_FLAG_ACTIVE)
+			res->video = container_of(remote->entity,
+					struct isp_video, video.entity);
 		break;
 
 	default:

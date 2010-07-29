@@ -64,10 +64,19 @@ struct isp_buffer {
 
 /*
  * struct isp_video_operations - ISP video operations
+ * @init:	Initialise the pipeline. Called when the first user opens the
+ * 		device node. For legacy video nodes only.
+ * @cleanup:	Clean up the pipeline. Called when the last user closes the
+ * 		device node. For legacy video nodes only.
+ * @stream_off:	Stop video streaming in the pipeline. Called on
+ *		VIDIOC_STREAMOFF. For legacy video nodes only.
  * @queue:	Resume streaming when a buffer is queued. Called on VIDIOC_QBUF
  * 		if there was no buffer previously queued.
  */
 struct isp_video_operations {
+	int(*init)(struct isp_video *video);
+	int(*cleanup)(struct isp_video *video);
+	int(*stream_off)(struct isp_video *video);
 	int(*queue)(struct isp_video *video, struct isp_buffer *buffer);
 };
 
@@ -96,6 +105,7 @@ struct isp_video {
 	atomic_t sequence;
 
 	const struct isp_video_operations *ops;
+	const struct v4l2_ioctl_ops *ioctl_ops;
 };
 
 #define to_isp_video(vdev)	container_of(vdev, struct isp_video, video)

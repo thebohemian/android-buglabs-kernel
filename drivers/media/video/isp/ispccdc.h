@@ -140,6 +140,7 @@ struct isp_ccdc_device {
 	enum ccdc_input_entity input;
 	unsigned int output;
 	struct isp_video video_out;
+	struct isp_video *video;
 	unsigned int error;
 
 	u8 obclamp_en;
