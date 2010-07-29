@@ -176,16 +176,18 @@ static int mt9t111_enable_pll(struct i2c_client *client)
 		return err;
 	}
 	i=0;
-	while(0) {
+	while(1) { // wait for MT9T111 to report that PLL is locked
 		err = mt9t111_read_reg(client,0x0014,&value);
 		if(err < 0) {
 			printk(KERN_INFO "%s: error readign pll lock state\n", __func__);
 			return err;
 		}
-		if (( value & 0x8000) != 0)
+		if (( value & 0x8000) != 0) {
+			printk(KERN_INFO "%s: PLL locked\n", __func__);
 			break;
+		}
 		if(i++ > 100) {
-			printk(KERN_INFO "%s: can't get pll lock\n", __func__);
+			printk(KERN_ERR "%s: can't get pll lock\n", __func__);
 			return -EBUSY;
 		}
 		mdelay(2);
