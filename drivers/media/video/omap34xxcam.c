@@ -1051,51 +1051,41 @@ omap34xxcam_video_init(struct isp_video *video)
 	/* Activate the CSI2a -> CCDC (primary sensor) or CCP2 -> CCDC
 	 * (secondary sensor) link.
 	 */
+	if (vdev->vdev_sensor->entity.links[0].sink->entity ==
+	    &isp->isp_csi2a.subdev.entity) {
+		source = &isp->isp_csi2a.subdev.entity.pads[CSI2_PAD_SOURCE];
+		sink = &isp->isp_ccdc.subdev.entity.pads[CCDC_PAD_SINK];
+		link = media_entity_find_link(source, sink);
+		ret = media_entity_setup_link(link, MEDIA_LINK_FLAG_ACTIVE);
+		if (ret < 0) {
+			dev_err(&vdev->video.video.dev,
+				"can't connect CSI2a to CCDC\n");
+			goto done;
+		}
+	} else {
+		/* Activate the sensor -> CCP2 link */
+		source = &vdev->vdev_sensor->entity.pads[0];
+		sink = &video->isp->isp_ccp2.subdev.entity.pads[CCP2_PAD_SINK];
+		link = media_entity_find_link(source, sink);
+		ret = media_entity_setup_link(link, MEDIA_LINK_FLAG_ACTIVE);
+		if (ret < 0) {
+			dev_err(&vdev->video.video.dev,
+				"can't connect sensor to CCP2\n");
+			goto done;
+		}
 
-	source = &vdev->vdev_sensor->entity.pads[0];
-	sink   = &isp->isp_ccdc.subdev.entity.pads[CCDC_PAD_SINK];
-	link   = media_entity_find_link(source, sink);
-	ret = media_entity_setup_link(link, MEDIA_LINK_FLAG_ACTIVE);
-	if (ret < 0) {
-		dev_err(&vdev->video.video.dev,
-			"can't connect video source to CCDC\n");
-		goto done;
+		/* Activate the CCP2 -> CCDC link. */
+		source =
+		     &video->isp->isp_ccp2.subdev.entity.pads[CCP2_PAD_SOURCE];
+		sink = &video->isp->isp_ccdc.subdev.entity.pads[CCDC_PAD_SINK];
+		link = media_entity_find_link(source, sink);
+		ret = media_entity_setup_link(link, MEDIA_LINK_FLAG_ACTIVE);
+		if (ret < 0) {
+			dev_err(&vdev->video.video.dev,
+				"can't connect CCP2 to CCDC\n");
+			goto done;
+		}
 	}
-//	if (vdev->vdev_sensor->entity.links[0].sink->entity ==
-//	    &isp->isp_csi2a.subdev.entity) {
-//		source = &isp->isp_csi2a.subdev.entity.pads[CSI2_PAD_SOURCE];
-//		sink = &isp->isp_ccdc.subdev.entity.pads[CCDC_PAD_SINK];
-//		link = media_entity_find_link(source, sink);
-//		ret = media_entity_setup_link(link, MEDIA_LINK_FLAG_ACTIVE);
-//		if (ret < 0) {
-//			dev_err(&vdev->video.video.dev,
-//				"can't connect CSI2a to CCDC\n");
-//			goto done;
-//		}
-//	} else {
-//		/* Activate the sensor -> CCP2 link */
-//		source = &vdev->vdev_sensor->entity.pads[0];
-//		sink = &video->isp->isp_ccp2.subdev.entity.pads[CCP2_PAD_SINK];
-//		link = media_entity_find_link(source, sink);
-//		ret = media_entity_setup_link(link, MEDIA_LINK_FLAG_ACTIVE);
-//		if (ret < 0) {
-//			dev_err(&vdev->video.video.dev,
-//				"can't connect sensor to CCP2\n");
-//			goto done;
-//		}
-//
-//		/* Activate the CCP2 -> CCDC link. */
-//		source =
-//		     &video->isp->isp_ccp2.subdev.entity.pads[CCP2_PAD_SOURCE];
-//		sink = &video->isp->isp_ccdc.subdev.entity.pads[CCDC_PAD_SINK];
-//		link = media_entity_find_link(source, sink);
-//		ret = media_entity_setup_link(link, MEDIA_LINK_FLAG_ACTIVE);
-//		if (ret < 0) {
-//			dev_err(&vdev->video.video.dev,
-//				"can't connect CCP2 to CCDC\n");
-//			goto done;
-//		}
-//	}
 
 	/* Get the format the sensor is using. */
 	ret = v4l2_subdev_call(vdev->vdev_sensor, pad, get_fmt, NULL, 0,
@@ -1141,45 +1131,36 @@ omap34xxcam_video_cleanup(struct isp_video *video)
 
 	mutex_lock(&vdev->mutex);
 
-
-	source = &vdev->vdev_sensor->entity.pads[0];
-	sink = &isp->isp_ccdc.subdev.entity.pads[CCDC_PAD_SINK];
-	link = media_entity_find_link(source, sink);
-	ret = media_entity_setup_link(link, 0);
-	if (ret < 0)
-		dev_err(&vdev->video.video.dev,
-			"can't disconnect CCP2 from CCDC\n");
-
 	/* Deactivate the CSI2a -> CCDC (primary sensor) or the sensor -> CCDC
 	 * (secondary sensor) link.
 	 */
-//	if (vdev->vdev_sensor->entity.links[0].sink->entity ==
-//	    &isp->isp_csi2a.subdev.entity) {
-//		source = &isp->isp_csi2a.subdev.entity.pads[CSI2_PAD_SOURCE];
-//		sink = &isp->isp_ccdc.subdev.entity.pads[CCDC_PAD_SINK];
-//		link = media_entity_find_link(source, sink);
-//		ret = media_entity_setup_link(link, 0);
-//		if (ret < 0)
-//			dev_err(&vdev->video.video.dev,
-//				"can't disconnect CSI2a from CCDC\n");
-//	} else {
-//		/* Deactivate the sensor -> CCP2 link */
-//		source = &vdev->vdev_sensor->entity.pads[0];
-//		sink = &video->isp->isp_ccp2.subdev.entity.pads[CCP2_PAD_SINK];
-//		link = media_entity_find_link(source, sink);
-//		ret = media_entity_setup_link(link, 0);
-//		if (ret < 0)
-//			dev_err(&vdev->video.video.dev,
-//				"can't disconnect sensor from CCP2\n");
-//
-//		source = &isp->isp_ccp2.subdev.entity.pads[CCP2_PAD_SOURCE];
-//		sink = &isp->isp_ccdc.subdev.entity.pads[CCDC_PAD_SINK];
-//		link = media_entity_find_link(source, sink);
-//		ret = media_entity_setup_link(link, 0);
-//		if (ret < 0)
-//			dev_err(&vdev->video.video.dev,
-//				"can't disconnect CCP2 from CCDC\n");
-//	}
+	if (vdev->vdev_sensor->entity.links[0].sink->entity ==
+	    &isp->isp_csi2a.subdev.entity) {
+		source = &isp->isp_csi2a.subdev.entity.pads[CSI2_PAD_SOURCE];
+		sink = &isp->isp_ccdc.subdev.entity.pads[CCDC_PAD_SINK];
+		link = media_entity_find_link(source, sink);
+		ret = media_entity_setup_link(link, 0);
+		if (ret < 0)
+			dev_err(&vdev->video.video.dev,
+				"can't disconnect CSI2a from CCDC\n");
+	} else {
+		/* Deactivate the sensor -> CCP2 link */
+		source = &vdev->vdev_sensor->entity.pads[0];
+		sink = &video->isp->isp_ccp2.subdev.entity.pads[CCP2_PAD_SINK];
+		link = media_entity_find_link(source, sink);
+		ret = media_entity_setup_link(link, 0);
+		if (ret < 0)
+			dev_err(&vdev->video.video.dev,
+				"can't disconnect sensor from CCP2\n");
+
+		source = &isp->isp_ccp2.subdev.entity.pads[CCP2_PAD_SOURCE];
+		sink = &isp->isp_ccdc.subdev.entity.pads[CCDC_PAD_SINK];
+		link = media_entity_find_link(source, sink);
+		ret = media_entity_setup_link(link, 0);
+		if (ret < 0)
+			dev_err(&vdev->video.video.dev,
+				"can't disconnect CCP2 from CCDC\n");
+	}
 
 	/* Deactivate the CCDC/resizer -> video device node link. */
 	source = media_entity_remote_pad(&video->pad);

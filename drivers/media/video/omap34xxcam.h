@@ -51,7 +51,7 @@
 #define OMAP34XXCAM_SUBDEV_LENS		1
 #define OMAP34XXCAM_SUBDEV_FLASH	2 /* This is the last subdev! */
 
-#define OMAP34XXCAM_VIDEODEVS		1
+#define OMAP34XXCAM_VIDEODEVS		2
 
 struct omap34xxcam_device;
 struct omap34xxcam_videodev;
