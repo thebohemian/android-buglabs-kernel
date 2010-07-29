@@ -41,6 +41,7 @@ struct mt9t111_regs {
 	u16 delay_time;
 	u16 addr;
 	u16 data;
+	u16 mask; // If 0x0 or 0xFFFF, then just write occurs. Otherwise, read occurs first and mask is applied prior to write
 };
 
 

@@ -103,13 +103,28 @@ static int
 mt9t111_write_regs(struct i2c_client *client, struct mt9t111_regs *r, int cnt)
 {
 	int err = 0, i;
+	u16 val;
 	struct mt9t111_regs *reg = r;
 	
 	for (i=0;i<cnt;i++) {
+		if(reg->mask != 0x0000 && reg->mask != 0xFFFF) { 
+			// in this case, the user is applying a write mask,
+			// so we first read the register in question to 
+			// generate the correct data to write based on the mask.
+			err = mt9t111_read_reg(client, reg->addr, &val);
+			if (err < 0)
+				return err;
+			printk(KERN_INFO "%s mask: original read: 0x%x\n", __func__, val);
+			val = (val & ~reg->mask) | (reg->data & reg->mask);
+			printk(KERN_INFO "%s mask: writing: 0x%x  (mask=0x%x data=0x%x\n", __func__, val, reg->mask, reg->data);
+		} else {
+			val = reg->data;
+		}
+			
 		if (reg->delay_time == 0) {
-			err = mt9t111_write_reg(client, reg->addr, reg->data);
+			err = mt9t111_write_reg(client, reg->addr, val);
 		} else if (reg->addr != 0 || reg->data != 0) {
-			err = mt9t111_write_reg(client, reg->addr, reg->data);
+			err = mt9t111_write_reg(client, reg->addr, val);
 			mdelay(reg->delay_time);
 		} else 
 			mdelay(reg->delay_time);
@@ -145,7 +160,10 @@ static void mt9t111_refresh(struct i2c_client *client){
 	unsigned short value;		
 	// MCU_ADDRESS [SEQ_CMD] -- refresh	
 	mt9t111_write_reg(client, 0x098E, 0x8400);	
-	mt9t111_write_reg(client, 0x0990, 0x0006);	
+	mt9t111_write_reg(client, 0x0990, 0x0006); //Refresh Sequencer Mode
+	mt9t111_write_reg(client, 0x098E, 0x8400);	
+	mt9t111_write_reg(client, 0x0990, 0x0005); //Refresh Sequencer
+
 	for (i=0;i<100;i++){
 		err = mt9t111_write_reg(client, 0x098E, 0x8400);
 		if(err < 0) {
@@ -161,8 +179,6 @@ static void mt9t111_refresh(struct i2c_client *client){
 			break;		
 		mdelay(5);	
 	}
-//	mt9t111_write_reg(client, 0x098E, 0x8400);	
-//	mt9t111_write_reg(client, 0x0990, 0x0002);	
 }
 
 static int mt9t111_enable_pll(struct i2c_client *client)
