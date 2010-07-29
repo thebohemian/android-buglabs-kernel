@@ -1,5 +1,5 @@
 /*
- * 	bmi_lcd.c
+ * 	bmi_video.c
  *
  * 	BMI LCD device driver basic functionality
  *
@@ -29,42 +29,40 @@
 #include <linux/jiffies.h>
 #include <linux/timer.h>
 #include <linux/gpio.h>
-
 #include <asm/uaccess.h>
 #include <asm/io.h>
 #include <mach/hardware.h>
-
 #include <linux/i2c.h>
 #include <linux/i2c/tsc2004.h>
-
 #include <linux/bmi.h>
 #include <linux/bmi/bmi-slot.h>
 #include <linux/bmi/bmi_lcd.h>
-
+#include <mach/display.h>
+#include <linux/fb.h>
 
 /*
  * 	Global variables
  */
 
+static struct omap_dss_device *this_disp;
 static struct i2c_board_info tfp_info = {
   I2C_BOARD_INFO("tfp410p", 0x38),
 };
-
 
 // private device structure
 struct bmi_video
 {
   struct bmi_device	*bdev;			// BMI device
   struct cdev		cdev;			// control device
-  struct device	*class_dev;		// control class device
+  struct device 	*class_dev;		// control class device
   int			open_flag;		// single open flag
   char			int_name[20];		// interrupt name
-  struct i2c_client *tfp;
+  struct i2c_client     *tfp;
 };
 
 struct bmi_video bmi_video;
 
-static int major;		// control device major
+static int major;		                // control device major
 
 /*
  * 	BMI set up
@@ -75,9 +73,9 @@ static struct bmi_device_id bmi_video_tbl[] =
 { 
 	{ 
 		.match_flags = BMI_DEVICE_ID_MATCH_VENDOR | BMI_DEVICE_ID_MATCH_PRODUCT, 
-		.vendor   = BMI_VENDOR_BUG_LABS, 
-		.product  = BMI_PRODUCT_VIDEO, 
-		.revision = BMI_ANY, 
+		.vendor      = BMI_VENDOR_BUG_LABS, 
+		.product     = BMI_PRODUCT_VIDEO, 
+		.revision    = BMI_ANY, 
 	}, 
 	{ 0, },	  /* terminate list */
 };
@@ -89,10 +87,10 @@ void	bmi_video_remove (struct bmi_device *bdev);
 // BMI driver structure
 static struct bmi_driver bmi_video_driver = 
 {
-	.name = "bmi_video", 
+	.name     = "bmi_video", 
 	.id_table = bmi_video_tbl, 
-	.probe   = bmi_video_probe, 
-	.remove  = bmi_video_remove, 
+	.probe    = bmi_video_probe, 
+	.remove   = bmi_video_remove, 
 };
 
 /*
@@ -116,12 +114,15 @@ int bmi_video_probe(struct bmi_device *bdev)
 	int err;
 	int slot;
 	struct bmi_video *video;
-       	struct i2c_adapter *adap;
 	struct class *bmi_class;
+       	struct i2c_adapter *adap;
+	struct omap_dss_device *dssdev;
+
+	struct fb_info *info;
+	struct fb_var_screeninfo var;
+
 	dev_t dev_id;
 	int irq;
-
-	int gpio_int;
 
 	err = 0;
 	slot = bdev->slot->slotnum;
@@ -130,9 +131,39 @@ int bmi_video_probe(struct bmi_device *bdev)
 
 	video->bdev = 0;
 	video->open_flag = 0;
-	
-	// Create 1 minor device
 
+	// Get display info and disable active display
+	dssdev = NULL;
+	this_disp = NULL;
+        for_each_dss_dev(dssdev) {
+		omap_dss_get_device(dssdev);
+
+		if (dssdev->state)
+		        dssdev->disable(dssdev);
+
+		if (strnicmp(dssdev->name, "dvi", 3) == 0)
+		        this_disp = dssdev;
+	}
+
+	// Resize the frame buffer
+	info = registered_fb[0];
+	var = info->var;
+
+	var.xres = 1280;
+	var.yres = 1024;
+	var.xres_virtual = 1280;
+	var.yres_virtual = 1024;
+	var.activate = 128;             //Force update
+
+	err = fb_set_var(info, &var);
+	
+	if (err)
+	  printk(KERN_ERR "bmi_video.c: probe: error resizing omapfb");
+	
+	// Enable this display
+	this_disp->enable(this_disp);
+
+	// Create 1 minor device
 	dev_id = MKDEV(major, slot); 
 
 	// Create class device 
@@ -159,6 +190,7 @@ int bmi_video_probe(struct bmi_device *bdev)
  err1:	
 	bmi_device_set_drvdata (bdev, 0);
 	video->bdev = 0;
+
 	return -ENODEV;
 }
 
@@ -188,6 +220,9 @@ void bmi_video_remove(struct bmi_device *bdev)
 	// de-attach driver-specific struct from bmi_device structure 
 	bmi_device_set_drvdata (bdev, 0);
 	video->bdev = 0;
+
+	// disable display
+	this_disp->disable(this_disp);
 
 	return;
 }
@@ -237,4 +272,4 @@ module_exit(bmi_video_cleanup);
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Buglabs Inc.");
-MODULE_DESCRIPTION("BMI von Hippel device driver");
+MODULE_DESCRIPTION("BMI video module device driver");

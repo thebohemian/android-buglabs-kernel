@@ -30,31 +30,23 @@
 #include <linux/timer.h>
 #include <linux/gpio.h>
 #include <linux/platform_device.h>
-
 #include <asm/uaccess.h>
 #include <asm/io.h>
 #include <mach/hardware.h>
-
 #include <linux/i2c.h>
 #include <linux/i2c/tsc2004.h>
-
 #include <linux/bmi.h>
 #include <linux/bmi/bmi-slot.h>
 #include <linux/bmi/bmi_lcd.h>
-
+#include <mach/display.h>
+#include <linux/fb.h>
 
 /*
  * 	Global variables
  */
 
-/*
-static struct platform_device bl_backlight_dev = {
-  .name = "omap-backlight",
-  .id = -1,
-};
-*/
-
 static struct platform_device *bl_backlight_dev;
+static struct omap_dss_device *this_disp;
 
 static int tsc2004_init(void)
 {
@@ -91,15 +83,15 @@ struct bmi_lcd
 {
   struct bmi_device	*bdev;			// BMI device
   struct cdev		cdev;			// control device
-  struct device	*class_dev;		// control class device
+  struct device  	*class_dev;		// control class device
   int			open_flag;		// single open flag
   char			int_name[20];		// interrupt name
-  struct i2c_client *tsc;
+  struct i2c_client     *tsc;
 };
 
 struct bmi_lcd bmi_lcd;
 
-static int major;		// control device major
+static int major;	// control device major
 
 /*
  * 	BMI set up
@@ -110,12 +102,13 @@ static struct bmi_device_id bmi_lcd_tbl[] =
 { 
 	{ 
 		.match_flags = BMI_DEVICE_ID_MATCH_VENDOR | BMI_DEVICE_ID_MATCH_PRODUCT, 
-		.vendor   = BMI_VENDOR_BUG_LABS, 
-		.product  = BMI_PRODUCT_LCD_SHARP_320X240, 
-		.revision = BMI_ANY, 
+		.vendor      = BMI_VENDOR_BUG_LABS, 
+		.product     = BMI_PRODUCT_LCD_SHARP_320X240, 
+		.revision    = BMI_ANY, 
 	}, 
 	{ 0, },	  /* terminate list */
 };
+
 MODULE_DEVICE_TABLE(bmi, bmi_lcd_tbl);
 
 int	bmi_lcd_probe (struct bmi_device *bdev);
@@ -124,10 +117,10 @@ void	bmi_lcd_remove (struct bmi_device *bdev);
 // BMI driver structure
 static struct bmi_driver bmi_lcd_driver = 
 {
-	.name = "bmi_lcd", 
+	.name     = "bmi_lcd", 
 	.id_table = bmi_lcd_tbl, 
-	.probe   = bmi_lcd_probe, 
-	.remove  = bmi_lcd_remove, 
+	.probe    = bmi_lcd_probe, 
+	.remove   = bmi_lcd_remove, 
 };
 
 /*
@@ -137,7 +130,6 @@ static struct bmi_driver bmi_lcd_driver =
 // interrupt handler
 static irqreturn_t module_irq_handler(int irq, void *dummy)
 {
-
 	return IRQ_HANDLED;
 }
 
@@ -151,12 +143,15 @@ int bmi_lcd_probe(struct bmi_device *bdev)
 	int err;
 	int slot;
 	struct bmi_lcd *lcd;
-       	struct i2c_adapter *adap;
-	struct class *bmi_class;
+ 	struct class *bmi_class;
+      	struct i2c_adapter *adap;
+	struct omap_dss_device *dssdev;
+
+	struct fb_info *info;
+	struct fb_var_screeninfo var;
+
 	dev_t dev_id;
 	int irq;
-
-	int gpio_int;
 
 	err = 0;
 	slot = bdev->slot->slotnum;
@@ -165,9 +160,39 @@ int bmi_lcd_probe(struct bmi_device *bdev)
 
 	lcd->bdev = 0;
 	lcd->open_flag = 0;
-	
-	// Create 1 minor device
 
+	// Get display info and disable active display
+	dssdev = NULL;
+	this_disp = NULL;
+        for_each_dss_dev(dssdev) {
+		omap_dss_get_device(dssdev);
+
+		if (dssdev->state)
+		        dssdev->disable(dssdev);
+
+		if (strnicmp(dssdev->name, "lcd", 3) == 0)
+		        this_disp = dssdev;
+	}
+       
+	// Resize the frame buffer
+	info = registered_fb[0];
+	var = info->var;
+
+	var.xres = 320;
+	var.yres = 240;
+	var.xres_virtual = 320;
+	var.yres_virtual = 240;
+	var.activate = 128;               // Force update
+
+	err = fb_set_var(info, &var);
+	
+	if (err)
+	  printk(KERN_ERR "bmi_lcd.c: probe: error resizing omapfb");
+
+	// Enable this display
+	this_disp->enable(this_disp);
+
+	// Create 1 minor device
 	dev_id = MKDEV(major, slot); 
 
 	// Create class device 
@@ -183,6 +208,7 @@ int bmi_lcd_probe(struct bmi_device *bdev)
 	
 	bl_backlight_dev = platform_device_alloc("omap-backlight", -1);
 	err = platform_device_add(bl_backlight_dev);
+
 	if (err) {
 	  platform_device_put(bl_backlight_dev);
 	  printk(KERN_INFO "Backlight driver failed to load...");
@@ -218,7 +244,10 @@ void bmi_lcd_remove(struct bmi_device *bdev)
 	lcd = &bmi_lcd;
 	i2c_unregister_device(lcd->tsc);
 	irq = bdev->slot->status_irq;
-	
+
+	for (i = 0; i < 4; i++)
+	  bmi_slot_gpio_direction_in(slot, i);
+
 	platform_device_unregister(bl_backlight_dev);
 	
 	bmi_class = bmi_get_class ();
@@ -229,6 +258,9 @@ void bmi_lcd_remove(struct bmi_device *bdev)
 	// de-attach driver-specific struct from bmi_device structure 
 	bmi_device_set_drvdata (bdev, 0);
 	lcd->bdev = 0;
+
+	// disable display
+	this_disp->disable(this_disp);
 
 	return;
 }
@@ -278,4 +310,4 @@ module_exit(bmi_lcd_cleanup);
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Buglabs Inc.");
-MODULE_DESCRIPTION("BMI von Hippel device driver");
+MODULE_DESCRIPTION("BMI LCD device driver");

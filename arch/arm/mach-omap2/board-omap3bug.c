@@ -1,4 +1,3 @@
-
 /*
  * linux/arch/arm/mach-omap2/board-omap3bug.c
  *
@@ -139,10 +138,10 @@ static struct regulator_init_data bug_disp_data = {
 };
 
 static struct fixed_voltage_config bug_disp_pwr_pdata = {
-	.supply_name = "VLCD",
-	.microvolts = 5000000,
-	.init_data = &bug_disp_data,
-	.gpio = -1,
+	.supply_name   = "VLCD",
+	.microvolts    = 5000000,
+	.init_data     = &bug_disp_data,
+	.gpio          = -1,
 };
 
 static struct platform_device bug_disp_pwr = {
@@ -157,9 +156,9 @@ static struct twl4030_gpio_platform_data omap3bug_gpio_data = {
   .gpio_base	= OMAP_MAX_GPIO_LINES,
   .irq_base	= TWL4030_GPIO_IRQ_BASE,
   .irq_end	= TWL4030_GPIO_IRQ_END,
-  .pulldowns      = BIT(2) | BIT(6) | BIT(8) | BIT(13)
+  .pulldowns    = BIT(2) | BIT(6) | BIT(8) | BIT(13)
   | BIT(16) | BIT(17),
-  .setup          = omap3bug_twl_gpio_setup,
+  .setup        = omap3bug_twl_gpio_setup,
 };
 
 static struct twl4030_usb_data omap3bug_usb_data = {
@@ -192,7 +191,7 @@ static struct twl4030_platform_data omap3bug_twldata = {
 	.keypad		= &omap3bug_kp_data,
 	.madc		= &omap3bug_madc_data,
 	.usb		= &omap3bug_usb_data,
-	//.power		= GENERIC3430_T2SCRIPTS_DATA,
+	//.power	= GENERIC3430_T2SCRIPTS_DATA,
 	.vmmc1		= &bug_vmmc1,
 	.vaux2		= &bug_vaux2,
 	.gpio		= &omap3bug_gpio_data,
@@ -215,12 +214,12 @@ static struct sc16is_platform_data bugbase_sc_data = {
 
 static struct spi_board_info __initdata omap3bug_spi_board_info[] = {
   {
-    .modalias = "sc16is",
-    .bus_num = 1,
-    .chip_select = 0,
-    .mode = SPI_MODE_0,
-    .max_speed_hz = 2000000,
-    .platform_data = &bugbase_sc_data,
+    .modalias                   = "sc16is",
+    .bus_num                    = 1,
+    .chip_select                = 0,
+    .mode                       = SPI_MODE_0,
+    .max_speed_hz               = 2000000,
+    .platform_data              = &bugbase_sc_data,
   },
   {
     .modalias			= "spi-lcd",
@@ -285,20 +284,24 @@ static int __init omap3_bug_i2c_init(void)
 #ifdef CONFIG_FB_OMAP2
 static struct resource omap3bug_vout_resource[3 - CONFIG_FB_OMAP2_NUM_FBS] = {
 };
-#else /* CONFIG_FB_OMAP2 */
+#else
 static struct resource omap3bug_vout_resource[2] = {
 };
-#endif /* CONFIG_FB_OMAP2 */
+#endif
+
+
 static struct platform_device omap3bug_vout_device = {
 	.name			= "omap_vout",
-	.num_resources	= ARRAY_SIZE(omap3bug_vout_resource),
+	.num_resources	        = ARRAY_SIZE(omap3bug_vout_resource),
 	.resource 		= &omap3bug_vout_resource[0],
-	.id		= -1,
+	.id		        = -1,
 };
+
 
 #define LCD_PANEL_LR		2
 #define LCD_PANEL_UD		3
 #define LCD_PANEL_INI		152
+
 #define LCD_PANEL_ENABLE_GPIO	232
 #define LCD_PANEL_QVGA		154
 #define LCD_PANEL_RESB		155
@@ -308,36 +311,19 @@ static struct platform_device omap3bug_vout_device = {
 #define ENABLE_VPLL2_DEDICATED	0x05
 #define ENABLE_VPLL2_DEV_GRP	0xE0
 
-static int lcd_enabled;
-static int dvi_enabled;
-
 static void __init omap3_bug_display_init(void)
 {
 	int r;
 
-	printk(KERN_INFO "omap3_display_int...\n");
-	r = gpio_request(227, "lcd_power");
+	r  = gpio_request(227, "lcd_power");
+	r |= gpio_request(232, "lcd_level_shifter");
+	r |= gpio_request(90,  "lcd_shutdown");
+	r |= gpio_request(93,  "lcd_reset");
+	r |= gpio_request(10,  "dvi_reset");
 	if (r) {
 	  printk(KERN_INFO "gpio request failed...\n");
-	 }
-	r = gpio_request(232, "lcd_level_shifter");
-	if (r) {
-	  printk(KERN_INFO "gpio reuqest failed...\n");
-	 }
-	r = gpio_request(90, "lcd_shutdown");
-	if (r) {
-	  printk(KERN_INFO "gpio request failed...\n");
-	 }
-	r = gpio_request(93, "lcd_reset");
-	if (r) {
-	  printk(KERN_INFO "gpio reuqest failed...\n");
-	 }
-	r = gpio_request(10, "dvi_reset");
-	if (r) {
-	  printk(KERN_INFO "gpio reuqest failed...\n");
-	 }
+	}
 	return;
-
 }
 
 static int omap3_bug_panel_enable_lcd(struct omap_dss_device *display)
@@ -354,16 +340,25 @@ static int omap3_bug_panel_enable_lcd(struct omap_dss_device *display)
 	gpio_direction_output(232, 0);
 	gpio_direction_output(90,1);
 
-	
-	lcd_enabled = 1;
 	return 0;
 }
 
 static void omap3_bug_panel_disable_lcd(struct omap_dss_device *display)
 {
 	gpio_direction_output(LCD_PANEL_ENABLE_GPIO, 1);
-	lcd_enabled = 0;
+
+	// Mux these pins to safe mode
+  	omap_cfg_reg (DSS_D18);
+	omap_cfg_reg (DSS_D19);
+	omap_cfg_reg (DSS_D20);
+	omap_cfg_reg (DSS_D21);
+	omap_cfg_reg (DSS_D21);
+	omap_cfg_reg (DSS_D22);
+	omap_cfg_reg (DSS_D23);
+
+	return;
 }
+
 
 static struct omap_dss_device omap3_bug_lcd_device = {
 	.type = OMAP_DISPLAY_TYPE_DPI,
@@ -377,15 +372,6 @@ static struct omap_dss_device omap3_bug_lcd_device = {
 
 static int omap3_bug_panel_enable_dvi(struct omap_dss_device *display)
 {
-	if (lcd_enabled) {
-		return -EINVAL;
-	}
-	/*
-	if (vga_enabled)
-		return -EINVAL;
-	*/
-	if (dvi_enabled)
-		return 0;
 	omap_cfg_reg (DSS_DATA_18);
 	omap_cfg_reg (DSS_DATA_19);
 	omap_cfg_reg (DSS_DATA_20);
@@ -397,42 +383,49 @@ static int omap3_bug_panel_enable_dvi(struct omap_dss_device *display)
 	gpio_direction_output(227, 1);
 	gpio_direction_output(232, 0);
 
-	//	gpio_direction_output(10,0);
-	dvi_enabled = 1;
 	return 0;
 }
 
 static void omap3_bug_panel_disable_dvi(struct omap_dss_device *display)
 {
-	dvi_enabled = 0;
+	gpio_direction_output(LCD_PANEL_ENABLE_GPIO, 1);
+
+	// Mux these pins to safe mode
+  	omap_cfg_reg (DSS_D18);
+	omap_cfg_reg (DSS_D19);
+	omap_cfg_reg (DSS_D20);
+	omap_cfg_reg (DSS_D21);
+	omap_cfg_reg (DSS_D21);
+	omap_cfg_reg (DSS_D22);
+	omap_cfg_reg (DSS_D23);
+
 	return;
 }
 
 static struct omap_dss_device omap3_bug_dvi_device = {
-	.type = OMAP_DISPLAY_TYPE_DPI,
-	.name = "dvi",
-	.driver_name = "generic_panel",
-	.phy.dpi.data_lines = 24,
-	//	.reset_gpio = 90,
-	.platform_enable = omap3_bug_panel_enable_dvi,
-	.platform_disable = omap3_bug_panel_disable_dvi,
+	.type                = OMAP_DISPLAY_TYPE_DPI,
+	.name                = "dvi",
+	.driver_name         = "generic_panel",
+	.phy.dpi.data_lines  = 24,
+	.platform_enable     = omap3_bug_panel_enable_dvi,
+	.platform_disable    = omap3_bug_panel_disable_dvi,
 };
 
 struct omap_dss_device *omap3_bug_display_devices[] = {
-  &omap3_bug_lcd_device,
-  &omap3_bug_dvi_device,
+        &omap3_bug_lcd_device,
+	&omap3_bug_dvi_device,
 };
 
 static struct omap_dss_board_info omap3_bug_dss_data = {
-	.num_devices	= ARRAY_SIZE(omap3_bug_display_devices),
-	.devices	= omap3_bug_display_devices,
-	.default_device	= &omap3_bug_lcd_device,
+	.num_devices	     = ARRAY_SIZE(omap3_bug_display_devices),
+	.devices	     = omap3_bug_display_devices,
+	.default_device	     = &omap3_bug_dvi_device,
 };
 
 static struct platform_device omap3_bug_dss_device = {
-	.name		= "omapdss",
-	.id		= -1,
-	.dev            = {
+	.name	 	     = "omapdss",
+	.id		     = -1,
+	.dev                 = {
 		.platform_data = &omap3_bug_dss_data,
 	},
 };

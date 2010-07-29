@@ -23,16 +23,29 @@
 #include <mach/display.h>
 
 static struct omap_video_timings generic_panel_timings = {
-	/* 640 x 480 @ 60 Hz  Reduced blanking VESA CVT 0.31M3-R */
-	.x_res		= 640,
-	.y_res		= 480,
+	/* 1280 x 1024 @ 57 Hz */        
+  	.x_res		= 1280,
+  	.y_res		= 1024,
+	.pixel_clock	= 86400,
+	.hfp		= 80,
+	.hbp		= 48,
+	.hsw		= 32,
+	.vfp		= 3,
+	.vbp		= 18,
+	.vsw		= 7,
+	
+	/* 640 x 480 @ 60 Hz  Reduced blanking VESA CVT 0.31M3-R */        
+	/*
+	.x_res          = 640,
+	.y_res          = 480,
 	.pixel_clock	= 23500,
 	.hfp		= 48,
-	.hsw		= 32,
 	.hbp		= 80,
+	.hsw		= 32,
 	.vfp		= 3,
-	.vsw		= 4,
 	.vbp		= 7,
+	.vsw		= 4,
+	*/
 };
 
 static int generic_panel_probe(struct omap_dss_device *dssdev)

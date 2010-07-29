@@ -909,6 +909,13 @@ enum omap34xx_index {
 	ACC_RESET,
 	LCD_TP_RESET,
 	ACC_INT,
+
+	DSS_D18,
+	DSS_D19,
+	DSS_D20,
+	DSS_D21,
+	DSS_D22,
+	DSS_D23,
 };
 
 struct omap_mux_cfg {
