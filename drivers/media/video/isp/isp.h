@@ -30,8 +30,8 @@
 #include <linux/device.h>
 #include <linux/io.h>
 #include <linux/platform_device.h>
-#include <mach/iommu.h>
-#include <mach/iovmm.h>
+#include <plat/iommu.h>
+#include <plat/iovmm.h>
 
 struct isp_interface_config;
 
