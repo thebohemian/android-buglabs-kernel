@@ -397,6 +397,11 @@ static inline struct ieee80211_tx_info *IEEE80211_SKB_CB(struct sk_buff *skb)
 	return (struct ieee80211_tx_info *)skb->cb;
 }
 
+static inline struct ieee80211_rx_status *IEEE80211_SKB_RXCB(struct sk_buff *skb)
+{
+	return (struct ieee80211_rx_status *)skb->cb;
+}
+
 /**
  * ieee80211_tx_info_clear_status - clear TX status
  *

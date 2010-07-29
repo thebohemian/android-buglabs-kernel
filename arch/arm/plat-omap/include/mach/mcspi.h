@@ -2,7 +2,9 @@
 #define _OMAP2_MCSPI_H
 
 struct omap2_mcspi_platform_config {
-	unsigned short	num_cs;
+	unsigned short  num_cs;
+	unsigned short	num_gpio_cs;
+	unsigned short  gpio_cs[];
 };
 
 struct omap2_mcspi_device_config {

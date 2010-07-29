@@ -35,6 +35,9 @@
 
 #include <linux/i2c.h>
 
+#include <linux/input.h>
+#include <linux/input/adxl34x.h>
+
 #include <linux/bmi.h>
 #include <linux/bmi/bmi-slot.h>
 #include <linux/bmi/bmi_accnt.h>
@@ -42,10 +45,45 @@
 /*
  * 	Global variables
  */
-#define BMI_ACC_I2C_ADDRESS 0x71
+#define BMI_ACC_I2C_ADDRESS 0x1D
+
+static struct adxl34x_platform_data acc_plat_data = {
+	.x_axis_offset = 0,
+	.y_axis_offset = 0,
+	.z_axis_offset = 0,
+	.tap_threshold = 0x31,
+	.tap_duration = 0x10,
+	.tap_latency = 0x60,
+	.tap_window = 0xF0,
+	.tap_axis_control = ADXL_TAP_X_EN | ADXL_TAP_Y_EN | ADXL_TAP_Z_EN,
+	.act_axis_control = 0xFF,
+	.activity_threshold = 5,
+	.inactivity_threshold = 3,
+	.inactivity_time = 4,
+	.free_fall_threshold = 0x7,
+	.free_fall_time = 0x20,
+	.data_rate = 0x8,
+	.data_range = ADXL_FULL_RES,
+ 
+	.ev_type = EV_ABS,
+	.ev_code_x = ABS_X,		/* EV_REL */
+	.ev_code_y = ABS_Y,		/* EV_REL */
+	.ev_code_z = ABS_Z,		/* EV_REL */
+ 
+	.ev_code_x = BTN_TOUCH,
+	.ev_code_y = BTN_TOUCH,
+	.ev_code_z = BTN_TOUCH,
+
+ 
+	.ev_code_ff = KEY_F,
+	.ev_code_act_inactivity = KEY_A,
+	.power_mode = 0, //ADXL_AUTO_SLEEP | ADXL_LINK,
+	.fifo_mode = ADXL_FIFO_STREAM,
+};
 
 static struct i2c_board_info acc_info = {
-    I2C_BOARD_INFO("SENSOR_ACC", BMI_ACC_I2C_ADDRESS),
+    I2C_BOARD_INFO("adxl34x", BMI_ACC_I2C_ADDRESS),
+    .platform_data = &acc_plat_data,
 };
 
 
@@ -272,9 +310,12 @@ int bmi_accnt_probe(struct bmi_device *bdev)
 	bmi_slot_gpio_set_value (slot, GREEN_LED, 1);		// Red, Green LED=OFF 		
 
 
-	// request PIM interrupt
 	irq = bdev->slot->status_irq;
+	acc_info.irq = irq;
+	accnt->acc = i2c_new_device(bdev->slot->adap, &acc_info);
+	// request PIM interrupt
 	sprintf (accnt->int_name, "bmi_accnt%d", slot);
+	/*
 	if (request_irq(irq, &module_irq_handler, 0, accnt->int_name, accnt)) {
 		printk (KERN_ERR "bmi_accnt.c: Can't allocate irq %d or find von Hippel in slot %d\n", 
 			irq, slot); 
@@ -283,7 +324,7 @@ int bmi_accnt_probe(struct bmi_device *bdev)
 
 		//return -EBUSY;
 	}
-
+	*/
 	return 0;
 
  err1:	
@@ -309,7 +350,6 @@ void bmi_accnt_remove(struct bmi_device *bdev)
 	accnt = &bmi_accnt[slot];
 
 	irq = bdev->slot->status_irq;
-	free_irq (irq, accnt);
 
 	for (i = 0; i < 4; i++)
 	  bmi_slot_gpio_direction_in(slot, i);
@@ -320,6 +360,7 @@ void bmi_accnt_remove(struct bmi_device *bdev)
 	accnt->class_dev = 0;
 
 	cdev_del (&accnt->cdev);
+	i2c_unregister_device(accnt->acc);
 
 	// de-attach driver-specific struct from bmi_device structure 
 	bmi_device_set_drvdata (bdev, 0);
