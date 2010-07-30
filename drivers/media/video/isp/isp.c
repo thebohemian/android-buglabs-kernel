@@ -1785,8 +1785,8 @@ static int isp_probe(struct platform_device *pdev)
 
 	isp_power_settings(isp, 1);
 	
-	ret_err = device_create_file(&pdev->dev, &dev_attr_isp_addr);
-	ret_err = device_create_file(&pdev->dev, &dev_attr_isp_value);
+	ret = device_create_file(&pdev->dev, &dev_attr_isp_addr);
+	ret = device_create_file(&pdev->dev, &dev_attr_isp_value);
 
 	isp_put(isp);
 
