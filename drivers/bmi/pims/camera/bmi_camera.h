@@ -23,6 +23,7 @@
 #ifndef _BMI_CAMERA_H
 #define _BMI_CAMERA_H
 
+#include <media/v4l2-subdev.h>
 
 struct bmi_camera_core_ops {
 	int (*g_chip_ident)(struct bmi_device *sd, struct v4l2_dbg_chip_ident *chip);

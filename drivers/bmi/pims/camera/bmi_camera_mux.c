@@ -24,21 +24,13 @@
 #include <linux/bmi.h>
 #include <linux/platform_device.h>
 #include <linux/mm.h>
-#include "../../../drivers/media/video/omap34xxcam.h"
+#include "../../../drivers/media/video/isp/isp.h"
 #include "../../../drivers/media/video/isp/ispreg.h"
 #include "bmi_camera_mux.h"
 #include "bmi_camera.h"
 #include <linux/gpio.h>
 
 extern struct platform_device omap3isp_device;
-
-static struct isp_platform_data bmi_isp_platform_data = {
-	.parallel = {
-		.data_lane_shift	= 3,
-		.clk_pol		= 0,
-		.bridge                 = ISPCTRL_PAR_BRIDGE_DISABLE,
-	},
-};
 
 static struct i2c_board_info bmi_camera_mux_i2c_devices[] = {
 	{
@@ -56,29 +48,24 @@ static struct v4l2_subdev_i2c_board_info bmi_camera_primary_subdevs[] = {
 	{ NULL, 0, NULL, },
 };
 
-static struct omap34xxcam_subdevs_group bmi_camera_subdevs[] = {
+static struct isp_subdevs_group bmi_camera_subdevs[] = {
 	{ bmi_camera_primary_subdevs, ISP_INTERFACE_PARALLEL, },
 	{ NULL, 0, },
 };
 
 
-static struct omap34xxcam_platform_data camera_pdata = {
-	.isp	    = &omap3isp_device,
-	.subdevs    = bmi_camera_subdevs,
+static struct isp_platform_data bmi_isp_platform_data = {
+	.parallel = {
+		.data_lane_shift	= 3,
+		.clk_pol		= 0,
+		.bridge                 = ISPCTRL_PAR_BRIDGE_DISABLE,
+	},
+	.subdevs = bmi_camera_subdevs,
 };
- 
+
 static void platform_camera_release(struct device *dev)
 {
 }
-
-static struct platform_device omap34xxcam_platform_device = {
-	.name	= CAM_NAME,
-	.id	= 0,
-	.dev	= {
-		.platform_data = &camera_pdata,
-		.release = platform_camera_release,
-	},
-};
 
 static struct bmi_camera_selector bmi_camera_sel;
 
@@ -101,7 +88,7 @@ int bmi_register_camera(struct bmi_device *bdev, struct bmi_camera_ops *ops)
 	   first device has been plugged in. */
 	if(!bmi_camera_sel.initialized) {
 		omap3isp_device.dev.platform_data = &bmi_isp_platform_data;
-		rval = platform_device_register(&omap34xxcam_platform_device);
+		rval = platform_device_register(&omap3isp_device);
 		if(rval < 0) {
 			printk(KERN_INFO "Error register omap34xxcam");
 			goto out;
@@ -228,6 +215,12 @@ static void __exit bmi_camera_mux_cleanup(void)
 	gpio_free(CAM_RCLK_RF);
 	gpio_free(CAM_BUF_OEN);
 	gpio_free(CAM_LOCKB);
+
+	if(bmi_camera_sel.initialized) {
+		bmi_camera_sel.initialized = 0;
+		platform_device_unregister(&omap3isp_device);
+	}
+
 }
 
 module_init(bmi_camera_mux_init);

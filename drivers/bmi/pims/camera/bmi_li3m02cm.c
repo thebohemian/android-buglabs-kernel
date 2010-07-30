@@ -27,7 +27,6 @@
 #include <linux/mm.h>
 #include <linux/delay.h>
 
-#include "../../../drivers/media/video/omap34xxcam.h"
 #include "bmi_camera_mux.h"
 #include "bmi_camera.h"
 #include "mt9t111.h"
