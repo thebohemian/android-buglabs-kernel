@@ -94,9 +94,10 @@ int bmi_register_camera(struct bmi_device *bdev, struct bmi_camera_ops *ops)
 			goto out;
 		}
 		bmi_camera_sel.initialized = 1;
-	} else {
-		if(ops->core && ops->core->s_config)
-			rval = ops->core->s_config(bdev, 0, NULL);
+	}
+
+	if(ops->core && ops->core->s_config) {
+		rval = ops->core->s_config(bdev, 0, NULL);
 		if(rval < 0)
 			goto out;
 	}
