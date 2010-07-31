@@ -267,6 +267,10 @@ static ssize_t store_mt9t111_addr(struct device *dev,
 }
 
 static int li3m02cm_set_power(struct bmi_device *bdev, int on);
+static int li3m02cm_set_pad_format(struct bmi_device *bdev,
+				 struct v4l2_subdev_fh *fh, unsigned int pad,
+				 struct v4l2_mbus_framefmt *fmt,
+				   enum v4l2_subdev_format which);
 
 static ssize_t show_power(struct device *dev,
 			struct device_attribute *attr, char *buf)
@@ -287,6 +291,23 @@ static ssize_t store_power(struct device *dev,
 	return size;
 }
 
+static ssize_t show_format(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	struct bmi_li3m02cm *cam = dev_get_drvdata(dev);
+	return sprintf(buf, "%d %d\n", cam->format.width, cam->format.height);
+}
+
+static ssize_t store_format(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	struct bmi_li3m02cm *cam = dev_get_drvdata(dev);
+	struct v4l2_mbus_framefmt fmt;
+	sscanf(buf, "%d %d", &(fmt.width), &(fmt.height));
+	if(fmt.width && fmt.height)
+		li3m02cm_set_pad_format(cam->bdev, NULL, 0, &fmt, 0);
+	return size;
+}
 
 static ssize_t show_serializer_locked(struct device *dev,
 			 struct device_attribute *attr, char *buf)
@@ -300,6 +321,7 @@ static DEVICE_ATTR(mt9t111_value, S_IWUGO | S_IRUGO, show_mt9t111_value, store_m
 static DEVICE_ATTR(mt9t111_addr,  S_IWUGO | S_IRUGO, show_mt9t111_addr, store_mt9t111_addr);
 static DEVICE_ATTR(serializer_locked, S_IRUGO, show_serializer_locked, NULL);
 static DEVICE_ATTR(set_power, S_IWUGO | S_IRUGO, show_power, store_power);
+static DEVICE_ATTR(set_format, S_IWUGO | S_IRUGO, show_format, store_format);
 
 // configure IOX IO and states
 void configure_IOX(struct bmi_li3m02cm *cam)
@@ -402,22 +424,23 @@ static int li3m02cm_set_power(struct bmi_device *bdev, int on)
 	cam->format.field        = V4L2_FIELD_NONE;
 
 	if(on) {
-		// check if serializer/deserializer is locked
-		ret = bmi_camera_mux_is_serializer_locked();
-		if(ret < 0)
-			goto error;
-		if(!ret) {
-			mdelay(100); // if not locked, wait and test again
+		u8 retry_count = 0;
+		while(1) { // wait for serializer to lock
 			ret = bmi_camera_mux_is_serializer_locked();
 			if(ret < 0)
 				goto error;
-			if(!ret) {
-				printk(KERN_ERR "Camera serializer is not locked\n");
-				ret = -EBUSY;
-				goto error;
+			if(ret) {
+				break; // we are locked
+			} else {
+				if(retry_count++ >= 20) {
+					printk(KERN_ERR "Camera serializer won't lock");
+					ret = -EBUSY;
+					goto error;
+				} else {            // if not locked,   
+					mdelay(10); // wait & test again
+				}
 			}
 		}
-
 		// turn off the serial sync option and check if lock occurred
 		iox_data &= ~IOX_SER_SYNC;  // turn off serial sync
 		ret = WriteByte_IOX (cam->iox, IOX_OUTPUT_REG, iox_data);
@@ -576,20 +599,6 @@ static int li3m02cm_enum_mbus_code(struct bmi_device *subdev,
 }
 
 
-static struct v4l2_mbus_framefmt *
-__li3m02cm_get_pad_format(struct bmi_li3m02cm *cam, struct v4l2_subdev_fh *fh,
-			unsigned int pad, enum v4l2_subdev_format which)
-{
-	switch (which) {
-	case V4L2_SUBDEV_FORMAT_PROBE:
-		return v4l2_subdev_get_probe_format(fh, pad);
-	case V4L2_SUBDEV_FORMAT_ACTIVE:
-		return &cam->format;
-	default: 
-		return NULL;
-	}
-}
-
 static int li3m02cm_get_pad_format(struct bmi_device *bdev,
 				 struct v4l2_subdev_fh *fh, unsigned int pad,
 				 struct v4l2_mbus_framefmt *fmt,
@@ -599,10 +608,16 @@ static int li3m02cm_get_pad_format(struct bmi_device *bdev,
 	struct v4l2_mbus_framefmt *format;
 	printk(KERN_INFO "%s enter\n", __func__);
 		
-	format = __li3m02cm_get_pad_format(cam, fh, pad, which);
-	if (format == NULL)
+	switch (which) {
+	case V4L2_SUBDEV_FORMAT_PROBE:
+		format = v4l2_subdev_get_probe_format(fh, pad);
+		break;
+	case V4L2_SUBDEV_FORMAT_ACTIVE:
+		format = &cam->format;
+		break;
+	default: 
 		return -EINVAL;
-
+	}
 	*fmt = *format;
 	return 0;
 }
@@ -613,7 +628,6 @@ static int li3m02cm_set_pad_format(struct bmi_device *bdev,
 				 enum v4l2_subdev_format which)
 {
 	struct bmi_li3m02cm *cam = bmi_device_get_drvdata(bdev);
-	struct v4l2_mbus_framefmt *format;
 	int ret;
 	printk(KERN_INFO "%s enter\n", __func__);
 	ret = mt9t111_set_format(cam->mt9t111, &fmt->width, &fmt->height);
@@ -685,6 +699,7 @@ int bmi_li3m02cm_probe(struct bmi_device *bdev)
 	ret = device_create_file(&bdev->dev, &dev_attr_mt9t111_value);
 	ret = device_create_file(&bdev->dev, &dev_attr_mt9t111_addr);
 	ret = device_create_file(&bdev->dev, &dev_attr_set_power);
+	ret = device_create_file(&bdev->dev, &dev_attr_set_format);
 	return 0;
 }
 
