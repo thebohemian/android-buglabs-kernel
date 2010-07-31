@@ -101,21 +101,8 @@ static int bmi_camera_enum_frame_intervals(struct v4l2_subdev *s,
 	return 0;
 }
 
-/* --------------------------------------------------------------------------
- * sysfs attributes
- */
-static ssize_t
-bmi_camera_priv_mem_read(struct device *dev, struct device_attribute *attr,
-		     char *buf)
-{
-	printk(KERN_INFO "%s enter\n", __func__);
-	return 100; //BMI_CAMERA_PRIV_MEM_SIZE;
-}
-static DEVICE_ATTR(priv_mem, S_IRUGO, bmi_camera_priv_mem_read, NULL);
-
-static int
-bmi_camera_get_chip_ident(struct v4l2_subdev *subdev,
-		      struct v4l2_dbg_chip_ident *chip)
+static int bmi_camera_get_chip_ident(struct v4l2_subdev *subdev,
+				     struct v4l2_dbg_chip_ident *chip)
 {
 	printk(KERN_INFO "%s enter\n", __func__);
 	return 0;
@@ -181,28 +168,32 @@ static int bmi_camera_enum_frame_size(struct v4l2_subdev *subdev,
 				  struct v4l2_subdev_fh *fh,
 				  struct v4l2_subdev_frame_size_enum *fse)
 {
+	int ret;
+	struct bmi_camera_ops *ops = NULL;
+	struct bmi_device *bdev = NULL;
 	printk(KERN_INFO "%s enter index=%d\n", __func__, fse->index);
-	if (fse->index >= MAX_FMTS)
-		return -EINVAL;
-	fse->min_width  = 640; //2036;
-	fse->min_height = 480; //1536;
-	fse->max_width  = 640; //2036;
-	fse->max_height = 480; //1536;
-	return 0;
+	ret = bmi_camera_mux_get_selected(&ops, &bdev);
+	if(ret < 0) 
+		return ret;
+	if(ops->pad && ops->pad->enum_frame_size)
+		return ops->pad->enum_frame_size(bdev, fh, fse);
+	return -EINVAL;
 }
 
-static int bmi_camera_enum_frame_ival(struct v4l2_subdev *subdev,
+static int bmi_camera_enum_frame_interval(struct v4l2_subdev *subdev,
 				  struct v4l2_subdev_fh *fh,
 				  struct v4l2_subdev_frame_interval_enum *fie)
 {
-
+	int ret;
+	struct bmi_camera_ops *ops = NULL;
+	struct bmi_device *bdev = NULL;
 	printk(KERN_INFO "%s enter index=%d\n", __func__, fie->index);
-	if (fie->index >= MAX_FMTS)
-		return -EINVAL;
-
-	fie->interval.numerator = 1;
-	fie->interval.denominator= 15;
-	return 0;
+	ret = bmi_camera_mux_get_selected(&ops, &bdev);
+	if(ret < 0) 
+		return ret;
+	if(ops->pad && ops->pad->enum_frame_interval)
+		return ops->pad->enum_frame_interval(bdev, fh, fie);
+	return -EINVAL;
 }
 
 
@@ -210,13 +201,16 @@ static int bmi_camera_enum_mbus_code(struct v4l2_subdev *subdev,
 				 struct v4l2_subdev_fh *fh,
 				 struct v4l2_subdev_pad_mbus_code_enum *code)
 {
-	printk(KERN_INFO "%s enter index=%d\n", __func__, code->index);
-
-	if (code->index >= MAX_FMTS)
-		return -EINVAL;
-	
-	code->code = V4L2_MBUS_FMT_SGRBG10_1X10;
-	return 0;
+	int ret;
+	struct bmi_camera_ops *ops = NULL;
+	struct bmi_device *bdev = NULL;
+	printk(KERN_INFO "%s enter\n", __func__);
+	ret = bmi_camera_mux_get_selected(&ops, &bdev);
+	if(ret < 0) 
+		return ret;
+	if(ops->pad && ops->pad->enum_mbus_code)
+		return ops->pad->enum_mbus_code(bdev, fh, code);
+	return -EINVAL;
 }
 
 static int bmi_camera_get_pad_format(struct v4l2_subdev *subdev,
@@ -230,15 +224,10 @@ static int bmi_camera_get_pad_format(struct v4l2_subdev *subdev,
 	ret = bmi_camera_mux_get_selected(&ops, &bdev);
 	if(ret < 0) 
 		return ret;
-	if(!(ops->pad && ops->pad->get_fmt))
-		return -EINVAL;
-
-	ret = ops->pad->get_fmt(bdev, fh, pad, fmt, which);
-	if(ret < 0) {
-		printk(KERN_INFO "%s error\n", __func__);
-		return ret;
+	if(ops->pad && ops->pad->get_fmt) {
+		return 	ops->pad->get_fmt(bdev, fh, pad, fmt, which);
 	}
-	return 0;
+	return -EINVAL;
 }
 
 static int bmi_camera_set_pad_format(struct v4l2_subdev *subdev,
@@ -253,24 +242,19 @@ static int bmi_camera_set_pad_format(struct v4l2_subdev *subdev,
 	ret = bmi_camera_mux_get_selected(&ops, &bdev);
 	if(ret < 0) 
 		return ret;
-	if(!(ops->pad && ops->pad->set_fmt))
-		return -EINVAL;
-
-	ret = ops->pad->set_fmt(bdev, fh, pad, fmt, which);
-	if(ret < 0) {
-		printk(KERN_INFO "%s error\n", __func__);
-		return ret;
-	}
-	return 0;
+	if(ops->pad && ops->pad->set_fmt)
+		return ops->pad->set_fmt(bdev, fh, pad, fmt, which);
+	return -EINVAL;
 }
 
 static int bmi_camera_get_frame_interval(struct v4l2_subdev *subdev,
 				     struct v4l2_subdev_frame_interval *fi)
 {
 	printk(KERN_INFO "%s enter\n", __func__);
-	memset(fi, 0, sizeof(*fi));
-	fi->interval.numerator=1;
-	fi->interval.denominator=15;
+	BUG_ON(1);
+//	memset(fi, 0, sizeof(*fi));
+//	fi->interval.numerator=1;
+//	fi->interval.denominator=15;
 
 	return 0;
 }
@@ -309,7 +293,7 @@ static const struct v4l2_subdev_core_ops bmi_camera_core_ops = {
 static const struct v4l2_subdev_pad_ops bmi_camera_pad_ops = {
 	.enum_mbus_code      = bmi_camera_enum_mbus_code,
         .enum_frame_size     = bmi_camera_enum_frame_size,
-        .enum_frame_interval = bmi_camera_enum_frame_ival,
+        .enum_frame_interval = bmi_camera_enum_frame_interval,
 	.get_fmt             = bmi_camera_get_pad_format,
 	.set_fmt             = bmi_camera_set_pad_format,
 };
@@ -359,7 +343,6 @@ static int __exit bmi_camera_remove(struct i2c_client *client)
 	struct bmi_camera_sensor *sensor = to_bmi_camera_sensor(subdev);
 
 	v4l2_device_unregister_subdev(&sensor->subdev);
-	device_remove_file(&client->dev, &dev_attr_priv_mem);
 	kfree(sensor);
 	return 0;
 }
