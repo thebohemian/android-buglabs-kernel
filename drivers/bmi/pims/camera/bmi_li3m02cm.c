@@ -309,6 +309,35 @@ static ssize_t store_format(struct device *dev,
 	return size;
 }
 
+static ssize_t show_context(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	u16 value;
+	int result;
+	struct bmi_li3m02cm *cam = dev_get_drvdata(dev);
+	mt9t111_write_reg(cam->mt9t111, 0x098E, 0x8401);
+	mt9t111_read_reg( cam->mt9t111,  0x0990, &value);
+	if(value == 3) { 
+		result = 1; 
+	} else if(value == 7) { 
+		result = 2; 
+	} else {
+		result = -value;
+	}
+	return sprintf(buf, "%d\n", result);
+}
+
+static ssize_t store_context(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	int value;
+	struct bmi_li3m02cm *cam = dev_get_drvdata(dev);
+	sscanf(buf, "%d", &value);
+	mt9t111_write_reg(cam->mt9t111, 0x098E, 0x8400);
+	mt9t111_write_reg(cam->mt9t111, 0x0990, (u16) value);
+	return size;
+}
+
 static ssize_t show_serializer_locked(struct device *dev,
 			 struct device_attribute *attr, char *buf)
 {
@@ -321,7 +350,8 @@ static DEVICE_ATTR(mt9t111_value, S_IWUGO | S_IRUGO, show_mt9t111_value, store_m
 static DEVICE_ATTR(mt9t111_addr,  S_IWUGO | S_IRUGO, show_mt9t111_addr, store_mt9t111_addr);
 static DEVICE_ATTR(serializer_locked, S_IRUGO, show_serializer_locked, NULL);
 static DEVICE_ATTR(set_power, S_IWUGO | S_IRUGO, show_power, store_power);
-static DEVICE_ATTR(set_format, S_IWUGO | S_IRUGO, show_format, store_format);
+static DEVICE_ATTR(format, S_IWUGO | S_IRUGO, show_format, store_format);
+static DEVICE_ATTR(context, S_IWUGO | S_IRUGO, show_context, store_context);
 
 // configure IOX IO and states
 void configure_IOX(struct bmi_li3m02cm *cam)
@@ -699,7 +729,8 @@ int bmi_li3m02cm_probe(struct bmi_device *bdev)
 	ret = device_create_file(&bdev->dev, &dev_attr_mt9t111_value);
 	ret = device_create_file(&bdev->dev, &dev_attr_mt9t111_addr);
 	ret = device_create_file(&bdev->dev, &dev_attr_set_power);
-	ret = device_create_file(&bdev->dev, &dev_attr_set_format);
+	ret = device_create_file(&bdev->dev, &dev_attr_format);
+	ret = device_create_file(&bdev->dev, &dev_attr_context);
 	return 0;
 }
 
