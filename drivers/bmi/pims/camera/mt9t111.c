@@ -161,8 +161,8 @@ static void mt9t111_refresh(struct i2c_client *client){
 	// MCU_ADDRESS [SEQ_CMD] -- refresh	
 	mt9t111_write_reg(client, 0x098E, 0x8400);	
 	mt9t111_write_reg(client, 0x0990, 0x0006); //Refresh Sequencer Mode
-	mt9t111_write_reg(client, 0x098E, 0x8400);	
-	mt9t111_write_reg(client, 0x0990, 0x0005); //Refresh Sequencer
+//	mt9t111_write_reg(client, 0x098E, 0x8400);	
+//	mt9t111_write_reg(client, 0x0990, 0x0005); //Refresh Sequencer
 
 	for (i=0;i<100;i++){
 		err = mt9t111_write_reg(client, 0x098E, 0x8400);
@@ -179,6 +179,8 @@ static void mt9t111_refresh(struct i2c_client *client){
 			break;		
 		mdelay(5);	
 	}
+	mt9t111_write_reg(client, 0x098E, 0x8400);	
+	mt9t111_write_reg(client, 0x0990, 0x0002); //Refresh Sequencer
 }
 
 static int mt9t111_enable_pll(struct i2c_client *client)
@@ -324,6 +326,7 @@ EXPORT_SYMBOL(mt9t111_s_stream);
 int mt9t111_set_format(struct i2c_client *client, int *cols, int *rows)
 {
 	int ret;
+#if 0
 	ret = mt9t111_write_reg(client, 0x6800, *cols);
 	if(ret < 0) 
 		return ret;
@@ -331,6 +334,15 @@ int mt9t111_set_format(struct i2c_client *client, int *cols, int *rows)
 	if(ret < 0) 
 		return ret;
 	return 0;
+#else
+	ret = mt9t111_write_reg(client, 0x098E, 0x8400);
+	if(*rows <= 480 && *cols <= 640) {
+		ret |= mt9t111_write_reg(client, 0x0990, 1);
+	} else {
+		ret |= mt9t111_write_reg(client, 0x0990, 2);
+	}
+	return ret;
+#endif	
 }
 EXPORT_SYMBOL(mt9t111_set_format);
 
