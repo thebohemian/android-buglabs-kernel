@@ -63,9 +63,6 @@ static struct isp_platform_data bmi_isp_platform_data = {
 	.subdevs = bmi_camera_subdevs,
 };
 
-static void platform_camera_release(struct device *dev)
-{
-}
 
 static struct bmi_camera_selector bmi_camera_sel;
 
@@ -83,6 +80,12 @@ int bmi_register_camera(struct bmi_device *bdev, struct bmi_camera_ops *ops)
 	if(bmi_camera_sel.selected == -1)
 		bmi_camera_sel.selected = slotnum;
 	bmi_camera_sel.count++;
+
+	if(ops->core && ops->core->s_config) {
+		rval = ops->core->s_config(bdev, 0, NULL);
+		if(rval < 0)
+			goto out;
+	}
 	
 	/* We register with the omap34xxcam driver only after the
 	   first device has been plugged in. */
@@ -93,14 +96,10 @@ int bmi_register_camera(struct bmi_device *bdev, struct bmi_camera_ops *ops)
 			printk(KERN_INFO "Error register omap34xxcam");
 			goto out;
 		}
+		printk(KERN_INFO "Successfully registered omap34xxcam");
 		bmi_camera_sel.initialized = 1;
 	}
 
-	if(ops->core && ops->core->s_config) {
-		rval = ops->core->s_config(bdev, 0, NULL);
-		if(rval < 0)
-			goto out;
-	}
 
 out:
 	mutex_unlock(&bmi_camera_sel.mutex);
@@ -121,6 +120,10 @@ int bmi_unregister_camera(struct bmi_device *bdev)
 	bmi_camera_sel.bdev[slotnum] = NULL;
 	bmi_camera_sel.ops[slotnum]  = NULL;
 	bmi_camera_sel.count--;
+	if(bmi_camera_sel.initialized) {
+		platform_device_unregister(&omap3isp_device);
+		bmi_camera_sel.initialized = 0;
+	}
 	
 	rval = 0;
 	mutex_unlock(&bmi_camera_sel.mutex);
@@ -129,13 +132,19 @@ int bmi_unregister_camera(struct bmi_device *bdev)
 EXPORT_SYMBOL(bmi_unregister_camera);
 
 int bmi_camera_mux_get_selected(struct bmi_camera_ops **ops, struct bmi_device **bdev) {
-	if(bmi_camera_sel.selected < 0) 
-		return -EINVAL;
+	int ret=0;
+	mutex_lock(&bmi_camera_sel.mutex);
+	if(bmi_camera_sel.selected < 0) {
+		ret = -EINVAL;
+		goto out;
+	}
 	*ops  = bmi_camera_sel.ops[bmi_camera_sel.selected];
 	*bdev = bmi_camera_sel.bdev[bmi_camera_sel.selected];
 	if(*ops == NULL || *bdev == NULL)
-		return -EINVAL;
-	return 0;
+		ret = -EINVAL;
+out:
+	mutex_unlock(&bmi_camera_sel.mutex);
+	return ret;
 }
 EXPORT_SYMBOL(bmi_camera_mux_get_selected);
 
@@ -217,11 +226,12 @@ static void __exit bmi_camera_mux_cleanup(void)
 	gpio_free(CAM_BUF_OEN);
 	gpio_free(CAM_LOCKB);
 
+	mutex_lock(&bmi_camera_sel.mutex);
 	if(bmi_camera_sel.initialized) {
 		bmi_camera_sel.initialized = 0;
 		platform_device_unregister(&omap3isp_device);
 	}
-
+	mutex_unlock(&bmi_camera_sel.mutex);
 }
 
 module_init(bmi_camera_mux_init);
