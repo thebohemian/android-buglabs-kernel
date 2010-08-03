@@ -59,6 +59,7 @@ static struct isp_platform_data bmi_isp_platform_data = {
 		.data_lane_shift	= 3,
 		.clk_pol		= 0,
 		.bridge                 = ISPCTRL_PAR_BRIDGE_DISABLE,
+		//.bridge                 = ISPCTRL_PAR_BRIDGE_BENDIAN, 
 	},
 	.subdevs = bmi_camera_subdevs,
 };
@@ -91,7 +92,10 @@ int bmi_register_camera(struct bmi_device *bdev, struct bmi_camera_ops *ops)
 	   first device has been plugged in. */
 	if(!bmi_camera_sel.initialized) {
 		omap3isp_device.dev.platform_data = &bmi_isp_platform_data;
+		// unlock the mutex to prevent nested locking while registering
+		mutex_unlock(&bmi_camera_sel.mutex); 
 		rval = platform_device_register(&omap3isp_device);
+		mutex_lock(&bmi_camera_sel.mutex);
 		if(rval < 0) {
 			printk(KERN_INFO "Error register omap34xxcam");
 			goto out;

@@ -48,7 +48,7 @@ int mt9t111_read_reg(struct i2c_client *client, u16 reg, u16 *val)
 		printk(KERN_ERR "%s: i2c_transfer() failed...%d\n", __func__, ret);
 	} else {
 		*val = ((data[0] & 0x00ff) << 8) | (data[1] & 0x00ff);	
-		printk(KERN_DEBUG "%s: Read register 0x%x. value = 0x%x\n", __func__, reg, *val);
+		//printk(KERN_DEBUG "%s: Read register 0x%x. value = 0x%x\n", __func__, reg, *val);
 	}
 	return ret;
 }
@@ -81,8 +81,8 @@ int mt9t111_write_reg(struct i2c_client *client, u16 reg, u16 val)
 	err = i2c_transfer(client->adapter, msg, 1);
 	if(err < 0)
 		printk(KERN_INFO "%s error writing to addr=0x%x data=0x%x err=%d\n", __func__, reg, val, err);
-	else
-		printk(KERN_DEBUG "%s succeed writing to addr=0x%x data=0x%x err=%d\n", __func__, reg, val, err);
+	//else
+		//printk(KERN_DEBUG "%s succeed writing to addr=0x%x data=0x%x err=%d\n", __func__, reg, val, err);
 
 
 	return err;
@@ -158,7 +158,6 @@ static int mt9t111_detect(struct i2c_client *client)
 static void mt9t111_refresh(struct i2c_client *client){	
 	int i, err;	
 	unsigned short value;		
-	// MCU_ADDRESS [SEQ_CMD] -- refresh	
 	mt9t111_write_reg(client, 0x098E, 0x8400);	
 	mt9t111_write_reg(client, 0x0990, 0x0006); //Refresh Sequencer Mode
 //	mt9t111_write_reg(client, 0x098E, 0x8400);	
@@ -179,8 +178,6 @@ static void mt9t111_refresh(struct i2c_client *client){
 			break;		
 		mdelay(5);	
 	}
-	mt9t111_write_reg(client, 0x098E, 0x8400);	
-	mt9t111_write_reg(client, 0x0990, 0x0002); //Refresh Sequencer
 }
 
 static int mt9t111_enable_pll(struct i2c_client *client)
@@ -276,7 +273,7 @@ static int mt9t111_loaddefault(struct i2c_client *client)
 	err = MT9T111_APPLY_PATCH(client, def_regs1);
 	if(err < 0)
 		return err;
-	
+
 	err = MT9T111_APPLY_PATCH(client, patch_rev6);
 	if(err < 0)
 		return err;
