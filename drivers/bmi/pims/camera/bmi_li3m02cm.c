@@ -27,7 +27,6 @@
 #include <linux/mm.h>
 #include <linux/delay.h>
 
-#include "bmi_camera_mux.h"
 #include "bmi_camera.h"
 #include "mt9t111.h"
 
@@ -338,17 +337,11 @@ static ssize_t store_context(struct device *dev,
 	return size;
 }
 
-static ssize_t show_serializer_locked(struct device *dev,
-			 struct device_attribute *attr, char *buf)
-{
-	return sprintf(buf, "%u\n", bmi_camera_mux_is_serializer_locked());
-}
 
 static DEVICE_ATTR(iox_value, S_IWUGO | S_IRUGO, show_iox_value, store_iox_value);
 static DEVICE_ATTR(iox_addr,  S_IWUGO | S_IRUGO, show_iox_addr, store_iox_addr);
 static DEVICE_ATTR(mt9t111_value, S_IWUGO | S_IRUGO, show_mt9t111_value, store_mt9t111_value);
 static DEVICE_ATTR(mt9t111_addr,  S_IWUGO | S_IRUGO, show_mt9t111_addr, store_mt9t111_addr);
-static DEVICE_ATTR(serializer_locked, S_IRUGO, show_serializer_locked, NULL);
 static DEVICE_ATTR(set_power, S_IWUGO | S_IRUGO, show_power, store_power);
 static DEVICE_ATTR(format, S_IWUGO | S_IRUGO, show_format, store_format);
 static DEVICE_ATTR(context, S_IWUGO | S_IRUGO, show_context, store_context);
@@ -432,11 +425,6 @@ static int li3m02cm_set_power(struct bmi_device *bdev, int on)
 			goto error;
 	}
 
-	// turn on/off bug base camera stuff
-	ret = bmi_camera_mux_set_power(on);
-	if(ret < 0)
-		goto error;
-
 	// set power to the sensor
 	ret = mt9t111_set_power(cam->mt9t111, on);
 	if(ret < 0) {
@@ -455,15 +443,15 @@ static int li3m02cm_set_power(struct bmi_device *bdev, int on)
 
 	if(on) {
 		u8 retry_count = 0;
-		while(1) { // wait for serializer to lock
-			ret = bmi_camera_mux_is_serializer_locked();
+		while(1) { // wait for SERDES to lock
+			ret = bmi_camera_is_serdes_locked();
 			if(ret < 0)
 				goto error;
 			if(ret) {
 				break; // we are locked
 			} else {
 				if(retry_count++ >= 20) {
-					printk(KERN_ERR "Camera serializer won't lock");
+					printk(KERN_ERR "Camera SERDES won't lock");
 					ret = -EBUSY;
 					goto error;
 				} else {            // if not locked,   
@@ -477,7 +465,7 @@ static int li3m02cm_set_power(struct bmi_device *bdev, int on)
 		if(ret < 0)
 			goto error;		
 
-		printk(KERN_INFO "Camera serializer LOCKED\n");
+		printk(KERN_INFO "Camera SERDES LOCKED\n");
 	}
 	return 0;
 
@@ -636,7 +624,7 @@ static int li3m02cm_get_pad_format(struct bmi_device *bdev,
 {
 	struct bmi_li3m02cm *cam = bmi_device_get_drvdata(bdev);
 	struct v4l2_mbus_framefmt *format;
-	printk(KERN_INFO "%s enter\n", __func__);
+	//printk(KERN_INFO "%s enter\n", __func__);
 		
 	switch (which) {
 	case V4L2_SUBDEV_FORMAT_PROBE:
@@ -723,7 +711,6 @@ int bmi_li3m02cm_probe(struct bmi_device *bdev)
 	bmi_register_camera(bdev, &li3m02cm_ops);
 
 	// These can be removed after driver stabalizes. They are for debug now.
-	ret = device_create_file(&bdev->dev, &dev_attr_serializer_locked);
 	ret = device_create_file(&bdev->dev, &dev_attr_iox_value);
 	ret = device_create_file(&bdev->dev, &dev_attr_iox_addr);
 	ret = device_create_file(&bdev->dev, &dev_attr_mt9t111_value);

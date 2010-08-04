@@ -114,9 +114,7 @@ mt9t111_write_regs(struct i2c_client *client, struct mt9t111_regs *r, int cnt)
 			err = mt9t111_read_reg(client, reg->addr, &val);
 			if (err < 0)
 				return err;
-			printk(KERN_INFO "%s mask: original read: 0x%x\n", __func__, val);
 			val = (val & ~reg->mask) | (reg->data & reg->mask);
-			printk(KERN_INFO "%s mask: writing: 0x%x  (mask=0x%x data=0x%x\n", __func__, val, reg->mask, reg->data);
 		} else {
 			val = reg->data;
 		}
