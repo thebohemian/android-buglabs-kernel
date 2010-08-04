@@ -1,5 +1,5 @@
 /*
- * drivers/bmi/pims/camera/bmi_camera.h
+ * drivers/bmi/pims/camera/bmi_camera_mux.h
  *
  * Copyright (C) 2010 Lane Brooks
  *
@@ -20,10 +20,38 @@
  * 02110-1301 USA
  *
  */
-#ifndef _BMI_CAMERA_H
-#define _BMI_CAMERA_H
 
+#ifndef __BMI_CAMERA_H
+#define __BMI_CAMERA_H
 #include <media/v4l2-subdev.h>
+
+struct mutex;
+struct bmi_device;
+struct bmi_camera_ops;
+
+#define to_bmi_camera_sensor(sd) container_of(sd, struct bmi_camera_sensor, subdev)
+struct bmi_camera_sensor {
+	struct v4l2_subdev subdev;
+	struct media_entity_pad pad;
+};
+struct bmi_camera_selector {
+	struct mutex mutex; /* atomic access to slot selection data */
+	struct bmi_device *bdev[4];
+	struct bmi_camera_ops *ops[4];
+	int selected;
+	int count;
+};
+#define BMI_CAMERA_NAME "bmi_camera"
+#define BMI_CAMERA_I2C_ADDR 0x38
+
+
+extern int bmi_register_camera(struct bmi_device *bdev, 
+			       struct bmi_camera_ops *ops);
+extern int bmi_unregister_camera(struct bmi_device *bdev);
+
+extern int bmi_camera_is_serdes_locked(void);
+
+
 
 struct bmi_camera_core_ops {
 	int (*g_chip_ident)(struct bmi_device *sd, struct v4l2_dbg_chip_ident *chip);
@@ -117,6 +145,14 @@ struct bmi_camera_ops {
 	const struct bmi_camera_video_ops	*video;
 	const struct bmi_camera_pad_ops	        *pad;
 };
+
+
+
+
+
+
+
+
 
 
 #endif
