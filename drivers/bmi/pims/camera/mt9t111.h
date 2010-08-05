@@ -37,6 +37,7 @@ extern int mt9t111_read_reg(struct i2c_client *client, u16 reg, u16 *val);
 extern int mt9t111_set_power(struct i2c_client *client, int on);
 extern int mt9t111_s_stream(struct i2c_client *client, int streaming);
 extern int mt9t111_set_format(struct i2c_client *client, struct v4l2_mbus_framefmt *fmt);
+extern int mt9t111_get_format(struct i2c_client *client, struct v4l2_mbus_framefmt *fmt);
 
 struct mt9t111_regs {
 	u16 delay_time;
