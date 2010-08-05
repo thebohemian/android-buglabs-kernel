@@ -280,10 +280,6 @@ static int mt9t111_loaddefault(struct i2c_client *client)
 	if(err < 0)
 		return err;
 
-	err = MT9T111_APPLY_PATCH(client, bayer_pattern_regs);
-	if(err < 0)
-		return err;
-
 	//mt9t111_color_bar(client);
 
 	mt9t111_refresh(client);
@@ -318,26 +314,49 @@ int mt9t111_s_stream(struct i2c_client *client, int streaming)
 }
 EXPORT_SYMBOL(mt9t111_s_stream);
 
-int mt9t111_set_format(struct i2c_client *client, int *cols, int *rows)
+int mt9t111_set_format(struct i2c_client *client, struct v4l2_mbus_framefmt *fmt)
 {
 	int ret;
+	switch(fmt->code) {
+	case V4L2_MBUS_FMT_YUYV8_2X8_LE:
+	case V4L2_MBUS_FMT_YVYU8_2X8_LE:
+	case V4L2_MBUS_FMT_YUYV8_2X8_BE:
+	case V4L2_MBUS_FMT_YVYU8_2X8_BE:
+	case V4L2_MBUS_FMT_YUYV16_1X16:
+	case V4L2_MBUS_FMT_UYVY16_1X16:
+	case V4L2_MBUS_FMT_YVYU16_1X16:
+	case V4L2_MBUS_FMT_VYUY16_1X16:
+		printk(KERN_INFO "%s applying YUV mode\n", __func__);
+		ret = MT9T111_APPLY_PATCH(client, fmt_YCrCb_regs);
+		if(ret < 0)
+			return ret;
+		break;
+	default:
+		printk(KERN_INFO "%s applying GBRG mode\n", __func__);
+		ret = MT9T111_APPLY_PATCH(client, fmt_GBRG_regs);
+		if(ret < 0)
+			return ret;
+		fmt->code = V4L2_MBUS_FMT_SGRBG10_1X10;
+		break;
+	}
+
 #if 0
-	ret = mt9t111_write_reg(client, 0x6800, *cols);
+	ret = mt9t111_write_reg(client, 0x6800, fmt->width);
 	if(ret < 0) 
 		return ret;
-	ret = mt9t111_write_reg(client, 0x6802, *rows);
+	ret = mt9t111_write_reg(client, 0x6802, fmt->height);
 	if(ret < 0) 
 		return ret;
-	return 0;
 #else
 	ret = mt9t111_write_reg(client, 0x098E, 0x8400);
-	if(*rows <= 480 && *cols <= 640) {
+	if(fmt->height <= 480 && fmt->width <= 640) {
 		ret |= mt9t111_write_reg(client, 0x0990, 1);
 	} else {
 		ret |= mt9t111_write_reg(client, 0x0990, 2);
 	}
-	return ret;
 #endif	
+	mt9t111_refresh(client);
+	return ret;
 }
 EXPORT_SYMBOL(mt9t111_set_format);
 

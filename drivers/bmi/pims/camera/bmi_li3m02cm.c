@@ -648,11 +648,12 @@ static int li3m02cm_set_pad_format(struct bmi_device *bdev,
 	struct bmi_li3m02cm *cam = bmi_device_get_drvdata(bdev);
 	int ret;
 	printk(KERN_INFO "%s enter\n", __func__);
-	ret = mt9t111_set_format(cam->mt9t111, &fmt->width, &fmt->height);
+	ret = mt9t111_set_format(cam->mt9t111, fmt);
 	if(ret < 0)
 		return ret;
 	cam->format.width  = fmt->width;
 	cam->format.height = fmt->height;
+	cam->format.code   = fmt->code;
 	return 0;
 }
 
