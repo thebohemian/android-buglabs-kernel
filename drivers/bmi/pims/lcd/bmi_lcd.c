@@ -73,10 +73,13 @@ static struct tsc2004_platform_data tsc_platform_data= {
 };
 
 static struct i2c_board_info tsc_info = {
-  I2C_BOARD_INFO("tsc2004", 0x48),
-  .platform_data = &tsc_platform_data,
+	I2C_BOARD_INFO("tsc2004", 0x48),
+	.platform_data = &tsc_platform_data,
 };
 
+static struct i2c_board_info acc_info = {
+	I2C_BOARD_INFO("ml8953", 0x17),
+};
 
 // private device structure
 struct bmi_lcd
@@ -87,6 +90,7 @@ struct bmi_lcd
   int			open_flag;		// single open flag
   char			int_name[20];		// interrupt name
   struct i2c_client     *tsc;
+  struct i2c_client     *acc;
 };
 
 struct bmi_lcd bmi_lcd;
@@ -206,6 +210,11 @@ int bmi_lcd_probe(struct bmi_device *bdev)
 	if (lcd->tsc == NULL)
 	  printk(KERN_ERR "TSC NULL...\n");
 	
+	acc_info.irq = gpio_to_irq(15);
+	lcd->acc = i2c_new_device(bdev->slot->adap, &acc_info);
+	if (lcd->acc == NULL)
+	  printk(KERN_ERR "ACC NULL...\n");
+
 	bl_backlight_dev = platform_device_alloc("omap-backlight", -1);
 	err = platform_device_add(bl_backlight_dev);
 
@@ -243,6 +252,7 @@ void bmi_lcd_remove(struct bmi_device *bdev)
 	slot = bdev->slot->slotnum;
 	lcd = &bmi_lcd;
 	i2c_unregister_device(lcd->tsc);
+	i2c_unregister_device(lcd->acc);
 	irq = bdev->slot->status_irq;
 
 	for (i = 0; i < 4; i++)
