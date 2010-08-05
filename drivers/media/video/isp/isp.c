@@ -313,7 +313,6 @@ void isp_select_bridge_input(struct isp_device *isp,
 	ispctrl_val &= ISPCTRL_SHIFT_MASK;
 	ispctrl_val &= ~ISPCTRL_PAR_CLK_POL_INV;
 	ispctrl_val &= ISPCTRL_PAR_SER_CLK_SEL_MASK;
-	ispctrl_val &= ~ISPCTRL_PAR_BRIDGE_MASK;
 
 	switch (input) {
 	case CCDC_INPUT_PARALLEL:
@@ -322,8 +321,6 @@ void isp_select_bridge_input(struct isp_device *isp,
 			<< ISPCTRL_SHIFT_SHIFT;
 		ispctrl_val |= isp->pdata->parallel.clk_pol
 			<< ISPCTRL_PAR_CLK_POL_SHIFT;
-		ispctrl_val |= isp->pdata->parallel.bridge
-			<< ISPCTRL_PAR_BRIDGE_SHIFT;
 		break;
 
 	case CCDC_INPUT_CSI2A:

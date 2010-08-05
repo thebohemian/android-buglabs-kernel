@@ -1563,6 +1563,15 @@ __ccdc_get_format(struct isp_ccdc_device *ccdc, struct v4l2_subdev_fh *fh,
  * @pad: Pad number
  * @fmt: Format
  */
+
+static enum v4l2_mbus_pixelcode sink_fmts[] = {
+	V4L2_MBUS_FMT_SGRBG10_1X10,
+	V4L2_MBUS_FMT_YUYV16_1X16,
+	V4L2_MBUS_FMT_UYVY16_1X16,
+	V4L2_MBUS_FMT_YVYU16_1X16,
+	V4L2_MBUS_FMT_VYUY16_1X16,
+};
+
 static void
 ccdc_try_format(struct isp_ccdc_device *ccdc, struct v4l2_subdev_fh *fh,
 		unsigned int pad, struct v4l2_mbus_framefmt *fmt,
@@ -1571,14 +1580,22 @@ ccdc_try_format(struct isp_ccdc_device *ccdc, struct v4l2_subdev_fh *fh,
 	struct v4l2_mbus_framefmt *format;
 	unsigned int width = fmt->width;
 	unsigned int height = fmt->height;
-
+	int i;
 	switch (pad) {
 	case CCDC_PAD_SINK:
 		/* Check if the requested pixel format is supported.
 		 * TODO: If the CCDC output formatter pad is connected directly
 		 * to the resizer, only YUV formats can be used.
 		 */
-		fmt->code = V4L2_MBUS_FMT_SGRBG10_1X10;
+		for(i=0; i<ARRAY_SIZE(sink_fmts); ++i) {
+			if(sink_fmts[i] == fmt->code) 
+				break;
+		}
+		/* if the requested type is not in the list of
+		 * supported types, then change it to the first format
+		 * code in the list of supported. */
+		if(i==ARRAY_SIZE(sink_fmts)) 
+			fmt->code = sink_fmts[0];
 
 		/* Clamp the input size. */
 		fmt->width = clamp_t(u32, width, 32, 4096);
@@ -1630,10 +1647,10 @@ static int ccdc_enum_mbus_code(struct v4l2_subdev *sd,
 			       struct v4l2_subdev_fh *fh,
 			       struct v4l2_subdev_pad_mbus_code_enum *code)
 {
-	if (code->index != 0)
+	if (code->index >= ARRAY_SIZE(sink_fmts))
 		return -EINVAL;
 
-	code->code = V4L2_MBUS_FMT_SGRBG10_1X10;
+	code->code = sink_fmts[code->index];
 
 	return 0;
 }
@@ -1719,6 +1736,44 @@ static int ccdc_set_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh,
 
 	/* Propagate the format from sink to source */
 	if (pad == CCDC_PAD_SINK) {
+		u32 syn_mode, ispctrl_val;
+		struct isp_device *isp = to_isp_device(ccdc);
+		if (!isp_get(isp))
+			return -EBUSY;
+
+		syn_mode    = isp_reg_readl(isp, OMAP3_ISP_IOMEM_CCDC, 
+					    ISPCCDC_SYN_MODE);
+		ispctrl_val = isp_reg_readl(isp, OMAP3_ISP_IOMEM_MAIN, 
+					    ISP_CTRL);
+		syn_mode    &= ISPCCDC_SYN_MODE_INPMOD_MASK;
+		ispctrl_val &= ~ISPCTRL_PAR_BRIDGE_MASK;
+		switch(format->code) {
+		case V4L2_MBUS_FMT_YUYV16_1X16:
+		case V4L2_MBUS_FMT_UYVY16_1X16:
+		case V4L2_MBUS_FMT_YVYU16_1X16:
+		case V4L2_MBUS_FMT_VYUY16_1X16:
+			syn_mode |= ISPCCDC_SYN_MODE_INPMOD_YCBCR16;
+
+			/* TODO: In YCBCR16 mode, the bridge has to be
+			 * enabled, so we enable it here and force it
+			 * big endian. Whether to do big or little endian
+			 * should somehow come from the platform data.*/
+			ispctrl_val |= ISPCTRL_PAR_BRIDGE_BENDIAN 
+				<< ISPCTRL_PAR_BRIDGE_SHIFT;
+			break;
+		default:
+			syn_mode |= ISPCCDC_SYN_MODE_INPMOD_RAW;
+			ispctrl_val |= isp->pdata->parallel.bridge
+				<< ISPCTRL_PAR_BRIDGE_SHIFT;
+			break;
+		}
+		isp_reg_writel(isp, syn_mode, OMAP3_ISP_IOMEM_CCDC, 
+			       ISPCCDC_SYN_MODE);
+		isp_reg_writel(isp, ispctrl_val, OMAP3_ISP_IOMEM_MAIN, 
+			       ISP_CTRL);
+		isp_put(isp);
+
+
 		format = __ccdc_get_format(ccdc, fh, CCDC_PAD_SOURCE_OF, which);
 		memcpy(format, fmt, sizeof(*format));
 		ccdc_try_format(ccdc, fh, CCDC_PAD_SOURCE_OF, format, which);
