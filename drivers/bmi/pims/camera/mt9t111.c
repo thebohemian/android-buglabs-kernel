@@ -35,6 +35,12 @@
 #include "mt9t111.h"
 #include "mt9t111_reg.h"
 
+struct mt9t111_sensor {
+	struct i2c_client *client;
+	struct v4l2_mbus_framefmt format[2];
+	u8 active_context;
+};
+
 int mt9t111_read_reg(struct i2c_client *client, u16 reg, u16 *val)
 {
 	int ret;
@@ -80,7 +86,7 @@ int mt9t111_write_reg(struct i2c_client *client, u16 reg, u16 val)
 	data[3] = (u8)(val & 0x00ff);
 	err = i2c_transfer(client->adapter, msg, 1);
 	if(err < 0)
-		printk(KERN_INFO "%s error writing to addr=0x%x data=0x%x err=%d\n", __func__, reg, val, err);
+		printk(KERN_ERR "%s error writing to addr=0x%x data=0x%x err=%d\n", __func__, reg, val, err);
 	//else
 		//printk(KERN_DEBUG "%s succeed writing to addr=0x%x data=0x%x err=%d\n", __func__, reg, val, err);
 
@@ -192,7 +198,7 @@ static int mt9t111_enable_pll(struct i2c_client *client)
 	while(1) { // wait for MT9T111 to report that PLL is locked
 		err = mt9t111_read_reg(client,0x0014,&value);
 		if(err < 0) {
-			printk(KERN_INFO "%s: error readign pll lock state\n", __func__);
+			printk(KERN_ERR "%s: error reading pll lock state\n", __func__);
 			return err;
 		}
 		if (( value & 0x8000) != 0) {
@@ -204,7 +210,6 @@ static int mt9t111_enable_pll(struct i2c_client *client)
 			return -EBUSY;
 		}
 		mdelay(2);
-		printk(KERN_INFO "%s waiting for pll lock %d\n", __func__, i);
 	}
 	err = MT9T111_APPLY_PATCH(client, pll_regs2);
 	if(err < 0) {
@@ -317,6 +322,8 @@ EXPORT_SYMBOL(mt9t111_s_stream);
 int mt9t111_set_format(struct i2c_client *client, struct v4l2_mbus_framefmt *fmt)
 {
 	int ret;
+	struct mt9t111_sensor *sensor = i2c_get_clientdata(client);
+
 	switch(fmt->code) {
 	case V4L2_MBUS_FMT_YUYV8_2X8_LE:
 	case V4L2_MBUS_FMT_YVYU8_2X8_LE:
@@ -351,17 +358,32 @@ int mt9t111_set_format(struct i2c_client *client, struct v4l2_mbus_framefmt *fmt
 	ret = mt9t111_write_reg(client, 0x098E, 0x8400);
 	if(fmt->height <= 480 && fmt->width <= 640) {
 		ret |= mt9t111_write_reg(client, 0x0990, 1);
+		sensor->active_context = 0;
+		sensor->format[1].width = 640;
+		sensor->format[1].height = 480;
 	} else {
 		ret |= mt9t111_write_reg(client, 0x0990, 2);
+		sensor->active_context = 1;
+		sensor->format[1].width = 1028;
+		sensor->format[1].height = 768;
 	}
 #endif	
 	mt9t111_refresh(client);
+
+	memcpy(&(sensor->format[sensor->active_context]), fmt, sizeof(*fmt));
 	return ret;
 }
 EXPORT_SYMBOL(mt9t111_set_format);
 
 
-
+int mt9t111_get_format(struct i2c_client *client, struct v4l2_mbus_framefmt *fmt)
+{
+	struct mt9t111_sensor *sensor = i2c_get_clientdata(client);
+	struct v4l2_mbus_framefmt *tmp = &(sensor->format[sensor->active_context]);
+	memcpy(fmt, tmp, sizeof(*fmt));
+	return 0;
+}
+EXPORT_SYMBOL(mt9t111_get_format);
 
 /**
  * mt9t111_probe - sensor driver i2c probe handler
@@ -373,6 +395,24 @@ EXPORT_SYMBOL(mt9t111_set_format);
 static int mt9t111_probe(struct i2c_client *client,
 			const struct i2c_device_id *devid)
 {
+	struct mt9t111_sensor *sensor;
+	sensor = kzalloc(sizeof(*sensor), GFP_KERNEL);
+	if (!sensor)
+	     return -1;
+
+	i2c_set_clientdata(client, sensor);
+	sensor->client = client;
+	sensor->format[0].width        = 640;
+	sensor->format[0].height       = 480;
+	sensor->format[0].code         = V4L2_MBUS_FMT_YUYV16_1X16;
+	sensor->format[0].colorspace   = V4L2_COLORSPACE_SRGB;
+	sensor->format[0].field        = V4L2_FIELD_NONE;
+	sensor->format[1].width        = 2048;
+	sensor->format[1].height       = 1536;
+	sensor->format[1].code         = V4L2_MBUS_FMT_YUYV16_1X16;
+	sensor->format[1].colorspace   = V4L2_COLORSPACE_SRGB;
+	sensor->format[1].field        = V4L2_FIELD_NONE;
+	sensor->active_context = 0;
 	return 0;
 }
 
@@ -384,9 +424,10 @@ static int mt9t111_probe(struct i2c_client *client,
  * Unregister sensor as an i2c client device and V4L2
  * device.  Complement of mt9t111_probe().
  */
-static int __exit mt9t111_remove(struct i2c_client *client)
+static void __exit mt9t111_remove(struct i2c_client *client)
 {
-	return 0;
+	struct mt9t111_sensor *sensor = i2c_get_clientdata(client);
+	kfree(sensor);
 }
 
 
@@ -420,9 +461,8 @@ static int __init mt9t111_init(void)
 
 	rval = i2c_add_driver(&mt9t111_i2c_driver);
 	if (rval)
-		printk(KERN_INFO "%s: failed registering " MT9T111_NAME "\n",
+		printk(KERN_ERR "%s: failed registering " MT9T111_NAME "\n",
 		       __func__);
-
 	return rval;
 }
 

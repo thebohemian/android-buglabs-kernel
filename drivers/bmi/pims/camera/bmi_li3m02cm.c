@@ -62,7 +62,6 @@ struct bmi_li3m02cm {
 	struct bmi_device *bdev;		
 	struct i2c_client *iox;
 	struct i2c_client *mt9t111;
-	struct v4l2_mbus_framefmt format;
 	u8  sysfs_iox_i2c_addr;
 	u16 sysfs_mt9t111_i2c_addr;
 };
@@ -294,7 +293,9 @@ static ssize_t show_format(struct device *dev,
 			struct device_attribute *attr, char *buf)
 {
 	struct bmi_li3m02cm *cam = dev_get_drvdata(dev);
-	return sprintf(buf, "%d %d\n", cam->format.width, cam->format.height);
+	struct v4l2_mbus_framefmt fmt;
+	mt9t111_get_format(cam->mt9t111, &fmt);
+	return sprintf(buf, "%d %d %d\n", fmt.width, fmt.height, fmt.code);
 }
 
 static ssize_t store_format(struct device *dev,
@@ -302,8 +303,8 @@ static ssize_t store_format(struct device *dev,
 {
 	struct bmi_li3m02cm *cam = dev_get_drvdata(dev);
 	struct v4l2_mbus_framefmt fmt;
-	sscanf(buf, "%d %d", &(fmt.width), &(fmt.height));
-	if(fmt.width && fmt.height)
+	sscanf(buf, "%d %d %d", &(fmt.width), &(fmt.height), &(fmt.code));
+	if(fmt.width && fmt.height && fmt.code)
 		li3m02cm_set_pad_format(cam->bdev, NULL, 0, &fmt, 0);
 	return size;
 }
@@ -434,12 +435,6 @@ static int li3m02cm_set_power(struct bmi_device *bdev, int on)
 	ret = mt9t111_s_stream(cam->mt9t111, on);
 	if(ret < 0)
 		goto error;
-	// initialize the current camera format
-	cam->format.width  = 640;
-	cam->format.height = 480;
-	cam->format.code   = V4L2_MBUS_FMT_SGRBG10_1X10;
-	cam->format.colorspace   = V4L2_COLORSPACE_SRGB;
-	cam->format.field        = V4L2_FIELD_NONE;
 
 	if(on) {
 		u8 retry_count = 0;
@@ -629,14 +624,14 @@ static int li3m02cm_get_pad_format(struct bmi_device *bdev,
 	switch (which) {
 	case V4L2_SUBDEV_FORMAT_PROBE:
 		format = v4l2_subdev_get_probe_format(fh, pad);
+		*fmt = *format;
 		break;
 	case V4L2_SUBDEV_FORMAT_ACTIVE:
-		format = &cam->format;
+		mt9t111_get_format(cam->mt9t111, fmt);
 		break;
 	default: 
 		return -EINVAL;
 	}
-	*fmt = *format;
 	return 0;
 }
 
@@ -646,15 +641,7 @@ static int li3m02cm_set_pad_format(struct bmi_device *bdev,
 				 enum v4l2_subdev_format which)
 {
 	struct bmi_li3m02cm *cam = bmi_device_get_drvdata(bdev);
-	int ret;
-	printk(KERN_INFO "%s enter\n", __func__);
-	ret = mt9t111_set_format(cam->mt9t111, fmt);
-	if(ret < 0)
-		return ret;
-	cam->format.width  = fmt->width;
-	cam->format.height = fmt->height;
-	cam->format.code   = fmt->code;
-	return 0;
+	return mt9t111_set_format(cam->mt9t111, fmt);
 }
 
 static const struct bmi_camera_video_ops li3m02cm_video_ops = {
