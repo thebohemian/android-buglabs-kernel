@@ -48,6 +48,7 @@ struct bmi_camera_selector {
 	struct bmi_camera_platform_data *pdat[4];
 	int selected;
 	int count;
+	int busy; // indicates that selected device is in use and cannot be switched
 };
 
 // This is an arbitrary I2C address (see comment in .c file)

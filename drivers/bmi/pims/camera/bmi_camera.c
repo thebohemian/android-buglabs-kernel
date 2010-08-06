@@ -21,6 +21,20 @@
  *
  */
 
+/* We implement this as a bridge driver to bridge v4l2 and bmi. As
+ * such we implement two drivers. One is an i2c v4l2 subdevice. It
+ * doesn't need to be i2c, but the omap3-isp driver requires it, so we
+ * create the bug_camera_subdev as a dummy i2c device. The second is a
+ * platform driver called "bug_camera" that bug camera modules must
+ * implement. The bug_camera interface is very similar to the V4L
+ * interface. This module takes care of farming out V4L commands to
+ * the appropriate camera module, so it is also a mux.
+ *
+ * To add new camera module, one must call the
+ * bmi_register_camera()/bmi_unregister_camera() functions and fill
+ * in the applicable ops in the bmi_camera_platform_data struct.
+ */
+
 #include <linux/bmi.h>
 #include <linux/platform_device.h>
 #include <linux/mm.h>
@@ -108,7 +122,9 @@ static int bmi_camera_set_selected_slot(int slotnum) {
 	if(slotnum < 0 || slotnum > 3)
 		return -EINVAL;
 	mutex_lock(&bmi_camera_sel.mutex);
-	if(!bmi_camera_sel.pdat[slotnum]) {
+	if(bmi_camera_sel.busy) {
+		ret = -EBUSY;
+	} else if(!bmi_camera_sel.pdat[slotnum]) {
 		ret = -EINVAL;
 	} else {
 		bmi_camera_sel.selected = slotnum;
@@ -121,6 +137,9 @@ static int bmi_camera_set_selected_slot(int slotnum) {
 static int bmi_camera_select_available_slot(void) {
 	int ret = -EINVAL, slotnum;
 	mutex_lock(&bmi_camera_sel.mutex);
+	if(bmi_camera_sel.busy)
+		mutex_unlock(&bmi_camera_sel.mutex);
+		return -EBUSY;
 	for(slotnum=0; slotnum<4; slotnum++) { // cycle to find next avail slot
 		if(bmi_camera_sel.pdat[slotnum]) {
 			bmi_camera_sel.selected = slotnum;
@@ -218,6 +237,7 @@ int bmi_camera_platform_remove(struct platform_device *pdev)
 	bmi_camera_sel.pdat[slotnum] = NULL;
 	bmi_camera_sel.count--;
 	bmi_camera_sel.selected = -1;
+	bmi_camera_sel.busy = 0;
 	mutex_unlock(&bmi_camera_sel.mutex);
 	bmi_camera_select_available_slot();
 
@@ -297,10 +317,22 @@ static DEVICE_ATTR(serdes_locked, S_IRUGO, show_serdes_locked, NULL);
 
 static int bmi_camera_s_stream(struct v4l2_subdev *subdev, int streaming)
 {
+	int err=0;
 	GET_SELECTED_DEV;
-	if(ops->video && ops->video->s_stream)
-		return ops->video->s_stream(subdev, streaming);
-	return 0;
+	mutex_lock(&bmi_camera_sel.mutex);
+	if(ops->video && ops->video->s_stream) {
+		err = ops->video->s_stream(subdev, streaming);
+	} else {
+		mutex_unlock(&bmi_camera_sel.mutex);
+		return -EINVAL;
+	}
+	if(streaming && err==0) {
+		bmi_camera_sel.busy = 1;
+	} else {
+		bmi_camera_sel.busy = 0;
+	}		
+	mutex_unlock(&bmi_camera_sel.mutex);
+	return err;
 }
 
 static int bmi_camera_enum_format(struct v4l2_subdev *s, struct v4l2_fmtdesc *fmt)
@@ -478,6 +510,45 @@ static int bmi_camera_set_frame_interval(struct v4l2_subdev *subdev,
 	return 0;
 }
 
+static int bmi_camera_enum_input(struct v4l2_input *argp) {
+	if(argp->index >= 4)
+		return -EINVAL;
+	sprintf(argp->name, "BUG CAMERA SLOT %d", argp->index);
+	argp->type = V4L2_INPUT_TYPE_CAMERA;
+	argp->audioset = 0; // currently no audio
+	argp->tuner = 0;
+	argp->std = 0; // not sure what to put here
+
+	// from the docs, status is only valid when this is the current input
+	mutex_lock(&bmi_camera_sel.mutex);
+	if(bmi_camera_sel.selected == argp->index) {
+		argp->status = 
+			(bmi_camera_sel.pdat[argp->index] ? 0x0 : 
+			 V4L2_IN_ST_NO_ACCESS) |
+			(bmi_camera_is_serdes_locked() ? 0x0 : 
+			 V4L2_IN_ST_NO_SYNC);
+	} else {
+		argp->status = 0xFFFFFFFF;
+	}
+	mutex_unlock(&bmi_camera_sel.mutex);
+	return 0;
+}
+
+static long bmi_camera_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
+{
+	switch(cmd) {
+	case VIDIOC_ENUMINPUT:
+		return bmi_camera_enum_input(arg);
+	case VIDIOC_S_INPUT:
+		return bmi_camera_set_selected_slot(*((int*) arg));
+	case VIDIOC_G_INPUT:
+		*((int*) arg) = bmi_camera_get_selected_slot();
+		return 0;
+	default:
+		return -1;
+	}
+}
+
 static const struct v4l2_subdev_video_ops bmi_camera_video_ops = {
 	.s_stream            = bmi_camera_s_stream,
 	.g_frame_interval    = bmi_camera_get_frame_interval,
@@ -500,6 +571,7 @@ static const struct v4l2_subdev_core_ops bmi_camera_core_ops = {
 	.g_ctrl       = bmi_camera_get_ctrl,
 	.s_ctrl       = bmi_camera_set_ctrl,
 	.s_power      = bmi_camera_set_power,
+	.ioctl        = bmi_camera_ioctl,
 };
 
 static const struct v4l2_subdev_pad_ops bmi_camera_pad_ops = {
@@ -594,6 +666,7 @@ static __init int bmi_camera_init(void)
 	mutex_init(&bmi_camera_sel.mutex);
 	bmi_camera_sel.selected = -1;
 	bmi_camera_sel.count = 0;
+	bmi_camera_sel.busy  = 0;
 	for(i=0; i<4; i++) {
 		bmi_camera_sel.pdat[i] = NULL;
 	}
