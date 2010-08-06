@@ -264,11 +264,7 @@ static ssize_t store_mt9t111_addr(struct device *dev,
 	return size;
 }
 
-static int li3m02cm_set_power(struct bmi_device *bdev, int on);
-static int li3m02cm_set_pad_format(struct bmi_device *bdev,
-				 struct v4l2_subdev_fh *fh, unsigned int pad,
-				 struct v4l2_mbus_framefmt *fmt,
-				   enum v4l2_subdev_format which);
+static int __li3m02cm_set_power(struct bmi_device *bdev, int on);
 
 static ssize_t show_power(struct device *dev,
 			struct device_attribute *attr, char *buf)
@@ -283,9 +279,9 @@ static ssize_t store_power(struct device *dev,
 	long value = 0;
 	strict_strtol(buf, 0, &value);
 	if(value)
-		li3m02cm_set_power(cam->bdev, 1);
+		__li3m02cm_set_power(cam->bdev, 1);
 	else
-		li3m02cm_set_power(cam->bdev, 0);
+		__li3m02cm_set_power(cam->bdev, 0);
 	return size;
 }
 
@@ -305,7 +301,7 @@ static ssize_t store_format(struct device *dev,
 	struct v4l2_mbus_framefmt fmt;
 	sscanf(buf, "%d %d %d", &(fmt.width), &(fmt.height), &(fmt.code));
 	if(fmt.width && fmt.height && fmt.code)
-		li3m02cm_set_pad_format(cam->bdev, NULL, 0, &fmt, 0);
+		mt9t111_set_format(cam->mt9t111, &fmt);
 	return size;
 }
 
@@ -374,18 +370,15 @@ void deconfigure_module(struct bmi_li3m02cm *cam)
 	bmi_slot_gpio_direction_in(slot, 1);
 }
 
-static int
-li3m02cm_set_config(struct bmi_device *bdev, int irq, void *platform_data)
+#define subdev_to_bdev(subdev) (((struct bmi_camera_sensor *) to_bmi_camera_sensor(subdev))->bdev)
+#define subdev_to_cam(subdev) bmi_device_get_drvdata(subdev_to_bdev(subdev))
+
+static int li3m02cm_set_power(struct v4l2_subdev *subdev, int on)
 {
-	struct bmi_li3m02cm *cam = bmi_device_get_drvdata(bdev);
-		
-	// configure GPIO and IOX
-	configure_GPIO(cam);
-	configure_IOX(cam);
-	return 0;
+	return __li3m02cm_set_power(subdev_to_bdev(subdev), on);
 }
 
-static int li3m02cm_set_power(struct bmi_device *bdev, int on)
+static int __li3m02cm_set_power(struct bmi_device *bdev, int on)
 {
 	struct bmi_li3m02cm *cam = bmi_device_get_drvdata(bdev);
 	unsigned char iox_data;
@@ -469,8 +462,9 @@ error:
 	return ret;
 }
 
-static int li3m02cm_s_stream(struct bmi_device *bdev, int streaming)
+static int li3m02cm_s_stream(struct v4l2_subdev *subdev, int streaming)
 {
+	struct bmi_device *bdev = subdev_to_bdev(subdev);
 	struct bmi_li3m02cm *cam = bmi_device_get_drvdata(bdev);
 	unsigned char iox_data;
 	int ret;
@@ -503,84 +497,84 @@ error:
 	return ret;
 }
 
-static int li3m02cm_enum_format(struct bmi_device *s, struct v4l2_fmtdesc *fmt)
+static int li3m02cm_enum_format(struct v4l2_subdev *s, struct v4l2_fmtdesc *fmt)
 {
 	return 0;
 }
 
-static int li3m02cm_get_format(struct bmi_device *subdev,
+static int li3m02cm_get_format(struct v4l2_subdev *subdev,
 			     struct v4l2_format *f)
 {
 	printk(KERN_INFO "%s enter\n", __func__);
 	return 0;
 }
 
-static int li3m02cm_try_format(struct bmi_device *s, struct v4l2_format *f)
+static int li3m02cm_try_format(struct v4l2_subdev *s, struct v4l2_format *f)
 {
 	return 0;
 }
 
-static int li3m02cm_set_format(struct bmi_device *s, struct v4l2_format *f)
+static int li3m02cm_set_format(struct v4l2_subdev *s, struct v4l2_format *f)
 {
 	return 0;
 }
 
-static int li3m02cm_get_param(struct bmi_device *subdev,
+static int li3m02cm_get_param(struct v4l2_subdev *subdev,
 			    struct v4l2_streamparm *a)
 {
 	printk(KERN_INFO "%s enter\n", __func__);
 	return 0;
 }
 
-static int li3m02cm_set_param(struct bmi_device *subdev,
+static int li3m02cm_set_param(struct v4l2_subdev *subdev,
 			    struct v4l2_streamparm *a)
 {
 	printk(KERN_INFO "%s enter\n", __func__);
 	return 0;
 }
 
-static int li3m02cm_enum_frame_sizes(struct bmi_device *s,
+static int li3m02cm_enum_frame_sizes(struct v4l2_subdev *s,
 					struct v4l2_frmsizeenum *frms)
 {
 	return 0;
 }
 
-static int li3m02cm_enum_frame_intervals(struct bmi_device *s,
+static int li3m02cm_enum_frame_intervals(struct v4l2_subdev *s,
 					struct v4l2_frmivalenum *frmi)
 {
 	return 0;
 }
 
 static int
-li3m02cm_get_chip_ident(struct bmi_device *subdev,
+li3m02cm_get_chip_ident(struct v4l2_subdev *subdev,
 		      struct v4l2_dbg_chip_ident *chip)
 {
 	return 0;
 }
 
 
-static int li3m02cm_query_ctrl(struct bmi_device *subdev,
+static int li3m02cm_query_ctrl(struct v4l2_subdev *subdev,
 				  struct v4l2_queryctrl *a)
 {
 	printk(KERN_INFO "%s enter\n", __func__);
 	return 0;
 }
 
-static int li3m02cm_query_menu(struct bmi_device *subdev,
+static int li3m02cm_query_menu(struct v4l2_subdev *subdev,
 				  struct v4l2_querymenu *qm)
 {
 	printk(KERN_INFO "%s enter\n", __func__);
 	return 0;
 }
 
-static int li3m02cm_get_ctrl(struct bmi_device *subdev,
+static int li3m02cm_get_ctrl(struct v4l2_subdev *subdev,
 			       struct v4l2_control *vc)
 {
 	printk(KERN_INFO "%s enter\n", __func__);
 	return 0;
 }
 
-static int li3m02cm_set_ctrl(struct bmi_device *subdev,
+static int li3m02cm_set_ctrl(struct v4l2_subdev *subdev,
 			       struct v4l2_control *vc)
 {
 	printk(KERN_INFO "%s enter\n", __func__);
@@ -588,7 +582,7 @@ static int li3m02cm_set_ctrl(struct bmi_device *subdev,
 }
 
 
-static int li3m02cm_enum_frame_size(struct bmi_device *subdev,
+static int li3m02cm_enum_frame_size(struct v4l2_subdev *subdev,
 				  struct v4l2_subdev_fh *fh,
 				  struct v4l2_subdev_frame_size_enum *fse)
 {
@@ -596,14 +590,14 @@ static int li3m02cm_enum_frame_size(struct bmi_device *subdev,
 	return 0;
 }
 
-static int li3m02cm_enum_frame_ival(struct bmi_device *subdev,
+static int li3m02cm_enum_frame_ival(struct v4l2_subdev *subdev,
 				  struct v4l2_subdev_fh *fh,
 				  struct v4l2_subdev_frame_interval_enum *fie)
 {
 	printk(KERN_INFO "%s enter\n", __func__);
 	return 0;
 }
-static int li3m02cm_enum_mbus_code(struct bmi_device *subdev,
+static int li3m02cm_enum_mbus_code(struct v4l2_subdev *subdev,
 				 struct v4l2_subdev_fh *fh,
 				 struct v4l2_subdev_pad_mbus_code_enum *code)
 {
@@ -611,13 +605,12 @@ static int li3m02cm_enum_mbus_code(struct bmi_device *subdev,
 	return 0;
 }
 
-
-static int li3m02cm_get_pad_format(struct bmi_device *bdev,
+static int li3m02cm_get_pad_format(struct v4l2_subdev *subdev,
 				 struct v4l2_subdev_fh *fh, unsigned int pad,
 				 struct v4l2_mbus_framefmt *fmt,
 				 enum v4l2_subdev_format which)
 {
-	struct bmi_li3m02cm *cam = bmi_device_get_drvdata(bdev);
+	struct bmi_li3m02cm *cam = subdev_to_cam(subdev);
 	struct v4l2_mbus_framefmt *format;
 	//printk(KERN_INFO "%s enter\n", __func__);
 		
@@ -635,16 +628,16 @@ static int li3m02cm_get_pad_format(struct bmi_device *bdev,
 	return 0;
 }
 
-static int li3m02cm_set_pad_format(struct bmi_device *bdev,
+static int li3m02cm_set_pad_format(struct v4l2_subdev *subdev,
 				 struct v4l2_subdev_fh *fh, unsigned int pad,
 				 struct v4l2_mbus_framefmt *fmt,
 				 enum v4l2_subdev_format which)
 {
-	struct bmi_li3m02cm *cam = bmi_device_get_drvdata(bdev);
+	struct bmi_li3m02cm *cam = subdev_to_cam(subdev);
 	return mt9t111_set_format(cam->mt9t111, fmt);
 }
 
-static const struct bmi_camera_video_ops li3m02cm_video_ops = {
+static const struct v4l2_subdev_video_ops li3m02cm_video_ops = {
 	.s_stream            = li3m02cm_s_stream,
 	.enum_fmt            = li3m02cm_enum_format,
 	.g_fmt               = li3m02cm_get_format,
@@ -656,9 +649,8 @@ static const struct bmi_camera_video_ops li3m02cm_video_ops = {
         .enum_frameintervals = li3m02cm_enum_frame_intervals,
 };
 
-static const struct bmi_camera_core_ops li3m02cm_core_ops = {
+static const struct v4l2_subdev_core_ops li3m02cm_core_ops = {
 	.g_chip_ident = li3m02cm_get_chip_ident,
-	.s_config     = li3m02cm_set_config,
 	.queryctrl    = li3m02cm_query_ctrl,
 	.querymenu    = li3m02cm_query_menu,
 	.g_ctrl       = li3m02cm_get_ctrl,
@@ -666,7 +658,7 @@ static const struct bmi_camera_core_ops li3m02cm_core_ops = {
 	.s_power      = li3m02cm_set_power,
 };
 
-static const struct bmi_camera_pad_ops li3m02cm_pad_ops = {
+static const struct v4l2_subdev_pad_ops li3m02cm_pad_ops = {
 	.enum_mbus_code      = li3m02cm_enum_mbus_code,
         .enum_frame_size     = li3m02cm_enum_frame_size,
         .enum_frame_interval = li3m02cm_enum_frame_ival,
@@ -674,7 +666,7 @@ static const struct bmi_camera_pad_ops li3m02cm_pad_ops = {
 	.set_fmt             = li3m02cm_set_pad_format,
 };
 
-static struct bmi_camera_ops li3m02cm_ops = {
+static struct v4l2_subdev_ops li3m02cm_ops = {
 	.core  = &li3m02cm_core_ops,
 	.video = &li3m02cm_video_ops,
 	.pad   = &li3m02cm_pad_ops,
@@ -683,18 +675,22 @@ static struct bmi_camera_ops li3m02cm_ops = {
 
 int bmi_li3m02cm_probe(struct bmi_device *bdev)
 {	
-	struct bmi_li3m02cm *bmi_li3m02cm;
+	struct bmi_li3m02cm *cam;
 	int ret=0;
 
-	bmi_li3m02cm = kzalloc(sizeof(*bmi_li3m02cm), GFP_KERNEL);
-	if (!bmi_li3m02cm) {
+	cam = kzalloc(sizeof(*cam), GFP_KERNEL);
+	if (!cam) {
 	     return -1;
 	}
 	
-	bmi_device_set_drvdata(bdev, bmi_li3m02cm);
-	bmi_li3m02cm->bdev = bdev;
-	bmi_li3m02cm->iox = i2c_new_device(bdev->slot->adap, &iox_info);
-	bmi_li3m02cm->mt9t111 = i2c_new_device(bdev->slot->adap, &mt9t111_info);
+	bmi_device_set_drvdata(bdev, cam);
+	cam->bdev = bdev;
+	cam->iox = i2c_new_device(bdev->slot->adap, &iox_info);
+	cam->mt9t111 = i2c_new_device(bdev->slot->adap, &mt9t111_info);
+
+	// configure GPIO and IOX
+	configure_GPIO(cam);
+	configure_IOX(cam);
 
 	bmi_register_camera(bdev, &li3m02cm_ops);
 

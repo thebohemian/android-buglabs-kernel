@@ -43,6 +43,12 @@
 
 extern struct platform_device omap3isp_device;
 
+
+/* We declare this module as an i2c device simply because the
+ * omap3-isp requires a i2c subdev. In reality this module is
+ * simply a mux between any bug camera modules that plug
+ * and register as such. It registers a 'fake' i2c address
+ * only because it has to. */
 static struct i2c_board_info bmi_camera_i2c_devices[] = {
 	{
 		I2C_BOARD_INFO(BMI_CAMERA_NAME, BMI_CAMERA_I2C_ADDR),
@@ -79,7 +85,7 @@ static struct isp_platform_data bmi_isp_platform_data = {
 
 static struct bmi_camera_selector bmi_camera_sel;
 
-static int bmi_camera_get_selected_ops(struct bmi_camera_ops **ops, 
+static int bmi_camera_get_selected_ops(struct v4l2_subdev_ops **ops, 
 				       struct bmi_device **bdev) {
 	int ret=0;
 	mutex_lock(&bmi_camera_sel.mutex);
@@ -136,7 +142,7 @@ static int bmi_camera_select_available_slot(void) {
 	return ret;
 }
 
-int bmi_register_camera(struct bmi_device *bdev, struct bmi_camera_ops *ops)
+int bmi_register_camera(struct bmi_device *bdev, struct v4l2_subdev_ops *ops)
 {
 	int rval = 0;
 	int slotnum = bdev->slot->slotnum;
@@ -150,12 +156,6 @@ int bmi_register_camera(struct bmi_device *bdev, struct bmi_camera_ops *ops)
 		bmi_camera_sel.selected = slotnum;
 	bmi_camera_sel.count++;
 
-	if(ops->core && ops->core->s_config) {
-		rval = ops->core->s_config(bdev, 0, NULL);
-		if(rval < 0)
-			goto out;
-	}
-out:
 	mutex_unlock(&bmi_camera_sel.mutex);
 	printk(KERN_INFO "%s registering camera in slot %d: return cord = %d\n", __func__, slotnum, rval);
 	return rval;
@@ -165,7 +165,6 @@ EXPORT_SYMBOL(bmi_register_camera);
 int bmi_unregister_camera(struct bmi_device *bdev)
 {
 	int slotnum = bdev->slot->slotnum;
-	
 	mutex_lock(&bmi_camera_sel.mutex);
 	bmi_camera_sel.bdev[slotnum] = NULL;
 	bmi_camera_sel.ops[slotnum]  = NULL;
@@ -231,57 +230,6 @@ static ssize_t store_slot(struct device *dev,
 	return size;
 }
 
-static ssize_t show_i2c(struct device *dev,
-			struct device_attribute *attr, char *buf)
-{
-	struct i2c_adapter *adap = i2c_get_adapter(2);
-        int    ret = 0, i;
-        struct i2c_msg rmsg[2];
-	unsigned char data[8];
-	unsigned char addr[] = { 0x0, 0x2, 0x4, 0x6 };
-
-	for(i=0; i<4; i++) {
-		rmsg[0].addr = 0x20;
-		rmsg[0].flags = 0;   /* write */ 
-		rmsg[0].len = 1;
-		rmsg[0].buf = addr+i;
-
-		rmsg[1].addr = 0x20;
-		rmsg[1].flags = I2C_M_RD;   /* read */ 
-		rmsg[1].len = 2;
-		rmsg[1].buf = data+(2*i);
-
-		ret += i2c_transfer (adap, rmsg, 2);
-	}
-	i2c_put_adapter(adap);
-	return sprintf(buf, "%d Input : 0x%02x%02x\n  Output: 0x%02x%02x\n  Polari: 0x%02x%02x\n  OutEnB: 0x%02x%02x\n", ret, data[1], data[0], data[3], data[2], data[5], data[4], data[7], data[6]);
-}
-
-static ssize_t store_i2c(struct device *dev,
-		struct device_attribute *attr, const char *buf, size_t size)
-{
-	int value, addr;
-	struct i2c_adapter *adap = i2c_get_adapter(2);
-        int    ret = 0;
-        struct i2c_msg rmsg[1];
-	unsigned char data[3];
-
-
-	sscanf(buf, "%d %d", &addr, &value);
-	data[0] = addr;
-	data[1] = value & 0xFF;
-	data[2] = (value >> 8) & 0xFF;
-
-	rmsg[0].addr = 0x20;
-	rmsg[0].flags = 0;   /* write */ 
-	rmsg[0].len = 3;
-	rmsg[0].buf = data;
-
-	ret = i2c_transfer (adap, rmsg, 1);
-	i2c_put_adapter(adap);
-	return size;
-}
-
 static ssize_t show_serdes_locked(struct device *dev,
 			 struct device_attribute *attr, char *buf)
 {
@@ -289,23 +237,23 @@ static ssize_t show_serdes_locked(struct device *dev,
 }
 
 static DEVICE_ATTR(slot, S_IWUGO | S_IRUGO, show_slot, store_slot);
-static DEVICE_ATTR(i2c, S_IWUGO | S_IRUGO, show_i2c, store_i2c);
 static DEVICE_ATTR(serdes_locked, S_IRUGO, show_serdes_locked, NULL);
 
-#define GET_SELECTED_OPS                                         \
-	int ret;                                                 \
-	struct bmi_camera_ops *ops = NULL;                       \
-	struct bmi_device *bdev = NULL;                          \
-	ret = bmi_camera_get_selected_ops(&ops, &bdev);          \
-	if(ret < 0)                                              \
-		return ret                                       
-
+#define GET_SELECTED_OPS                                                 \
+	int ret;                                                         \
+	struct v4l2_subdev_ops *ops = NULL;                               \
+	struct bmi_device *bdev = NULL;                                  \
+	struct bmi_camera_sensor *sensor = to_bmi_camera_sensor(subdev); \
+	ret = bmi_camera_get_selected_ops(&ops, &bdev);                  \
+	if(ret < 0)                                                      \
+		return ret;  						\
+	sensor->bdev = bdev
 
 static int bmi_camera_s_stream(struct v4l2_subdev *subdev, int streaming)
 {
 	GET_SELECTED_OPS;
 	if(ops->video && ops->video->s_stream)
-		return ops->video->s_stream(bdev, streaming);
+		return ops->video->s_stream(subdev, streaming);
 	return 0;
 }
 
@@ -372,14 +320,6 @@ static int bmi_camera_get_chip_ident(struct v4l2_subdev *subdev,
 static int
 bmi_camera_set_config(struct v4l2_subdev *subdev, int irq, void *platform_data)
 {
-//	int ret;
-//	struct bmi_camera_ops *ops = NULL;
-//	struct bmi_device *bdev = NULL;
-//	ret = bmi_camera_mux_get_selected(&ops, &bdev);
-//	if(ret < 0) 
-//		return ret;
-//	if(ops->core && ops->core->s_config)
-//		return ops->core->s_config(bdev, irq, platform_data);
 	return 0;
 }
 
@@ -415,7 +355,7 @@ static int bmi_camera_set_power(struct v4l2_subdev *subdev, int on)
 {
 	GET_SELECTED_OPS;
 	if(ops->core && ops->core->s_power)
-		return ops->core->s_power(bdev, on);
+		return ops->core->s_power(subdev, on);
 	return 0;
 }
 
@@ -436,7 +376,7 @@ static int bmi_camera_enum_frame_interval(struct v4l2_subdev *subdev,
 {
 	GET_SELECTED_OPS;
 	if(ops->pad && ops->pad->enum_frame_interval)
-		return ops->pad->enum_frame_interval(bdev, fh, fie);
+		return ops->pad->enum_frame_interval(subdev, fh, fie);
 	return -EINVAL;
 }
 
@@ -447,7 +387,7 @@ static int bmi_camera_enum_mbus_code(struct v4l2_subdev *subdev,
 {
 	GET_SELECTED_OPS;
 	if(ops->pad && ops->pad->enum_mbus_code)
-		return ops->pad->enum_mbus_code(bdev, fh, code);
+		return ops->pad->enum_mbus_code(subdev, fh, code);
 	return -EINVAL;
 }
 
@@ -458,7 +398,7 @@ static int bmi_camera_get_pad_format(struct v4l2_subdev *subdev,
 {
 	GET_SELECTED_OPS;
 	if(ops->pad && ops->pad->get_fmt) {
-		return 	ops->pad->get_fmt(bdev, fh, pad, fmt, which);
+		return 	ops->pad->get_fmt(subdev, fh, pad, fmt, which);
 	}
 	return -EINVAL;
 }
@@ -470,7 +410,7 @@ static int bmi_camera_set_pad_format(struct v4l2_subdev *subdev,
 {
 	GET_SELECTED_OPS;
 	if(ops->pad && ops->pad->set_fmt)
-		return ops->pad->set_fmt(bdev, fh, pad, fmt, which);
+		return ops->pad->set_fmt(subdev, fh, pad, fmt, which);
 	return -EINVAL;
 }
 
@@ -552,6 +492,7 @@ static int bmi_camera_probe(struct i2c_client *client,
 
 	sensor->pad.type = MEDIA_PAD_TYPE_OUTPUT;
 	sensor->subdev.entity.ops = &bmi_camera_entity_ops;
+	sensor->bdev = NULL;
 	ret = media_entity_init(&sensor->subdev.entity, 1, &sensor->pad, 0);
 	if (ret < 0) {
 		kfree(sensor);
@@ -559,8 +500,7 @@ static int bmi_camera_probe(struct i2c_client *client,
 	}
 
 	ret = device_create_file(&client->dev, &dev_attr_slot);
-	ret = device_create_file(&client->dev, &dev_attr_serdes_locked);
-	ret = device_create_file(&client->dev, &dev_attr_i2c);
+	ret |= device_create_file(&client->dev, &dev_attr_serdes_locked);
 	return ret;
 }
 
@@ -592,8 +532,6 @@ static struct i2c_driver bmi_camera_i2c_driver = {
 	.id_table	= bmi_camera_id_table,
 };
 
-
-
 static __init int bmi_camera_init(void)
 {	
 	int ret, i;
@@ -608,7 +546,7 @@ static __init int bmi_camera_init(void)
 
 	ret = i2c_add_driver(&bmi_camera_i2c_driver);
 	if (ret) {
-		printk(KERN_ERR "%s: failed registering " BMI_CAMERA_NAME "\n",
+		printk(KERN_ERR "%s: failed registering i2c driver" BMI_CAMERA_NAME "\n",
 		       __func__);
 		return ret;
 	}
