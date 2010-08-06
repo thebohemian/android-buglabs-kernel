@@ -31,7 +31,6 @@
 #include "mt9t111.h"
 
 #define BMI_LI3M02CM_VERSION  "0.1.0.5"
-extern struct platform_device omap3isp_device;
 
 // BMI device ID table
 static struct bmi_device_id bmi_li3m02cm_tbl[] = 
@@ -679,20 +678,18 @@ int bmi_li3m02cm_probe(struct bmi_device *bdev)
 	int ret=0;
 
 	cam = kzalloc(sizeof(*cam), GFP_KERNEL);
-	if (!cam) {
+	if (!cam)
 	     return -1;
-	}
 	
 	bmi_device_set_drvdata(bdev, cam);
 	cam->bdev = bdev;
-	cam->iox = i2c_new_device(bdev->slot->adap, &iox_info);
+	cam->iox     = i2c_new_device(bdev->slot->adap, &iox_info);
 	cam->mt9t111 = i2c_new_device(bdev->slot->adap, &mt9t111_info);
 
-	// configure GPIO and IOX
-	configure_GPIO(cam);
+	configure_GPIO(cam); 	// configure GPIO and IOX
 	configure_IOX(cam);
 
-	bmi_register_camera(bdev, &li3m02cm_ops);
+	bmi_register_camera(bdev, &li3m02cm_ops); //reg. this as a bug_camera
 
 	// These can be removed after driver stabalizes. They are for debug now.
 	ret = device_create_file(&bdev->dev, &dev_attr_iox_value);
@@ -702,23 +699,16 @@ int bmi_li3m02cm_probe(struct bmi_device *bdev)
 	ret = device_create_file(&bdev->dev, &dev_attr_set_power);
 	ret = device_create_file(&bdev->dev, &dev_attr_format);
 	ret = device_create_file(&bdev->dev, &dev_attr_context);
-	return 0;
+	return ret;
 }
 
 void bmi_li3m02cm_remove(struct bmi_device *bdev)
 {	
-	int slot;
-	struct bmi_li3m02cm *bmi_li3m02cm;
-
-	bmi_li3m02cm = (struct bmi_li3m02cm*)(bmi_device_get_drvdata (bdev));
-	slot = bdev->slot->slotnum;
-	
+	struct bmi_li3m02cm *cam = bmi_device_get_drvdata (bdev);
 	bmi_unregister_camera(bdev);
-
-	i2c_unregister_device(bmi_li3m02cm->iox);
-	i2c_unregister_device(bmi_li3m02cm->mt9t111);
-
-	kfree (bmi_li3m02cm);
+	i2c_unregister_device(cam->iox);
+	i2c_unregister_device(cam->mt9t111);
+	kfree (cam);
 	return;
 }
 
