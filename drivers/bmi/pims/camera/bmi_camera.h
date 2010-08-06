@@ -35,23 +35,28 @@ struct bmi_camera_sensor {
 	struct bmi_device *bdev;
 };
 
+struct bmi_camera_platform_data {
+	struct bmi_device *bdev;
+	struct v4l2_subdev_ops *ops;
+	struct platform_device *pdev;
+};
+
 #define to_bmi_camera_sensor(sd) container_of(sd, struct bmi_camera_sensor, subdev)
 
 struct bmi_camera_selector {
 	struct mutex mutex; /* atomic access to slot selection data */
-	struct bmi_device *bdev[4];
-	struct v4l2_subdev_ops *ops[4];
+	struct bmi_camera_platform_data *pdat[4];
 	int selected;
 	int count;
 };
-#define BMI_CAMERA_NAME "bmi_camera"
+
+// This is an arbitrary I2C address (see comment in .c file)
 #define BMI_CAMERA_I2C_ADDR 0x38
 
 
 extern int bmi_register_camera(struct bmi_device *bdev, 
 			       struct v4l2_subdev_ops *ops);
 extern int bmi_unregister_camera(struct bmi_device *bdev);
-
 extern int bmi_camera_is_serdes_locked(void);
 
 #endif

@@ -51,7 +51,7 @@ extern struct platform_device omap3isp_device;
  * only because it has to. */
 static struct i2c_board_info bmi_camera_i2c_devices[] = {
 	{
-		I2C_BOARD_INFO(BMI_CAMERA_NAME, BMI_CAMERA_I2C_ADDR),
+		I2C_BOARD_INFO("bug_camera_subdev", BMI_CAMERA_I2C_ADDR),
 		.platform_data = NULL,
 	},
 };
@@ -60,7 +60,7 @@ static struct v4l2_subdev_i2c_board_info bmi_camera_primary_subdevs[] = {
 	{
 		.board_info = &bmi_camera_i2c_devices[0],
 		.i2c_adapter_id = 3,
-		.module_name = BMI_CAMERA_NAME,
+		.module_name = "bug_camera_subdev",
 	},
 	{ NULL, 0, NULL, },
 };
@@ -85,21 +85,14 @@ static struct isp_platform_data bmi_isp_platform_data = {
 
 static struct bmi_camera_selector bmi_camera_sel;
 
-static int bmi_camera_get_selected_ops(struct v4l2_subdev_ops **ops, 
-				       struct bmi_device **bdev) {
-	int ret=0;
+static struct bmi_camera_platform_data *bmi_camera_get_selected_pdat(void)
+{
+	struct bmi_camera_platform_data *pdat = NULL;
 	mutex_lock(&bmi_camera_sel.mutex);
-	if(bmi_camera_sel.selected < 0) {
-		ret = -EINVAL;
-		goto out;
-	}
-	*ops  = bmi_camera_sel.ops[bmi_camera_sel.selected];
-	*bdev = bmi_camera_sel.bdev[bmi_camera_sel.selected];
-	if(*ops == NULL || *bdev == NULL)
-		ret = -EINVAL;
-out:
+	if(bmi_camera_sel.selected >= 0)
+		pdat = bmi_camera_sel.pdat[bmi_camera_sel.selected];
 	mutex_unlock(&bmi_camera_sel.mutex);
-	return ret;
+	return pdat;
 }
 
 static int bmi_camera_get_selected_slot(void) {
@@ -115,7 +108,7 @@ static int bmi_camera_set_selected_slot(int slotnum) {
 	if(slotnum < 0 || slotnum > 3)
 		return -EINVAL;
 	mutex_lock(&bmi_camera_sel.mutex);
-	if(!bmi_camera_sel.bdev[slotnum]) {
+	if(!bmi_camera_sel.pdat[slotnum]) {
 		ret = -EINVAL;
 	} else {
 		bmi_camera_sel.selected = slotnum;
@@ -129,7 +122,7 @@ static int bmi_camera_select_available_slot(void) {
 	int ret = -EINVAL, slotnum;
 	mutex_lock(&bmi_camera_sel.mutex);
 	for(slotnum=0; slotnum<4; slotnum++) { // cycle to find next avail slot
-		if(bmi_camera_sel.bdev[slotnum]) {
+		if(bmi_camera_sel.pdat[slotnum]) {
 			bmi_camera_sel.selected = slotnum;
 			ret = 0;
 			break;
@@ -142,14 +135,68 @@ static int bmi_camera_select_available_slot(void) {
 	return ret;
 }
 
+static void bmi_camera_platform_release(struct device *dev)
+{
+}
+
+
 int bmi_register_camera(struct bmi_device *bdev, struct v4l2_subdev_ops *ops)
 {
+	struct bmi_camera_platform_data *pdat;
+	struct platform_device *pdev;
+
+	pdat = kzalloc(sizeof(*pdat), GFP_KERNEL);
+	if(!pdat) 
+		return -1;
+
+	pdev = kzalloc(sizeof(*pdev), GFP_KERNEL);
+	if(!pdev) {
+		kfree(pdat);
+		return -1;
+	}
+	pdat->bdev = bdev;
+	pdat->ops  = ops;
+	pdat->pdev = pdev;
+	pdev->name = "bug_camera";
+	pdev->id   = -1;
+	pdev->num_resources = 0;
+	pdev->resource = NULL;
+	pdev->dev.release = bmi_camera_platform_release;
+	pdev->dev.platform_data = pdat;
+	return platform_device_register(pdev);
+}
+EXPORT_SYMBOL(bmi_register_camera);
+
+int bmi_unregister_camera(struct bmi_device *bdev)
+{
+	int i;
+	if(!bdev)
+		return -EINVAL;
+	mutex_lock(&bmi_camera_sel.mutex);
+	for(i=0; i<4; i++) {
+		struct bmi_camera_platform_data *pdat = bmi_camera_sel.pdat[i];
+		if(pdat->bdev == bdev) {
+			mutex_unlock(&bmi_camera_sel.mutex);
+			platform_device_unregister(pdat->pdev);
+			kfree(pdat->pdev);
+			kfree(pdat);
+			return 0;
+		}
+	}
+	mutex_unlock(&bmi_camera_sel.mutex);
+	return -EINVAL;
+}
+EXPORT_SYMBOL(bmi_unregister_camera);
+
+int bmi_camera_platform_probe(struct platform_device *pdev)
+{
+	struct bmi_camera_platform_data *pdat = pdev->dev.platform_data;
+	struct bmi_device *bdev = pdat->bdev;
 	int rval = 0;
 	int slotnum = bdev->slot->slotnum;
 
 	mutex_lock(&bmi_camera_sel.mutex);
-	bmi_camera_sel.bdev[slotnum] = bdev;
-	bmi_camera_sel.ops[slotnum]  = ops;
+	bmi_camera_sel.pdat[slotnum] = pdat;
 
 	// first camera plugged in gets selected
 	if(bmi_camera_sel.selected == -1)
@@ -157,26 +204,25 @@ int bmi_register_camera(struct bmi_device *bdev, struct v4l2_subdev_ops *ops)
 	bmi_camera_sel.count++;
 
 	mutex_unlock(&bmi_camera_sel.mutex);
-	printk(KERN_INFO "%s registering camera in slot %d: return cord = %d\n", __func__, slotnum, rval);
+	printk(KERN_INFO "%s registered bug camera on slot %d\n", __func__, slotnum);
 	return rval;
 }
-EXPORT_SYMBOL(bmi_register_camera);
 
-int bmi_unregister_camera(struct bmi_device *bdev)
+int bmi_camera_platform_remove(struct platform_device *pdev)
 {
+	struct bmi_camera_platform_data *pdat = pdev->dev.platform_data;
+	struct bmi_device *bdev = pdat->bdev;
 	int slotnum = bdev->slot->slotnum;
+	printk(KERN_INFO "%s unregistering bug camera from slot %d\n", __func__, slotnum);
 	mutex_lock(&bmi_camera_sel.mutex);
-	bmi_camera_sel.bdev[slotnum] = NULL;
-	bmi_camera_sel.ops[slotnum]  = NULL;
+	bmi_camera_sel.pdat[slotnum] = NULL;
 	bmi_camera_sel.count--;
 	bmi_camera_sel.selected = -1;
 	mutex_unlock(&bmi_camera_sel.mutex);
 	bmi_camera_select_available_slot();
+
 	return 0;
 }
-EXPORT_SYMBOL(bmi_unregister_camera);
-
-
 
 
 #define CAM_OSC_EN  37
@@ -208,7 +254,7 @@ int bmi_camera_set_power_bugbase(int on) {
 
 static int setup_gpio(unsigned gpio, int value) {
 	int ret;
-	ret = gpio_request(gpio,  BMI_CAMERA_NAME);
+	ret = gpio_request(gpio,  "bug_camera");
 	if(ret < 0)
 		return ret;
 	return gpio_direction_output(gpio, value);
@@ -239,19 +285,19 @@ static ssize_t show_serdes_locked(struct device *dev,
 static DEVICE_ATTR(slot, S_IWUGO | S_IRUGO, show_slot, store_slot);
 static DEVICE_ATTR(serdes_locked, S_IRUGO, show_serdes_locked, NULL);
 
-#define GET_SELECTED_OPS                                                 \
-	int ret;                                                         \
-	struct v4l2_subdev_ops *ops = NULL;                               \
+#define GET_SELECTED_DEV                                                 \
+	struct v4l2_subdev_ops *ops = NULL;                              \
 	struct bmi_device *bdev = NULL;                                  \
 	struct bmi_camera_sensor *sensor = to_bmi_camera_sensor(subdev); \
-	ret = bmi_camera_get_selected_ops(&ops, &bdev);                  \
-	if(ret < 0)                                                      \
-		return ret;  						\
+	struct bmi_camera_platform_data *pdat = bmi_camera_get_selected_pdat();\
+	if(!pdat) return -EINVAL;                                        \
+	ops = pdat->ops;                                                 \
+	bdev = pdat->bdev;                                               \
 	sensor->bdev = bdev
 
 static int bmi_camera_s_stream(struct v4l2_subdev *subdev, int streaming)
 {
-	GET_SELECTED_OPS;
+	GET_SELECTED_DEV;
 	if(ops->video && ops->video->s_stream)
 		return ops->video->s_stream(subdev, streaming);
 	return 0;
@@ -353,7 +399,7 @@ static int bmi_camera_set_ctrl(struct v4l2_subdev *subdev,
 
 static int bmi_camera_set_power(struct v4l2_subdev *subdev, int on)
 {
-	GET_SELECTED_OPS;
+	GET_SELECTED_DEV;
 	if(ops->core && ops->core->s_power)
 		return ops->core->s_power(subdev, on);
 	return 0;
@@ -364,9 +410,9 @@ static int bmi_camera_enum_frame_size(struct v4l2_subdev *subdev,
 				  struct v4l2_subdev_fh *fh,
 				  struct v4l2_subdev_frame_size_enum *fse)
 {
-	GET_SELECTED_OPS;
+	GET_SELECTED_DEV;
 	if(ops->pad && ops->pad->enum_frame_size)
-		return ops->pad->enum_frame_size(bdev, fh, fse);
+		return ops->pad->enum_frame_size(subdev, fh, fse);
 	return -EINVAL;
 }
 
@@ -374,7 +420,7 @@ static int bmi_camera_enum_frame_interval(struct v4l2_subdev *subdev,
 				  struct v4l2_subdev_fh *fh,
 				  struct v4l2_subdev_frame_interval_enum *fie)
 {
-	GET_SELECTED_OPS;
+	GET_SELECTED_DEV;
 	if(ops->pad && ops->pad->enum_frame_interval)
 		return ops->pad->enum_frame_interval(subdev, fh, fie);
 	return -EINVAL;
@@ -385,7 +431,7 @@ static int bmi_camera_enum_mbus_code(struct v4l2_subdev *subdev,
 				 struct v4l2_subdev_fh *fh,
 				 struct v4l2_subdev_pad_mbus_code_enum *code)
 {
-	GET_SELECTED_OPS;
+	GET_SELECTED_DEV;
 	if(ops->pad && ops->pad->enum_mbus_code)
 		return ops->pad->enum_mbus_code(subdev, fh, code);
 	return -EINVAL;
@@ -396,7 +442,7 @@ static int bmi_camera_get_pad_format(struct v4l2_subdev *subdev,
 				 struct v4l2_mbus_framefmt *fmt,
 				 enum v4l2_subdev_format which)
 {
-	GET_SELECTED_OPS;
+	GET_SELECTED_DEV;
 	if(ops->pad && ops->pad->get_fmt) {
 		return 	ops->pad->get_fmt(subdev, fh, pad, fmt, which);
 	}
@@ -408,7 +454,7 @@ static int bmi_camera_set_pad_format(struct v4l2_subdev *subdev,
 				 struct v4l2_mbus_framefmt *fmt,
 				 enum v4l2_subdev_format which)
 {
-	GET_SELECTED_OPS;
+	GET_SELECTED_DEV;
 	if(ops->pad && ops->pad->set_fmt)
 		return ops->pad->set_fmt(subdev, fh, pad, fmt, which);
 	return -EINVAL;
@@ -514,22 +560,31 @@ static int __exit bmi_camera_remove(struct i2c_client *client)
 	return 0;
 }
 
-static const struct i2c_device_id bmi_camera_id_table[] = {
-	{ BMI_CAMERA_NAME, 0 },
+static const struct i2c_device_id bmi_camera_subdev_id_table[] = {
+	{ "bug_camera_subdev", 0 },
 	{ }
 };
-MODULE_DEVICE_TABLE(i2c, bmi_camera_id_table);
+MODULE_DEVICE_TABLE(i2c, bmi_camera_subdev_id_table);
 
 static struct i2c_driver bmi_camera_i2c_driver = {
 	.driver		= {
-		.name	= BMI_CAMERA_NAME,
+		.name	= "bug_camera_subdev",
 		.owner = THIS_MODULE,
 	},
 	.probe		= bmi_camera_probe,
 	.remove		= __exit_p(bmi_camera_remove),
 	.suspend	= bmi_camera_suspend,
 	.resume		= bmi_camera_resume,
-	.id_table	= bmi_camera_id_table,
+	.id_table	= bmi_camera_subdev_id_table,
+};
+
+static struct platform_driver bmi_camera_platform_driver = {
+	.driver         = {
+		.name   = "bug_camera",
+		.owner  = THIS_MODULE,
+	},
+	.probe		= bmi_camera_platform_probe,
+	.remove		= bmi_camera_platform_remove,
 };
 
 static __init int bmi_camera_init(void)
@@ -540,15 +595,18 @@ static __init int bmi_camera_init(void)
 	bmi_camera_sel.selected = -1;
 	bmi_camera_sel.count = 0;
 	for(i=0; i<4; i++) {
-		bmi_camera_sel.bdev[i] = NULL;
-		bmi_camera_sel.ops[i] = NULL;
+		bmi_camera_sel.pdat[i] = NULL;
 	}
 
 	ret = i2c_add_driver(&bmi_camera_i2c_driver);
 	if (ret) {
-		printk(KERN_ERR "%s: failed registering i2c driver" BMI_CAMERA_NAME "\n",
-		       __func__);
+		printk(KERN_ERR "%s: failed registering i2c driver\n",__func__);
 		return ret;
+	}
+
+	ret = platform_driver_register(&bmi_camera_platform_driver);
+	if (ret < 0) {
+		printk(KERN_ERR "%s: failed registering plaform\n", __func__);
 	}
 
 	omap3isp_device.dev.platform_data = &bmi_isp_platform_data;
@@ -562,24 +620,36 @@ static __init int bmi_camera_init(void)
 
 	ret = setup_gpio(CAM_OSC_EN, 1);
 	if(ret < 0)
-		return ret;
+		goto err5;
 	ret = setup_gpio(CAM_REN, 1);
 	if(ret < 0)
-		return ret;
+		goto err4;
 	ret = setup_gpio(CAM_RCLK_RF, 1);
 	if(ret < 0)
-		return ret;
+		goto err3;
 	ret = setup_gpio(CAM_BUF_OEN, 0);
 	if(ret < 0)
-		return ret;
-	ret = gpio_request(CAM_LOCKB, BMI_CAMERA_NAME);
+		goto err2;
+	ret = gpio_request(CAM_LOCKB, "bug_camera");
 	if(ret < 0)
-		return ret;
+		goto err1;
 	gpio_direction_input(CAM_LOCKB);
 
 	bmi_camera_set_power_bugbase(1);
 
 	return 0;
+
+err1:
+	gpio_free(CAM_LOCKB);
+err2:
+	gpio_free(CAM_BUF_OEN);
+err3:
+	gpio_free(CAM_RCLK_RF);
+err4:
+	gpio_free(CAM_REN);
+err5:
+	gpio_free(CAM_OSC_EN);
+	return ret;
 }
 
 static void __exit bmi_camera_cleanup(void)
@@ -588,6 +658,7 @@ static void __exit bmi_camera_cleanup(void)
 	gpio_direction_output(98, 1); // CAM_OE#
 	gpio_set_value(CAM_OSC_EN, 0);
 	gpio_set_value(CAM_REN,    0);
+
 	gpio_free(CAM_OSC_EN);
 	gpio_free(CAM_REN);
 	gpio_free(CAM_RCLK_RF);
