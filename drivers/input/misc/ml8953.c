@@ -137,10 +137,12 @@ static void ml8953_work(struct work_struct *work)
 
 	*data = ml8953_smbus_read(client, ACC_GAZH);
 	ac->sample[0] = *data;
-	
+	gz = *data << 8;
+
 	*data = ml8953_smbus_read(client, ACC_GAZL);
 	ac->sample[1] = *data;
-	  
+	gz = gz | *data;
+
 	*data = ml8953_smbus_read(client, ACC_GAYH);
 	ac->sample[2] = *data;
 	gy = *data << 8;
@@ -157,7 +159,11 @@ static void ml8953_work(struct work_struct *work)
 	ac->sample[5] = *data;
 	gx = gx | *data;
 	
-
+	mutex_lock(&ac->mutex);
+	ac->saved[0] = gx;
+	ac->saved[1] = gy;
+	ac->saved[2] = gz;
+	mutex_unlock(&ac->mutex);
 	// read STATUS
 	*data = ml8953_smbus_read(client, ACC_STATUS);
 
@@ -221,6 +227,31 @@ static void ml8953_input_close(struct input_dev *input)
 	mutex_unlock(&ac->mutex);
 }
 
+static ssize_t ml8953_position_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct ml8953 *ac = dev_get_drvdata(dev);
+	ssize_t count;
+
+	mutex_lock(&ac->mutex);
+
+	count = sprintf(buf, "(%d %d, %d)\n",
+			ac->saved[0], ac->saved[1], ac->saved[2]);
+	mutex_unlock(&ac->mutex);
+	return count;
+}
+
+static DEVICE_ATTR(position, 0444, ml8953_position_show, NULL);
+
+static struct attribute *ml8953_attributes[] = {
+	&dev_attr_position.attr,
+	NULL
+};
+
+static const struct attribute_group ml8953_attr_group = {
+	.attrs = ml8953_attributes,
+};
+
 static int __devinit ml8953_i2c_probe(struct i2c_client *client,
 				       const struct i2c_device_id *id)
 {
@@ -278,10 +309,16 @@ static int __devinit ml8953_i2c_probe(struct i2c_client *client,
 	error = input_register_device(input_dev);
 	if (error) {
 		dev_err(&client->dev, "input device failed to register?\n");
-		goto free_input_dev;
+		goto free_dev_irq;
 	}
+
+	error = sysfs_create_group(&client->dev.kobj, &ml8953_attr_group);
+	if (error)
+		goto free_dev_irq;
 	i2c_set_clientdata(client, ac);
 	return 0;
+free_dev_irq:
+	free_irq(client->irq, ac);
 free_input_dev:
 	input_free_device(input_dev);
 	kfree(ac);

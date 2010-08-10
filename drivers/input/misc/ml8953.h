@@ -92,6 +92,7 @@ struct ml8953 {
 	struct input_dev *input;
 	char phys[32];
 	u8 sample[6];
+	short saved[3];
 	u8 open;
 };
 
