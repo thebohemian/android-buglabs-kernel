@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.31-omap1
-# Sun Aug  8 09:36:55 2010
+# Tue Aug 10 11:15:19 2010
 #
 CONFIG_ARM=y
 CONFIG_HAVE_PWM=y
@@ -1794,7 +1794,7 @@ CONFIG_BMI_VH=m
 CONFIG_BMI_SENSOR=m
 # CONFIG_BMI_ZB is not set
 CONFIG_BMI_GSM=m
-# CONFIG_BMI_ACCNT is not set
+CONFIG_BMI_ACCNT=m
 
 #
 # CBUS support
