@@ -320,6 +320,7 @@ static void __init omap3_bug_display_init(void)
 	r |= gpio_request(90,  "lcd_shutdown");
 	r |= gpio_request(93,  "lcd_reset");
 	r |= gpio_request(10,  "dvi_reset");
+	r |= gpio_request(92,  "acc_reset");
 	if (r) {
 	  printk(KERN_INFO "gpio request failed...\n");
 	}
@@ -339,6 +340,7 @@ static int omap3_bug_panel_enable_lcd(struct omap_dss_device *display)
 	gpio_direction_output(227, 1);
 	gpio_direction_output(232, 0);
 	gpio_direction_output(90,1);
+	gpio_direction_output(92,1);
 
 	return 0;
 }

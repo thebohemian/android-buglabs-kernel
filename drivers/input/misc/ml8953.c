@@ -114,8 +114,8 @@ static void ml8953_work(struct work_struct *work)
 {
 	struct ml8953 *ac = container_of(work, struct ml8953, work);
 	struct i2c_client *client = ac->client;
-	short pitch;
-	short roll;
+	int pitch;
+	int roll;
 	short gx;
 	short gy;
 	short gz;
@@ -173,14 +173,15 @@ static void ml8953_work(struct work_struct *work)
 
 		// write PAGESEL
 	*data = 0x1;
-	if(ml8953_smbus_write(client, ACC_PAGESEL, *data))
+	ml8953_smbus_write(client, ACC_PAGESEL, *data);
 
-		// report orientation
-	// printk(KERN_INFO "bmi_lcd.c: bmi_lcd_input work (slot %d) pitch=0x%x, roll=0x%x, ABS_MISC=0x%x\n", 
-		// slot, pitch, roll, pitch << 16 | roll);	//pjg - debug
-
-	//input_report_abs(ac->input, ABS_MISC, (pitch << 16) | roll);
-	//input_sync(ac->input);
+	// report orientation
+	
+	//printk(KERN_DEBUG "ml8953_work: 0x%x\n", (pitch << 16) | roll);
+	input_report_abs(ac->input, ABS_MISC, (pitch << 16) | roll);
+	input_sync(ac->input);
+	//printk(KERN_INFO "ml8953_work: enabling irq %d\n",client->irq);
+	enable_irq(client->irq);
 	msleep(10);
 }
 
@@ -188,6 +189,7 @@ static irqreturn_t ml8953_irq(int irq, void *handle)
 {
 	struct ml8953 *ac = handle;
 
+	//printk(KERN_INFO "ml8953_irq: %d\n", irq);
 	disable_irq_nosync(irq);
 	schedule_work(&ac->work);
 
@@ -257,16 +259,18 @@ static int __devinit ml8953_i2c_probe(struct i2c_client *client,
 	input_dev->close = ml8953_input_close;
 	input_set_drvdata(input_dev, ac);
 
+	__set_bit(EV_ABS, input_dev->evbit);
 	__set_bit(ABS_X, input_dev->absbit);
 	__set_bit(ABS_Y, input_dev->absbit);
 	__set_bit(ABS_Z, input_dev->absbit);
+	__set_bit(ABS_MISC, input_dev->absbit);
 
 	input_set_abs_params(input_dev, ABS_X, -ML8953_RANGE, ML8953_RANGE, 3, 3);
 	input_set_abs_params(input_dev, ABS_Y, -ML8953_RANGE, ML8953_RANGE, 3, 3);
 	input_set_abs_params(input_dev, ABS_Z, -ML8953_RANGE, ML8953_RANGE, 3, 3);
 	
 	error = request_irq(client->irq, ml8953_irq,
-			  IRQF_TRIGGER_HIGH, client->dev.driver->name, ac);
+			  IRQF_TRIGGER_LOW, client->dev.driver->name, ac);
 	if (error) {
 		dev_err(&client->dev, "irq %d busy?\n", client->irq);
 		goto free_input_dev;
