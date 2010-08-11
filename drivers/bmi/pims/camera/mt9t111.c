@@ -28,7 +28,6 @@
 #include <linux/kernel.h>
 #include <linux/v4l2-mediabus.h>
 
-#include <media/v4l2-chip-ident.h>
 #include <media/v4l2-device.h>
 #include <media/v4l2-subdev.h>
 
@@ -39,6 +38,8 @@ struct mt9t111_sensor {
 	struct i2c_client *client;
 	struct v4l2_mbus_framefmt format[2];
 	u8 active_context;
+	u8 test_pat_id;
+	u8 colorfx_id;
 };
 
 int mt9t111_read_reg(struct i2c_client *client, u16 reg, u16 *val)
@@ -96,6 +97,16 @@ int mt9t111_write_reg(struct i2c_client *client, u16 reg, u16 val)
 EXPORT_SYMBOL(mt9t111_write_reg);
 
 
+int mt9t111_write_bits(struct i2c_client *client, u16 reg, u16 val, u16 mask)
+{
+	u16 tmp;
+	int err = mt9t111_read_reg(client, reg, &tmp);
+	if (err < 0)
+		return err;
+	tmp = (tmp & ~mask) | (val & mask);
+	return mt9t111_write_reg(client, reg, tmp);
+}
+
 /**
  * mt9t111_write_regs - Write registers to an mt9t111 sensor device
  * @client: i2c driver client structure
@@ -140,6 +151,27 @@ mt9t111_write_regs(struct i2c_client *client, struct mt9t111_regs *r, int cnt)
 	return err;
 }
 
+/* The mt9t111_write_var() and mt9t111_read_var() functions are
+ * convenience methods for writing to the extended variable registers
+ * on the mt9t111. */
+static int mt9t111_write_var(struct i2c_client *client, u16 addr, u16 val) 
+{
+	int ret;
+	ret = mt9t111_write_reg(client, 0x098E, addr);
+	if(ret < 0)
+		return ret;
+	return mt9t111_write_reg(client, 0x0990, val);
+}
+
+static int mt9t111_read_var(struct i2c_client *client, u16 addr, u16 *val)
+{
+	int ret;
+	ret = mt9t111_write_reg(client, 0x098E, addr);
+	if(ret < 0)
+		return ret;
+	return mt9t111_read_reg(client, 0x0990, val);
+}
+
 static int mt9t111_detect(struct i2c_client *client) 
 {
 	u16 val;
@@ -159,29 +191,25 @@ static int mt9t111_detect(struct i2c_client *client)
 
 #define MT9T111_APPLY_PATCH(client, x) mt9t111_write_regs(client, x, sizeof(x)/sizeof(x[0]));
 
-static void mt9t111_refresh(struct i2c_client *client){	
+static int mt9t111_refresh(struct i2c_client *client){	
 	int i, err;	
 	unsigned short value;		
-	mt9t111_write_reg(client, 0x098E, 0x8400);	
-	mt9t111_write_reg(client, 0x0990, 0x0006); //Refresh Sequencer Mode
-//	mt9t111_write_reg(client, 0x098E, 0x8400);	
-//	mt9t111_write_reg(client, 0x0990, 0x0005); //Refresh Sequencer
+	err = mt9t111_write_var(client, 0x8400, 0x0006);//Refresh Sequencer Mode
+	if(err < 0)
+		return err;
+	//err = mt9t111_write_var(client, 0x8400, 0x0005);//Refresh Mode
+	//if(err < 0)
+	//	return err;
 
 	for (i=0;i<100;i++){
-		err = mt9t111_write_reg(client, 0x098E, 0x8400);
-		if(err < 0) {
-			printk(KERN_INFO "%s write failed %d\n", __func__, i);
-			continue;
-		}
-		err = mt9t111_read_reg(client,  0x0990, &value);
-		if(err < 0) {
-			printk(KERN_INFO "%s read failed %d\n", __func__, i);
-			continue;
-		}
+		err = mt9t111_read_var(client, 0x8400, &value);
+		if(err < 0)
+			return err;
 		if (value == 0)			
 			break;		
 		mdelay(5);	
 	}
+	return 0;
 }
 
 static int mt9t111_enable_pll(struct i2c_client *client)
@@ -268,7 +296,12 @@ static int mt9t111_soft_standby(struct i2c_client *client, int on)
 
 static int mt9t111_loaddefault(struct i2c_client *client)
 {
+	struct mt9t111_sensor *sensor = i2c_get_clientdata(client);
 	int err;
+	sensor->active_context = 0;
+	sensor->test_pat_id = 0;
+	sensor->colorfx_id = 0;
+
 	err = mt9t111_enable_pll(client);
 	if(err < 0) 
 		return err;
@@ -285,9 +318,13 @@ static int mt9t111_loaddefault(struct i2c_client *client)
 	if(err < 0)
 		return err;
 
+	err = MT9T111_APPLY_PATCH(client, fmt_GBRG_regs);
+	if(err < 0)
+		return err;
 	//mt9t111_color_bar(client);
 
 	mt9t111_refresh(client);
+
 	return 0;
 }
 
@@ -321,10 +358,17 @@ EXPORT_SYMBOL(mt9t111_s_stream);
 
 int mt9t111_set_format(struct i2c_client *client, struct v4l2_mbus_framefmt *fmt)
 {
-	int ret;
+	int ret, timeout=0;
+	u16 val;
 	struct mt9t111_sensor *sensor = i2c_get_clientdata(client);
 
 	switch(fmt->code) {
+	//case V4L2_MBUS_FMT_JPEG8:
+	//	printk(KERN_INFO "%s applying JPEG mode\n", __func__);
+	//	ret = MT9T111_APPLY_PATCH(client, fmt_JPEG_regs);
+	//	if(ret < 0)
+	//		return ret;
+	//	break;
 	case V4L2_MBUS_FMT_YUYV8_2X8_LE:
 	case V4L2_MBUS_FMT_YVYU8_2X8_LE:
 	case V4L2_MBUS_FMT_YUYV8_2X8_BE:
@@ -347,31 +391,32 @@ int mt9t111_set_format(struct i2c_client *client, struct v4l2_mbus_framefmt *fmt
 		break;
 	}
 
-#if 0
-	ret = mt9t111_write_reg(client, 0x6800, fmt->width);
-	if(ret < 0) 
-		return ret;
-	ret = mt9t111_write_reg(client, 0x6802, fmt->height);
-	if(ret < 0) 
-		return ret;
-#else
-	ret = mt9t111_write_reg(client, 0x098E, 0x8400);
-	if(fmt->height <= 480 && fmt->width <= 640) {
-		ret |= mt9t111_write_reg(client, 0x0990, 1);
-		sensor->active_context = 0;
-		sensor->format[1].width = 640;
-		sensor->format[1].height = 480;
-	} else {
-		ret |= mt9t111_write_reg(client, 0x0990, 2);
-		sensor->active_context = 1;
-		sensor->format[1].width = 1028;
-		sensor->format[1].height = 768;
+//	if(fmt->height <= 768 && fmt->width <= 1024) {
+//		sensor->active_context = 1;
+//	} else {
+//		sensor->active_context = 1;
+//	}
+	sensor->active_context = 0;
+
+	while(1) {
+		
+		mt9t111_write_var(client, 0x8400, sensor->active_context ? 2:1);
+		ret = mt9t111_read_var(client, 0x8401, &val);
+		printk(KERN_INFO "%s Context status register = %d\n", __func__, val);
+		if(val == (sensor->active_context ? 7 : 3)) {
+			break;
+		}
+		if(timeout == 100) {
+			printk(KERN_ERR "%s context switch failed\n", __func__);
+			ret = -EBUSY;
+			break;
+		}
+		timeout++;
+		mdelay(50);
 	}
-#endif	
-	mt9t111_refresh(client);
 
 	memcpy(&(sensor->format[sensor->active_context]), fmt, sizeof(*fmt));
-	return ret;
+	return mt9t111_refresh(client);
 }
 EXPORT_SYMBOL(mt9t111_set_format);
 
@@ -384,6 +429,193 @@ int mt9t111_get_format(struct i2c_client *client, struct v4l2_mbus_framefmt *fmt
 	return 0;
 }
 EXPORT_SYMBOL(mt9t111_get_format);
+
+static char *test_pats[] = {
+	"Disabled",         
+	"Walking 1's",      
+	"Solid White",      
+	"Grey Ramp",        
+	"Color Bars",       
+	"Black/White Bars", 
+	"Pseudo Random",    
+};
+static char *fx[] = {
+	"Disabled",         
+	"Black & White",
+	"Sepia",
+	"Negative",
+	"Solarize",
+};
+
+static int mt9t111_set_test_pattern(struct i2c_client *client, int id) {
+	struct mt9t111_sensor *sensor = i2c_get_clientdata(client);
+	int err = 0;
+	sensor->test_pat_id = id;
+	if(id == 0) { // disable test pattern
+		printk(KERN_INFO "%s Disabling Test Pattern\n", __func__);
+		err |= mt9t111_write_var(client, 0x6025, 0x0000); //select pat 0
+		err |= mt9t111_write_var(client, 0x6003, 0x0000); //disable patt
+                //enable lens correction, gamma, etc.
+		err |= mt9t111_write_reg(client, 0x3210, 0x01B8); 
+
+		// disable 8bit walking 1's test pattern
+		err |= mt9t111_write_bits(client, 0x3C20, 0x00, 0x0030);
+
+	} else if(id == 1) { // walking 1's test pattern
+
+		printk(KERN_INFO "%s Enabling Walking 1's Test Pattern\n", __func__);
+		err |= mt9t111_write_var(client, 0x6025, 0x0000); //select pat 0
+		err |= mt9t111_write_var(client, 0x6003, 0x0000); //disable patt
+
+		// enable 8bit walking 1's test pattern
+		err |= mt9t111_write_bits(client, 0x3C20, 0x20, 0x0032);
+		
+		// Note the user must be in Bayer mode for this to work.
+
+	} else { // all other test patterns
+		int code;
+		switch(id) {
+		case 2: code = 1; break; // solid white
+		case 3: code = 4; break; // gray ramp
+		case 4: code = 6; break; // color bars
+		case 5: code = 8; break; // black/white bars
+		case 6: code = 10; break; // random
+		default: code = 6; break;
+		}
+		printk(KERN_INFO "%s Enabling Test Pattern %d\n", __func__, code);
+		// disable 8bit walking 1's test pattern
+		err |= mt9t111_write_bits(client, 0x3C20, 0x00, 0x0030);
+
+		err |= mt9t111_write_var(client, 0x6003, 0x100); //enable patt.
+		err |= mt9t111_write_var(client, 0xE025, code);  //select patt.
+		{
+			u16 val;
+			mt9t111_read_var(client, 0xE025, &val);
+			printk(KERN_INFO "%s test pat code=0x%x\n", __func__, val);
+		}
+		// disable lens correction, gamma, etc
+		err |= mt9t111_write_reg(client, 0x3210, 0x0000);
+	}
+	mt9t111_refresh(client);
+	return err;
+}
+
+static int mt9t111_set_colorfx(struct i2c_client *client, int fx) {
+	struct mt9t111_sensor *sensor = i2c_get_clientdata(client);
+	printk(KERN_INFO "%s fx=%d\n", __func__, fx);
+	switch (fx) {
+	case V4L2_COLORFX_NONE:
+		mt9t111_write_var(client, 0xE883, 0x0000);
+		mt9t111_write_var(client, 0xEC83, 0x0000);
+		break;
+	case V4L2_COLORFX_BW:
+		mt9t111_write_var(client, 0xE883, 0x0001);
+		//mt9t111_write_var(client, 0xEC83, 0x0001);
+		break;
+	case V4L2_COLORFX_SEPIA:
+		mt9t111_write_var(client, 0xE883, 0x0002);
+		mt9t111_write_var(client, 0xEC83, 0x0002);
+		break;
+ 	case V4L2_COLORFX_NEGATIVE:
+		mt9t111_write_var(client, 0xE883, 0x0003);
+		mt9t111_write_var(client, 0xEC83, 0x0003);
+		break;
+	case 4:
+		//[Special Effect – Solarize w/ Strength Control]
+		mt9t111_write_var(client, 0xE883, 0x0004);
+		//mt9t111_write_var(client, 0xE884, 0x08);// SOLARIZATION_TH
+		mt9t111_write_var(client, 0xEC83, 0x0004);
+		//mt9t111_write_var(client, 0xEC84, 0x08);// SOLARIZATION_TH
+		break;
+	default:
+		return -EINVAL;
+	}
+	sensor->colorfx_id = fx;
+	return mt9t111_refresh(client);
+}
+
+int mt9t111_query_ctrl(struct i2c_client *client, struct v4l2_queryctrl *a)
+{
+	switch (a->id) {
+	case V4L2_CID_TEST_PATTERN:
+		a->type = V4L2_CTRL_TYPE_MENU;
+		sprintf(a->name, "Test Pattern");
+		a->minimum = 0;
+		a->maximum = ARRAY_SIZE(test_pats)-1;
+		a->default_value = 0;
+		a->flags = 0;
+		break;
+	case V4L2_CID_COLORFX:
+		a->type = V4L2_CTRL_TYPE_MENU;
+		sprintf(a->name, "Color Effects");
+		a->minimum = 0;
+		a->maximum = 4;
+		a->default_value = 0;
+		a->flags = 0;
+		break;
+	default:
+		return -EINVAL;
+	}
+	return 0;
+}
+EXPORT_SYMBOL(mt9t111_query_ctrl);
+
+int mt9t111_query_menu(struct i2c_client *client, struct v4l2_querymenu *qm)
+{
+	switch (qm->id) {
+	case V4L2_CID_TEST_PATTERN:
+		if(qm->index < ARRAY_SIZE(test_pats)) {
+			strcpy(qm->name, test_pats[qm->index]);
+		} else {
+			return -EINVAL;
+		}
+		break;
+	case V4L2_CID_COLORFX:
+		if(qm->index < 10) {
+			strcpy(qm->name, fx[qm->index]);
+		} else {
+			return -EINVAL;
+		}
+		break;
+	default:
+		return -EINVAL;
+	}
+	return 0;
+}
+EXPORT_SYMBOL(mt9t111_query_menu);
+
+int mt9t111_get_ctrl(struct i2c_client *client, struct v4l2_control *vc)
+{
+	struct mt9t111_sensor *sensor = i2c_get_clientdata(client);
+	switch (vc->id) {
+	case V4L2_CID_TEST_PATTERN:
+		vc->value = sensor->test_pat_id;
+		break;
+	case V4L2_CID_COLORFX:
+		vc->value = sensor->colorfx_id;
+		break;
+	default:
+		return -EINVAL;
+	}
+	return 0;
+}
+EXPORT_SYMBOL(mt9t111_get_ctrl);
+
+int mt9t111_set_ctrl(struct i2c_client *client, struct v4l2_control *vc)
+{
+	switch (vc->id) {
+	case V4L2_CID_TEST_PATTERN:
+		return mt9t111_set_test_pattern(client, vc->value);
+	case V4L2_CID_COLORFX:
+		return mt9t111_set_colorfx(client, vc->value);
+	default:
+		return -EINVAL;
+	}
+	return 0;
+}
+EXPORT_SYMBOL(mt9t111_set_ctrl);
+
+
 
 /**
  * mt9t111_probe - sensor driver i2c probe handler
@@ -413,6 +645,8 @@ static int mt9t111_probe(struct i2c_client *client,
 	sensor->format[1].colorspace   = V4L2_COLORSPACE_SRGB;
 	sensor->format[1].field        = V4L2_FIELD_NONE;
 	sensor->active_context = 0;
+	sensor->test_pat_id = 0;
+	sensor->colorfx_id = 0;
 	return 0;
 }
 
@@ -424,10 +658,11 @@ static int mt9t111_probe(struct i2c_client *client,
  * Unregister sensor as an i2c client device and V4L2
  * device.  Complement of mt9t111_probe().
  */
-static void __exit mt9t111_remove(struct i2c_client *client)
+static int __exit mt9t111_remove(struct i2c_client *client)
 {
 	struct mt9t111_sensor *sensor = i2c_get_clientdata(client);
 	kfree(sensor);
+	return 0;
 }
 
 
