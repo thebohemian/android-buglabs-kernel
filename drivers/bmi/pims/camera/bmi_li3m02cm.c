@@ -372,7 +372,7 @@ void deconfigure_module(struct bmi_li3m02cm *cam)
 }
 
 #define subdev_to_bdev(subdev) (((struct bmi_camera_sensor *) to_bmi_camera_sensor(subdev))->bdev)
-#define subdev_to_cam(subdev) bmi_device_get_drvdata(subdev_to_bdev(subdev))
+#define subdev_to_cam(subdev) ((struct bmi_li3m02cm*) bmi_device_get_drvdata(subdev_to_bdev(subdev)))
 
 static int li3m02cm_set_power(struct v4l2_subdev *subdev, int on)
 {
@@ -453,10 +453,6 @@ error:
 	return ret;
 }
 
-static int li3m02cm_s_stream(struct v4l2_subdev *subdev, int streaming) {
-	return 0; // nothing to do here
-}
-
 static int li3m02cm_enum_format(struct v4l2_subdev *s, struct v4l2_fmtdesc *fmt)
 {
 	return 0;
@@ -479,20 +475,6 @@ static int li3m02cm_set_format(struct v4l2_subdev *s, struct v4l2_format *f)
 	return 0;
 }
 
-static int li3m02cm_get_param(struct v4l2_subdev *subdev,
-			    struct v4l2_streamparm *a)
-{
-	printk(KERN_INFO "%s enter\n", __func__);
-	return 0;
-}
-
-static int li3m02cm_set_param(struct v4l2_subdev *subdev,
-			    struct v4l2_streamparm *a)
-{
-	printk(KERN_INFO "%s enter\n", __func__);
-	return 0;
-}
-
 static int li3m02cm_enum_frame_sizes(struct v4l2_subdev *s,
 					struct v4l2_frmsizeenum *frms)
 {
@@ -508,29 +490,26 @@ static int li3m02cm_enum_frame_intervals(struct v4l2_subdev *s,
 static int li3m02cm_query_ctrl(struct v4l2_subdev *subdev,
 			       struct v4l2_queryctrl *a)
 {
-	return -EINVAL; // nothing implemented currently
+	return mt9t111_query_ctrl(subdev_to_cam(subdev)->mt9t111, a);
 }
 
 static int li3m02cm_query_menu(struct v4l2_subdev *subdev,
 			       struct v4l2_querymenu *qm)
 {
-	return -EINVAL; // nothing implemented currently
+	return mt9t111_query_menu(subdev_to_cam(subdev)->mt9t111, qm);
 }
 
 static int li3m02cm_get_ctrl(struct v4l2_subdev *subdev,
 			     struct v4l2_control *vc)
 {
-	printk(KERN_INFO "%s enter\n", __func__);
-	return 0;
+	return mt9t111_get_ctrl(subdev_to_cam(subdev)->mt9t111, vc);
 }
 
 static int li3m02cm_set_ctrl(struct v4l2_subdev *subdev,
 			     struct v4l2_control *vc)
 {
-	printk(KERN_INFO "%s enter\n", __func__);
-	return 0;
+	return mt9t111_set_ctrl(subdev_to_cam(subdev)->mt9t111, vc);
 }
-
 
 static int li3m02cm_enum_frame_size(struct v4l2_subdev *subdev,
 				    struct v4l2_subdev_fh *fh,
@@ -649,13 +628,10 @@ static int li3m02cm_set_green_led(struct bmi_device *bdev, int on)
 #define li3m02cm_resume  NULL
 
 static const struct v4l2_subdev_video_ops li3m02cm_video_ops = {
-	.s_stream            = li3m02cm_s_stream,
 	.enum_fmt            = li3m02cm_enum_format,
 	.g_fmt               = li3m02cm_get_format,
 	.try_fmt             = li3m02cm_try_format,
 	.s_fmt               = li3m02cm_set_format,
-	.g_parm              = li3m02cm_get_param,
-	.s_parm              = li3m02cm_set_param,
         .enum_framesizes     = li3m02cm_enum_frame_sizes,
         .enum_frameintervals = li3m02cm_enum_frame_intervals,
 };
