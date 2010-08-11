@@ -214,13 +214,6 @@ int cntl_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
 		else
 			return -EINVAL;
 
-	case BMI_CAM_FLASH_STROBE:
-		if(pdat->bmi_ops->set_flash_strobe)
-			return pdat->bmi_ops->set_flash_strobe(pdat->bdev,
-							       (int) arg);
-		else
-			return -EINVAL;
-
 	case BMI_CAM_SUSPEND:
 		if(pdat->bmi_ops->suspend)
 			return pdat->bmi_ops->suspend(pdat->bdev);
@@ -461,12 +454,9 @@ static int bmi_camera_s_stream(struct v4l2_subdev *subdev, int streaming)
 	int err=0;
 	GET_SELECTED_DEV;
 	mutex_lock(&bmi_camera_sel.mutex);
-	if(v4l2_ops->video && v4l2_ops->video->s_stream) {
+	if(v4l2_ops->video && v4l2_ops->video->s_stream)
 		err = v4l2_ops->video->s_stream(subdev, streaming);
-	} else {
-		mutex_unlock(&bmi_camera_sel.mutex);
-		return -EINVAL;
-	}
+
 	if(streaming && err==0) {
 		bmi_camera_sel.busy = 1;
 	} else {
@@ -541,7 +531,7 @@ static int bmi_camera_query_ctrl(struct v4l2_subdev *subdev,
 	struct bmi_camera_platform_data *pdat = bmi_camera_get_selected_pdat();
 
 	switch (a->id) {
-	case BMI_CID_SET_FLASH_STROBE:
+	case V4L2_CID_FLASH_STROBE:
 		a->type = V4L2_CTRL_TYPE_MENU;
 		sprintf(a->name, "Flash Strobe");
 		a->minimum = 0;
@@ -573,7 +563,7 @@ static int bmi_camera_query_menu(struct v4l2_subdev *subdev,
 	struct bmi_camera_platform_data *pdat = bmi_camera_get_selected_pdat();
 
 	switch (qm->id) {
-	case BMI_CID_SET_FLASH_STROBE:
+	case V4L2_CID_FLASH_STROBE:
 		switch (qm->index) {
 		case FLASH_STROBE_OFF:
 			sprintf(qm->name, "OFF");
@@ -613,7 +603,7 @@ static int bmi_camera_set_ctrl(struct v4l2_subdev *subdev,
 			       struct v4l2_control *vc)
 {
 	GET_SELECTED_DEV;
-	if(vc->id == BMI_CID_SET_FLASH_STROBE) {
+	if(vc->id == V4L2_CID_FLASH_STROBE) {
 		if(pdat && pdat->bmi_ops && pdat->bmi_ops->set_flash_strobe)
 			return pdat->bmi_ops->set_flash_strobe(bdev, vc->value);
 		else

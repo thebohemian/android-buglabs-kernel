@@ -16,10 +16,7 @@
 #define BMI_CAM_RLEDON		_IOW(BMI_CAMERA_IOCTL, 0x4, unsigned int)
 #define BMI_CAM_GLEDOFF		_IOW(BMI_CAMERA_IOCTL, 0x5, unsigned int)
 #define BMI_CAM_GLEDON		_IOW(BMI_CAMERA_IOCTL, 0x6, unsigned int)
-#define BMI_CAM_FLASH_STROBE	_IOW(BMI_CAMERA_IOCTL, 0x7, unsigned int)
 
-
-#define BMI_CID_SET_FLASH_STROBE (V4L2_CID_PRIVATE_BASE + 0)
 #define FLASH_STROBE_OFF          0
 #define FLASH_STROBE_TORCH_EN     1
 #define FLASH_STROBE_HIGH_BEAM_EN 2
