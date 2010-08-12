@@ -318,7 +318,7 @@ int bmi_unregister_camera(struct bmi_device *bdev)
 {
 	struct class *bmi_class;
 	struct bmi_camera_platform_data *pdat;
-	struct file_operations *fops;
+	const struct file_operations *fops;
 	int slotnum;
 	if(!bdev)
 		return -ENODEV;
@@ -468,7 +468,7 @@ static int bmi_camera_s_stream(struct v4l2_subdev *subdev, int streaming)
 	return err;
 }
 
-static int bmi_camera_enum_format(struct v4l2_subdev *s, struct v4l2_fmtdesc *fmt)
+static int bmi_camera_enum_format(struct v4l2_subdev *subdev, struct v4l2_fmtdesc *fmt)
 {
 	printk(KERN_INFO "%s enter\n", __func__);
 	return 0;
@@ -481,13 +481,13 @@ static int bmi_camera_get_format(struct v4l2_subdev *subdev,
 	return 0;
 }
 
-static int bmi_camera_try_format(struct v4l2_subdev *s, struct v4l2_format *f)
+static int bmi_camera_try_format(struct v4l2_subdev *subdev, struct v4l2_format *f)
 {
 	printk(KERN_INFO "%s enter\n", __func__);
 	return 0;
 }
 
-static int bmi_camera_set_format(struct v4l2_subdev *s, struct v4l2_format *f)
+static int bmi_camera_set_format(struct v4l2_subdev *subdev, struct v4l2_format *f)
 {
 	printk(KERN_INFO "%s enter\n", __func__);
 	return 0;
@@ -507,18 +507,29 @@ static int bmi_camera_set_param(struct v4l2_subdev *subdev,
 	return 0;
 }
 
-static int bmi_camera_enum_frame_sizes(struct v4l2_subdev *s,
+static int bmi_camera_enum_frame_sizes(struct v4l2_subdev *subdev,
 					struct v4l2_frmsizeenum *frms)
 {
 	printk(KERN_INFO "%s enter\n", __func__);
 	return 0;
 }
 
-static int bmi_camera_enum_frame_intervals(struct v4l2_subdev *s,
+static int bmi_camera_enum_frame_intervals(struct v4l2_subdev *subdev,
 					struct v4l2_frmivalenum *frmi)
 {
 	printk(KERN_INFO "%s enter\n", __func__);
 	return 0;
+}
+
+static int bmi_camera_log_status(struct v4l2_subdev *subdev) 
+{
+	GET_SELECTED_DEV;
+	printk(KERN_INFO "BMI CAMERA STATUS : %s\n", __func__);
+	printk(KERN_INFO " Input: Slot %d\n", bmi_camera_sel.selected);
+	if(v4l2_ops && v4l2_ops->core && v4l2_ops->core->log_status)
+		return v4l2_ops->core->log_status(subdev);
+	else 
+		return 0;
 }
 
 static int
@@ -742,6 +753,8 @@ static long bmi_camera_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg
 	case VIDIOC_G_INPUT:
 		*((int*) arg) = bmi_camera_get_selected_slot();
 		return 0;
+	case VIDIOC_LOG_STATUS:
+		return bmi_camera_log_status(sd);
 	default:
 		return -1;
 	}
@@ -791,6 +804,7 @@ static const struct v4l2_subdev_video_ops bmi_camera_video_ops = {
 };
 
 static const struct v4l2_subdev_core_ops bmi_camera_core_ops = {
+	.log_status   = bmi_camera_log_status,
 	.s_config     = bmi_camera_set_config,
 	.queryctrl    = bmi_camera_query_ctrl,
 	.querymenu    = bmi_camera_query_menu,

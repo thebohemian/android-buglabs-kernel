@@ -487,6 +487,11 @@ static int li3m02cm_enum_frame_intervals(struct v4l2_subdev *s,
 	return 0;
 }
 
+static int li3m02cm_log_status(struct v4l2_subdev *subdev)
+{
+	return mt9t111_log_status(subdev_to_cam(subdev)->mt9t111);
+}
+
 static int li3m02cm_query_ctrl(struct v4l2_subdev *subdev,
 			       struct v4l2_queryctrl *a)
 {
@@ -643,6 +648,7 @@ static const struct v4l2_subdev_core_ops li3m02cm_core_ops = {
 	.s_ctrl       = li3m02cm_set_ctrl,
 	.s_power      = li3m02cm_set_power,
 	.ioctl        = NULL, // no custom ioctl's
+	.log_status   = li3m02cm_log_status,
 };
 
 static const struct v4l2_subdev_pad_ops li3m02cm_pad_ops = {
