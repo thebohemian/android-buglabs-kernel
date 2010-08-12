@@ -40,6 +40,7 @@ struct mt9t111_sensor {
 	u8 active_context;
 	u8 test_pat_id;
 	u8 colorfx_id;
+	u8 streaming;
 };
 
 int mt9t111_read_reg(struct i2c_client *client, u16 reg, u16 *val)
@@ -201,9 +202,11 @@ static int mt9t111_detect(struct i2c_client *client)
 
 #define MT9T111_APPLY_PATCH(client, x) mt9t111_write_regs(client, x, sizeof(x)/sizeof(x[0]));
 
-static int mt9t111_refresh(struct i2c_client *client){	
-	int i, err;	
-	unsigned short value;		
+static int mt9t111_refresh(struct i2c_client *client)
+{
+	int err;	
+	//unsigned short value;
+	//int i;
 	err = mt9t111_write_var(client, 0x8400, 0x0006);//Refresh Sequencer Mode
 	if(err < 0)
 		return err;
@@ -355,11 +358,15 @@ EXPORT_SYMBOL(mt9t111_set_power);
 
 int mt9t111_s_stream(struct i2c_client *client, int streaming)
 {
+	struct mt9t111_sensor *sensor = i2c_get_clientdata(client);
 	int ret;
 	if(streaming) {
 		ret = mt9t111_loaddefault(client);
 		if(ret < 0)
 			return ret;
+		sensor->streaming = 1;
+	} else {
+		sensor->streaming = 0;
 	}
 	return 0;
 }
@@ -583,6 +590,14 @@ int mt9t111_query_ctrl(struct i2c_client *client, struct v4l2_queryctrl *a)
 		a->default_value = 0;
 		a->flags = 0;
 		break;
+	case V4L2_CID_EXPOSURE:
+		a->type = V4L2_CTRL_TYPE_INTEGER;
+		sprintf(a->name, "Exposure Level");
+		a->minimum = 0;
+		a->maximum = 0xFF;
+		a->default_value = 0x37;
+		a->flags = 0;
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -633,6 +648,10 @@ int mt9t111_get_ctrl(struct i2c_client *client, struct v4l2_control *vc)
 		mt9t111_read_var(client, 0x480C, &val);
 		vc->value = (val >> 1) & 0x1;
 		break;
+	case V4L2_CID_EXPOSURE:
+		mt9t111_read_var(client, 0xE81F, &val);
+		vc->value = val;
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -656,6 +675,10 @@ int mt9t111_set_ctrl(struct i2c_client *client, struct v4l2_control *vc)
 		mt9t111_write_var_bits(client, 0x480C, vc->value ? 2 : 0, 0x2);
 		mt9t111_refresh(client);
 		break;
+	case V4L2_CID_EXPOSURE:
+		mt9t111_write_var(client, 0xE81F, vc->value);
+		mt9t111_refresh(client);
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -663,6 +686,36 @@ int mt9t111_set_ctrl(struct i2c_client *client, struct v4l2_control *vc)
 }
 EXPORT_SYMBOL(mt9t111_set_ctrl);
 
+static void log_reg(struct i2c_client *client, char *name, int type, u16 addr) {
+	int err;
+	u16 val;
+	if(type == 0) {
+		err = mt9t111_read_reg(client, addr, &val);
+	} else {
+		err = mt9t111_read_var(client, addr, &val);
+	}
+	printk(KERN_INFO "mt9t111: Addr=0%04x  Value=0x%04x  %s\n", addr, val, name);
+	if(err < 0)
+		printk(KERN_ERR "Error code = %d\n", err);
+}
+
+int mt9t111_log_status(struct i2c_client *client) {
+	struct mt9t111_sensor *sensor = i2c_get_clientdata(client);
+	if(!sensor->streaming) {
+		printk(KERN_INFO "mt9t111: Not streaming\n");
+	} else {
+		log_reg(client, "ae_track_status",   1, 0x2800);
+		log_reg(client, "ae_track_mode",     1, 0xA802);
+		log_reg(client, "ae_track_algorithm",1, 0x2803);
+		log_reg(client, "ae_track_max_black_level",1, 0x2807);
+		log_reg(client, "ae_track_target",   1, 0xA80D);
+		log_reg(client, "ae_track_gate",     1, 0xA80E);
+		log_reg(client, "ae_track_current_average_y", 1, 0xA80F);
+		log_reg(client, "ae_track_dampening", 1, 0xA810);
+	}
+	return 0;
+}
+EXPORT_SYMBOL(mt9t111_log_status);
 
 
 /**
@@ -695,6 +748,7 @@ static int mt9t111_probe(struct i2c_client *client,
 	sensor->active_context = 0;
 	sensor->test_pat_id = 0;
 	sensor->colorfx_id = 0;
+	sensor->streaming = 0;
 	return 0;
 }
 

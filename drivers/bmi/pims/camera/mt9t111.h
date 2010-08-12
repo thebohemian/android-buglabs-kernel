@@ -42,6 +42,7 @@ extern int mt9t111_query_ctrl(struct i2c_client *client, struct v4l2_queryctrl *
 extern int mt9t111_query_menu(struct i2c_client *client, struct v4l2_querymenu *qm);
 extern int mt9t111_get_ctrl(  struct i2c_client *client, struct v4l2_control *vc);
 extern int mt9t111_set_ctrl(  struct i2c_client *client, struct v4l2_control *vc);
+extern int mt9t111_log_status(struct i2c_client *client);
 
 struct mt9t111_regs {
 	u16 delay_time;
