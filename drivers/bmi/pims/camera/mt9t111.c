@@ -57,7 +57,7 @@ int mt9t111_read_reg(struct i2c_client *client, u16 reg, u16 *val)
 		*val = ((data[0] & 0x00ff) << 8) | (data[1] & 0x00ff);	
 		//printk(KERN_DEBUG "%s: Read register 0x%x. value = 0x%x\n", __func__, reg, *val);
 	}
-	return ret;
+	return 0;
 }
 EXPORT_SYMBOL(mt9t111_read_reg);
 
@@ -92,20 +92,10 @@ int mt9t111_write_reg(struct i2c_client *client, u16 reg, u16 val)
 		//printk(KERN_DEBUG "%s succeed writing to addr=0x%x data=0x%x err=%d\n", __func__, reg, val, err);
 
 
-	return err;
+	return 0;
 }
 EXPORT_SYMBOL(mt9t111_write_reg);
 
-
-int mt9t111_write_bits(struct i2c_client *client, u16 reg, u16 val, u16 mask)
-{
-	u16 tmp;
-	int err = mt9t111_read_reg(client, reg, &tmp);
-	if (err < 0)
-		return err;
-	tmp = (tmp & ~mask) | (val & mask);
-	return mt9t111_write_reg(client, reg, tmp);
-}
 
 /**
  * mt9t111_write_regs - Write registers to an mt9t111 sensor device
@@ -172,6 +162,26 @@ static int mt9t111_read_var(struct i2c_client *client, u16 addr, u16 *val)
 	return mt9t111_read_reg(client, 0x0990, val);
 }
 
+int mt9t111_write_bits(struct i2c_client *client, u16 reg, u16 val, u16 mask)
+{
+	u16 tmp;
+	int err = mt9t111_read_reg(client, reg, &tmp);
+	if (err < 0)
+		return err;
+	tmp = (tmp & ~mask) | (val & mask);
+	return mt9t111_write_reg(client, reg, tmp);
+}
+
+int mt9t111_write_var_bits(struct i2c_client *client, u16 reg, u16 val,u16 mask)
+{
+	u16 tmp;
+	int err = mt9t111_read_var(client, reg, &tmp);
+	if (err < 0)
+		return err;
+	tmp = (tmp & ~mask) | (val & mask);
+	return mt9t111_write_var(client, reg, tmp);
+}
+
 static int mt9t111_detect(struct i2c_client *client) 
 {
 	u16 val;
@@ -200,15 +210,14 @@ static int mt9t111_refresh(struct i2c_client *client){
 	//err = mt9t111_write_var(client, 0x8400, 0x0005);//Refresh Mode
 	//if(err < 0)
 	//	return err;
-
-	for (i=0;i<100;i++){
-		err = mt9t111_read_var(client, 0x8400, &value);
-		if(err < 0)
-			return err;
-		if (value == 0)			
-			break;		
-		mdelay(5);	
-	}
+	//for (i=0;i<100;i++){
+	//	err = mt9t111_read_var(client, 0x8400, &value);
+	//	if(err < 0)
+	//		return err;
+	//	if (value == 0)			
+	//		break;		
+	//	mdelay(5);	
+	//}
 	return 0;
 }
 
@@ -362,7 +371,23 @@ int mt9t111_set_format(struct i2c_client *client, struct v4l2_mbus_framefmt *fmt
 	u16 val;
 	struct mt9t111_sensor *sensor = i2c_get_clientdata(client);
 
+
+	//if(fmt->height > 768 || fmt->width > 1024) {
+	//	printk(KERN_INFO "%s applying 2048x1536 patch\n", __func__);
+	//	ret = MT9T111_APPLY_PATCH(client, fmt_2048x1536_7fps);
+	//}
+	sensor->active_context = 0;
+
+
 	switch(fmt->code) {
+	//case V4L2_MBUS_FMT_YUYV8_2X8_LE:
+	//case V4L2_MBUS_FMT_YVYU8_2X8_LE:
+	//case V4L2_MBUS_FMT_YUYV8_2X8_BE:
+	//case V4L2_MBUS_FMT_YVYU8_2X8_BE:
+	//case V4L2_MBUS_FMT_YUYV16_1X16:
+	//case V4L2_MBUS_FMT_UYVY16_1X16:
+	//case V4L2_MBUS_FMT_YVYU16_1X16:
+	//case V4L2_MBUS_FMT_VYUY16_1X16:
 	//case V4L2_MBUS_FMT_JPEG8:
 	//	printk(KERN_INFO "%s applying JPEG mode\n", __func__);
 	//	ret = MT9T111_APPLY_PATCH(client, fmt_JPEG_regs);
@@ -390,13 +415,6 @@ int mt9t111_set_format(struct i2c_client *client, struct v4l2_mbus_framefmt *fmt
 		fmt->code = V4L2_MBUS_FMT_SGRBG10_1X10;
 		break;
 	}
-
-//	if(fmt->height <= 768 && fmt->width <= 1024) {
-//		sensor->active_context = 1;
-//	} else {
-//		sensor->active_context = 1;
-//	}
-	sensor->active_context = 0;
 
 	while(1) {
 		
@@ -453,7 +471,7 @@ static int mt9t111_set_test_pattern(struct i2c_client *client, int id) {
 	sensor->test_pat_id = id;
 	if(id == 0) { // disable test pattern
 		printk(KERN_INFO "%s Disabling Test Pattern\n", __func__);
-		err |= mt9t111_write_var(client, 0x6025, 0x0000); //select pat 0
+		err |= mt9t111_write_var(client, 0xE025, 0x0000); //select pat 0
 		err |= mt9t111_write_var(client, 0x6003, 0x0000); //disable patt
                 //enable lens correction, gamma, etc.
 		err |= mt9t111_write_reg(client, 0x3210, 0x01B8); 
@@ -464,7 +482,7 @@ static int mt9t111_set_test_pattern(struct i2c_client *client, int id) {
 	} else if(id == 1) { // walking 1's test pattern
 
 		printk(KERN_INFO "%s Enabling Walking 1's Test Pattern\n", __func__);
-		err |= mt9t111_write_var(client, 0x6025, 0x0000); //select pat 0
+		err |= mt9t111_write_var(client, 0xE025, 0x0000); //select pat 0
 		err |= mt9t111_write_var(client, 0x6003, 0x0000); //disable patt
 
 		// enable 8bit walking 1's test pattern
@@ -553,6 +571,18 @@ int mt9t111_query_ctrl(struct i2c_client *client, struct v4l2_queryctrl *a)
 		a->default_value = 0;
 		a->flags = 0;
 		break;
+	case V4L2_CID_HFLIP:
+		a->type = V4L2_CTRL_TYPE_BOOLEAN;
+		sprintf(a->name, "Horizontal Mirror");
+		a->default_value = 0;
+		a->flags = 0;
+		break;
+	case V4L2_CID_VFLIP:
+		a->type = V4L2_CTRL_TYPE_BOOLEAN;
+		sprintf(a->name, "Vertical Flip");
+		a->default_value = 0;
+		a->flags = 0;
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -586,6 +616,7 @@ EXPORT_SYMBOL(mt9t111_query_menu);
 
 int mt9t111_get_ctrl(struct i2c_client *client, struct v4l2_control *vc)
 {
+	u16 val;
 	struct mt9t111_sensor *sensor = i2c_get_clientdata(client);
 	switch (vc->id) {
 	case V4L2_CID_TEST_PATTERN:
@@ -593,6 +624,14 @@ int mt9t111_get_ctrl(struct i2c_client *client, struct v4l2_control *vc)
 		break;
 	case V4L2_CID_COLORFX:
 		vc->value = sensor->colorfx_id;
+		break;
+	case V4L2_CID_HFLIP:
+		mt9t111_read_var(client, 0x480C, &val);
+		vc->value = val & 0x1;
+		break;
+	case V4L2_CID_VFLIP:
+		mt9t111_read_var(client, 0x480C, &val);
+		vc->value = (val >> 1) & 0x1;
 		break;
 	default:
 		return -EINVAL;
@@ -603,11 +642,20 @@ EXPORT_SYMBOL(mt9t111_get_ctrl);
 
 int mt9t111_set_ctrl(struct i2c_client *client, struct v4l2_control *vc)
 {
+	printk(KERN_INFO "%s id=%d value=%d\n", __func__, vc->id, vc->value);
 	switch (vc->id) {
 	case V4L2_CID_TEST_PATTERN:
 		return mt9t111_set_test_pattern(client, vc->value);
 	case V4L2_CID_COLORFX:
 		return mt9t111_set_colorfx(client, vc->value);
+	case V4L2_CID_HFLIP:
+		mt9t111_write_var_bits(client, 0x480C, vc->value ? 1 : 0, 0x1);
+		mt9t111_refresh(client);
+		break;
+	case V4L2_CID_VFLIP:
+		mt9t111_write_var_bits(client, 0x480C, vc->value ? 2 : 0, 0x2);
+		mt9t111_refresh(client);
+		break;
 	default:
 		return -EINVAL;
 	}
