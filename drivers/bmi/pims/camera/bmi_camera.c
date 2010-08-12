@@ -318,6 +318,7 @@ int bmi_unregister_camera(struct bmi_device *bdev)
 {
 	struct class *bmi_class;
 	struct bmi_camera_platform_data *pdat;
+	struct file_operations *fops;
 	int slotnum;
 	if(!bdev)
 		return -ENODEV;
@@ -325,12 +326,13 @@ int bmi_unregister_camera(struct bmi_device *bdev)
 	bmi_class = bmi_get_class ();
 	for(slotnum=0; slotnum<4; slotnum++) {
 		pdat = bmi_camera_sel.pdat[slotnum];
-		if(pdat->bdev == bdev) {
+		if(pdat && pdat->bdev == bdev) {
 			mutex_unlock(&bmi_camera_sel.mutex);
 			platform_device_unregister (pdat->pdev);
 			device_destroy (bmi_class, MKDEV(major, slotnum));
-			kfree(pdat->cdev.ops);
+			fops = pdat->cdev.ops;
 			cdev_del (&pdat->cdev);
+			kfree(fops);
 			kfree(pdat->pdev);
 			kfree(pdat);
 			return 0;
