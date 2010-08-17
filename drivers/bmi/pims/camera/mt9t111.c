@@ -27,6 +27,7 @@
 #include <linux/version.h>
 #include <linux/kernel.h>
 #include <linux/v4l2-mediabus.h>
+#include <linux/videodev2.h>
 
 #include <media/v4l2-device.h>
 #include <media/v4l2-subdev.h>
@@ -36,11 +37,12 @@
 
 struct mt9t111_sensor {
 	struct i2c_client *client;
-	struct v4l2_mbus_framefmt format[2];
-	u8 active_context;
+	struct v4l2_mbus_framefmt format;
+	struct v4l2_fract frame_interval;
 	u8 test_pat_id;
 	u8 colorfx_id;
 	u8 streaming;
+	
 };
 
 int mt9t111_read_reg(struct i2c_client *client, u16 reg, u16 *val)
@@ -204,24 +206,7 @@ static int mt9t111_detect(struct i2c_client *client)
 
 static int mt9t111_refresh(struct i2c_client *client)
 {
-	int err;	
-	//unsigned short value;
-	//int i;
-	err = mt9t111_write_var(client, 0x8400, 0x0006);//Refresh Sequencer Mode
-	if(err < 0)
-		return err;
-	//err = mt9t111_write_var(client, 0x8400, 0x0005);//Refresh Mode
-	//if(err < 0)
-	//	return err;
-	//for (i=0;i<100;i++){
-	//	err = mt9t111_read_var(client, 0x8400, &value);
-	//	if(err < 0)
-	//		return err;
-	//	if (value == 0)			
-	//		break;		
-	//	mdelay(5);	
-	//}
-	return 0;
+	return mt9t111_write_var(client, 0x8400, 0x0006); // Refresh Seq. Mode
 }
 
 static int mt9t111_enable_pll(struct i2c_client *client)
@@ -241,10 +226,8 @@ static int mt9t111_enable_pll(struct i2c_client *client)
 			printk(KERN_ERR "%s: error reading pll lock state\n", __func__);
 			return err;
 		}
-		if (( value & 0x8000) != 0) {
-			printk(KERN_INFO "%s: PLL locked\n", __func__);
+		if (( value & 0x8000) != 0)
 			break;
-		}
 		if(i++ > 100) {
 			printk(KERN_ERR "%s: can't get pll lock\n", __func__);
 			return -EBUSY;
@@ -310,12 +293,15 @@ static int mt9t111_loaddefault(struct i2c_client *client)
 {
 	struct mt9t111_sensor *sensor = i2c_get_clientdata(client);
 	int err;
-	sensor->active_context = 0;
 	sensor->test_pat_id = 0;
 	sensor->colorfx_id = 0;
 
 	err = mt9t111_enable_pll(client);
 	if(err < 0) 
+		return err;
+
+	err = MT9T111_APPLY_PATCH(client, mt9t111_init_regs);
+	if(err < 0)
 		return err;
 
 	err = MT9T111_APPLY_PATCH(client, def_regs1);
@@ -330,14 +316,7 @@ static int mt9t111_loaddefault(struct i2c_client *client)
 	if(err < 0)
 		return err;
 
-	err = MT9T111_APPLY_PATCH(client, fmt_GBRG_regs);
-	if(err < 0)
-		return err;
-	//mt9t111_color_bar(client);
-
-	mt9t111_refresh(client);
-
-	return 0;
+	return mt9t111_refresh(client);
 }
 
 int mt9t111_set_power(struct i2c_client *client, int on)
@@ -372,18 +351,75 @@ int mt9t111_s_stream(struct i2c_client *client, int streaming)
 }
 EXPORT_SYMBOL(mt9t111_s_stream);
 
+
+struct mt9t111_format {
+	struct v4l2_frmsize_discrete min_res;
+	struct v4l2_frmsize_discrete max_res;
+	struct v4l2_fract interval;
+};
+
+
+struct mt9t111_format mt9t111_fmt[] = {
+	{ {1040, 784}, {2048, 1536}, { 1,  5 } },
+	{ {680,  514}, {1024,  768}, { 1, 20 } },
+	{ { 32,   32}, { 664,  498}, { 1, 22 } },
+};
+
+u32 mt9t111_mbus_codes[] = {
+	V4L2_MBUS_FMT_SGRBG10_1X10,
+	V4L2_MBUS_FMT_YUYV16_1X16,
+	V4L2_MBUS_FMT_UYVY16_1X16,
+	V4L2_MBUS_FMT_YVYU16_1X16,
+	V4L2_MBUS_FMT_VYUY16_1X16,
+};	
+
 int mt9t111_set_format(struct i2c_client *client, struct v4l2_mbus_framefmt *fmt)
 {
-	int ret, timeout=0;
-	u16 val;
+	int ret;
 	struct mt9t111_sensor *sensor = i2c_get_clientdata(client);
 
+	// clamp width and height to multiples of 16
+	fmt->width  = (fmt->width  / 16) * 16;
+	fmt->height = (fmt->height / 16) * 16;
+	if(fmt->width  < 32) fmt->width  = 32;
+	if(fmt->height < 32) fmt->height = 32;
 
-	//if(fmt->height > 768 || fmt->width > 1024) {
-	//	printk(KERN_INFO "%s applying 2048x1536 patch\n", __func__);
-	//	ret = MT9T111_APPLY_PATCH(client, fmt_2048x1536_7fps);
-	//}
-	sensor->active_context = 0;
+	if(fmt->height > 768 || fmt->width > 1024) {
+		printk(KERN_INFO "%s applying 2048x1536 patch\n", __func__);
+		ret = MT9T111_APPLY_PATCH(client, fmt_2048x1536_5fps);
+
+		mt9t111_write_var(client, 0x6800, fmt->width);
+		mt9t111_write_var(client, 0x6802, fmt->height);
+		mt9t111_write_var(client, 0x4802, (1536-fmt->height)/2+8);
+		mt9t111_write_var(client, 0x4804, (2048-fmt->width )/2+8);
+		mt9t111_write_var(client, 0x4806, (1536-fmt->height)/2+8+fmt->height-1+8);
+		mt9t111_write_var(client, 0x4808, (2048-fmt->width )/2+8+fmt->width-1+8);
+		mt9t111_write_var(client, 0x482b, fmt->width+8);
+		mt9t111_write_var(client, 0x482d, fmt->height+8);
+		sensor->frame_interval.denominator = mt9t111_fmt[0].interval.denominator;
+		sensor->frame_interval.numerator   = mt9t111_fmt[0].interval.numerator;
+	} else if(fmt->height > 498 || fmt->width > 664) {
+		printk(KERN_INFO "%s applying 1024x768 patch\n", __func__);
+		ret = MT9T111_APPLY_PATCH(client, fmt_1024x768_20fps);
+
+		mt9t111_write_var(client, 0x6800, fmt->width);
+		mt9t111_write_var(client, 0x6802, fmt->height);
+		mt9t111_write_var(client, 0x4802, 768-fmt->height);
+		mt9t111_write_var(client, 0x4804, 1024-fmt->width);
+		mt9t111_write_var(client, 0x4806, 768-fmt->height+(fmt->height+8)*2-3);
+		mt9t111_write_var(client, 0x4808, 1024-fmt->width+(fmt->width+8)*2-3);
+		mt9t111_write_var(client, 0x482b, fmt->width+8);
+		mt9t111_write_var(client, 0x482d, fmt->height+8);
+		sensor->frame_interval.denominator = mt9t111_fmt[1].interval.denominator;
+		sensor->frame_interval.numerator   = mt9t111_fmt[1].interval.numerator;
+	} else {
+		printk(KERN_INFO "%s applying 640x480 patch\n", __func__);
+		ret = MT9T111_APPLY_PATCH(client, fmt_640x480_22fps);
+		mt9t111_write_var(client, 0x6800, fmt->width);
+		mt9t111_write_var(client, 0x6802, fmt->height);
+		sensor->frame_interval.denominator = mt9t111_fmt[2].interval.denominator;
+		sensor->frame_interval.numerator   = mt9t111_fmt[2].interval.numerator;
+	}
 
 
 	switch(fmt->code) {
@@ -423,24 +459,7 @@ int mt9t111_set_format(struct i2c_client *client, struct v4l2_mbus_framefmt *fmt
 		break;
 	}
 
-	while(1) {
-		
-		mt9t111_write_var(client, 0x8400, sensor->active_context ? 2:1);
-		ret = mt9t111_read_var(client, 0x8401, &val);
-		printk(KERN_INFO "%s Context status register = %d\n", __func__, val);
-		if(val == (sensor->active_context ? 7 : 3)) {
-			break;
-		}
-		if(timeout == 100) {
-			printk(KERN_ERR "%s context switch failed\n", __func__);
-			ret = -EBUSY;
-			break;
-		}
-		timeout++;
-		mdelay(50);
-	}
-
-	memcpy(&(sensor->format[sensor->active_context]), fmt, sizeof(*fmt));
+	memcpy(&(sensor->format), fmt, sizeof(*fmt));
 	return mt9t111_refresh(client);
 }
 EXPORT_SYMBOL(mt9t111_set_format);
@@ -449,11 +468,89 @@ EXPORT_SYMBOL(mt9t111_set_format);
 int mt9t111_get_format(struct i2c_client *client, struct v4l2_mbus_framefmt *fmt)
 {
 	struct mt9t111_sensor *sensor = i2c_get_clientdata(client);
-	struct v4l2_mbus_framefmt *tmp = &(sensor->format[sensor->active_context]);
-	memcpy(fmt, tmp, sizeof(*fmt));
+	memcpy(fmt, &sensor->format, sizeof(sensor->format));
 	return 0;
 }
 EXPORT_SYMBOL(mt9t111_get_format);
+
+
+int mt9t111_enum_mbus_code(struct i2c_client *client,
+			   struct v4l2_subdev_fh *fh,
+			   struct v4l2_subdev_pad_mbus_code_enum *code)
+{
+	if(code->pad != 0 || code->index >= ARRAY_SIZE(mt9t111_mbus_codes))
+		return -EINVAL;
+
+	code->code = mt9t111_mbus_codes[code->index];
+	return 0;
+}
+EXPORT_SYMBOL(mt9t111_enum_mbus_code);
+
+int mt9t111_enum_frame_size(struct i2c_client *client,
+			    struct v4l2_subdev_fh *fh,
+			    struct v4l2_subdev_frame_size_enum *fse)
+
+{
+	int i;
+	if(fse->index >= ARRAY_SIZE(mt9t111_fmt))
+		return -EINVAL;
+
+	for(i=0; i<ARRAY_SIZE(mt9t111_mbus_codes); i++) {
+		if(mt9t111_mbus_codes[i] == fse->code) {
+			fse->min_width = mt9t111_fmt[fse->index].min_res.width;
+			fse->max_width = mt9t111_fmt[fse->index].max_res.width;
+			fse->min_height= mt9t111_fmt[fse->index].min_res.height;
+			fse->max_height= mt9t111_fmt[fse->index].max_res.height;
+			return 0;
+		}
+	}
+	return -EINVAL;
+}
+EXPORT_SYMBOL(mt9t111_enum_frame_size);
+
+
+int mt9t111_enum_frame_ival(struct i2c_client *client,
+			    struct v4l2_subdev_fh *fh,
+			    struct v4l2_subdev_frame_interval_enum *fie)
+{
+	int i;
+	if(fie->index >= ARRAY_SIZE(mt9t111_fmt))
+		return -EINVAL;
+
+	for(i=0; i<ARRAY_SIZE(mt9t111_mbus_codes); i++) {
+		if(mt9t111_mbus_codes[i] == fie->code) {
+			fie->interval.numerator   = mt9t111_fmt[fie->index].interval.numerator;
+			fie->interval.denominator = mt9t111_fmt[fie->index].interval.denominator;
+			return 0;
+		}
+	}
+	return -EINVAL;
+}
+EXPORT_SYMBOL(mt9t111_enum_frame_ival);
+
+int mt9t111_get_frame_interval(struct i2c_client *client,
+			       struct v4l2_subdev_frame_interval *fi)
+{
+	struct mt9t111_sensor *sensor = i2c_get_clientdata(client);
+	memcpy(&fi->interval, &sensor->frame_interval, sizeof(sensor->frame_interval));
+	return 0;
+}
+EXPORT_SYMBOL(mt9t111_get_frame_interval);
+
+int mt9t111_set_frame_interval(struct i2c_client *client,
+			       struct v4l2_subdev_frame_interval *fi)
+{
+	// It is possible to change the frame interval, but for now
+	// we just leave it static based on the current resolution.
+	// The change would require calculating the new number of vblank
+        // rows and applying it. This would keep the flicker settings
+	// static as well, which is good.
+	struct mt9t111_sensor *sensor = i2c_get_clientdata(client);
+	memcpy(&fi->interval, &sensor->frame_interval, sizeof(sensor->frame_interval));
+	return 0;
+}
+EXPORT_SYMBOL(mt9t111_set_frame_interval);
+
 
 static char *test_pats[] = {
 	"Disabled",         
@@ -527,7 +624,6 @@ static int mt9t111_set_test_pattern(struct i2c_client *client, int id) {
 
 static int mt9t111_set_colorfx(struct i2c_client *client, int fx) {
 	struct mt9t111_sensor *sensor = i2c_get_clientdata(client);
-	printk(KERN_INFO "%s fx=%d\n", __func__, fx);
 	switch (fx) {
 	case V4L2_COLORFX_NONE:
 		mt9t111_write_var(client, 0xE883, 0x0000);
@@ -661,7 +757,6 @@ EXPORT_SYMBOL(mt9t111_get_ctrl);
 
 int mt9t111_set_ctrl(struct i2c_client *client, struct v4l2_control *vc)
 {
-	printk(KERN_INFO "%s id=%d value=%d\n", __func__, vc->id, vc->value);
 	switch (vc->id) {
 	case V4L2_CID_TEST_PATTERN:
 		return mt9t111_set_test_pattern(client, vc->value);
@@ -735,17 +830,13 @@ static int mt9t111_probe(struct i2c_client *client,
 
 	i2c_set_clientdata(client, sensor);
 	sensor->client = client;
-	sensor->format[0].width        = 640;
-	sensor->format[0].height       = 480;
-	sensor->format[0].code         = V4L2_MBUS_FMT_YUYV16_1X16;
-	sensor->format[0].colorspace   = V4L2_COLORSPACE_SRGB;
-	sensor->format[0].field        = V4L2_FIELD_NONE;
-	sensor->format[1].width        = 2048;
-	sensor->format[1].height       = 1536;
-	sensor->format[1].code         = V4L2_MBUS_FMT_YUYV16_1X16;
-	sensor->format[1].colorspace   = V4L2_COLORSPACE_SRGB;
-	sensor->format[1].field        = V4L2_FIELD_NONE;
-	sensor->active_context = 0;
+	sensor->format.width        = 640;
+	sensor->format.height       = 480;
+	sensor->format.code         = V4L2_MBUS_FMT_YUYV16_1X16;
+	sensor->format.colorspace   = V4L2_COLORSPACE_SRGB;
+	sensor->format.field        = V4L2_FIELD_NONE;
+	sensor->frame_interval.numerator = 1;
+	sensor->frame_interval.denominator= 22;
 	sensor->test_pat_id = 0;
 	sensor->colorfx_id = 0;
 	sensor->streaming = 0;

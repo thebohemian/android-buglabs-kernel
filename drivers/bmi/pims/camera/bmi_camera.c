@@ -468,59 +468,6 @@ static int bmi_camera_s_stream(struct v4l2_subdev *subdev, int streaming)
 	return err;
 }
 
-static int bmi_camera_enum_format(struct v4l2_subdev *subdev, struct v4l2_fmtdesc *fmt)
-{
-	printk(KERN_INFO "%s enter\n", __func__);
-	return 0;
-}
-
-static int bmi_camera_get_format(struct v4l2_subdev *subdev,
-			     struct v4l2_format *f)
-{
-	printk(KERN_INFO "%s enter\n", __func__);
-	return 0;
-}
-
-static int bmi_camera_try_format(struct v4l2_subdev *subdev, struct v4l2_format *f)
-{
-	printk(KERN_INFO "%s enter\n", __func__);
-	return 0;
-}
-
-static int bmi_camera_set_format(struct v4l2_subdev *subdev, struct v4l2_format *f)
-{
-	printk(KERN_INFO "%s enter\n", __func__);
-	return 0;
-}
-
-static int bmi_camera_get_param(struct v4l2_subdev *subdev,
-			    struct v4l2_streamparm *a)
-{
-	printk(KERN_INFO "%s enter\n", __func__);
-	return 0;
-}
-
-static int bmi_camera_set_param(struct v4l2_subdev *subdev,
-			    struct v4l2_streamparm *a)
-{
-	printk(KERN_INFO "%s enter\n", __func__);
-	return 0;
-}
-
-static int bmi_camera_enum_frame_sizes(struct v4l2_subdev *subdev,
-					struct v4l2_frmsizeenum *frms)
-{
-	printk(KERN_INFO "%s enter\n", __func__);
-	return 0;
-}
-
-static int bmi_camera_enum_frame_intervals(struct v4l2_subdev *subdev,
-					struct v4l2_frmivalenum *frmi)
-{
-	printk(KERN_INFO "%s enter\n", __func__);
-	return 0;
-}
-
 static int bmi_camera_log_status(struct v4l2_subdev *subdev) 
 {
 	GET_SELECTED_DEV;
@@ -532,10 +479,10 @@ static int bmi_camera_log_status(struct v4l2_subdev *subdev)
 		return 0;
 }
 
-static int
-bmi_camera_set_config(struct v4l2_subdev *subdev, int irq, void *platform_data)
+static int bmi_camera_set_config(struct v4l2_subdev *subdev, 
+				 int irq, void *platform_data)
 {
-	return 0;
+	return 0; // nothing to do for now
 }
 
 static int bmi_camera_query_ctrl(struct v4l2_subdev *subdev,
@@ -691,21 +638,21 @@ static int bmi_camera_set_pad_format(struct v4l2_subdev *subdev,
 }
 
 static int bmi_camera_get_frame_interval(struct v4l2_subdev *subdev,
-				     struct v4l2_subdev_frame_interval *fi)
+					 struct v4l2_subdev_frame_interval *fi)
 {
-	printk(KERN_INFO "%s enter\n", __func__);
-//	BUG_ON(1);
-//	memset(fi, 0, sizeof(*fi));
-//	fi->interval.numerator=1;
-//	fi->interval.denominator=15;
-	return 0;
+	GET_SELECTED_DEV;
+	if(v4l2_ops->video && v4l2_ops->video->g_frame_interval)
+		return v4l2_ops->video->g_frame_interval(subdev, fi);
+	return -EINVAL;
 }
 
 static int bmi_camera_set_frame_interval(struct v4l2_subdev *subdev,
-				     struct v4l2_subdev_frame_interval *fi)
+					 struct v4l2_subdev_frame_interval *fi)
 {
-	printk(KERN_INFO "%s enter\n", __func__);
-	return 0;
+	GET_SELECTED_DEV;
+	if(v4l2_ops->video && v4l2_ops->video->s_frame_interval)
+		return v4l2_ops->video->s_frame_interval(subdev, fi);
+	return -EINVAL;
 }
 
 static int bmi_camera_query_capabilities(struct v4l2_capability *argp) {
@@ -793,14 +740,6 @@ static const struct v4l2_subdev_video_ops bmi_camera_video_ops = {
 	.s_stream            = bmi_camera_s_stream,
 	.g_frame_interval    = bmi_camera_get_frame_interval,
 	.s_frame_interval    = bmi_camera_set_frame_interval,
-	.enum_fmt            = bmi_camera_enum_format,
-	.g_fmt               = bmi_camera_get_format,
-	.try_fmt             = bmi_camera_try_format,
-	.s_fmt               = bmi_camera_set_format,
-	.g_parm              = bmi_camera_get_param,
-	.s_parm              = bmi_camera_set_param,
-        .enum_framesizes     = bmi_camera_enum_frame_sizes,
-        .enum_frameintervals = bmi_camera_enum_frame_intervals,
 };
 
 static const struct v4l2_subdev_core_ops bmi_camera_core_ops = {
@@ -927,7 +866,6 @@ static __init int bmi_camera_init(void)
 		printk(KERN_ERR "Error register omap3-isp\n");
 		return ret;
 	}
-	printk(KERN_INFO "Successfully registered omap3-isp\n");
 
 	ret = setup_gpio(CAM_OSC_EN, 1);
 	if(ret < 0)
