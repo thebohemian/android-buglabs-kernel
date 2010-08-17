@@ -302,7 +302,9 @@ static struct platform_device omap3bug_vout_device = {
 #define LCD_PANEL_UD		3
 #define LCD_PANEL_INI		152
 
-#define LCD_PANEL_ENABLE_GPIO	232
+
+#define VIDEO_PIM_SW_ENABLE     232
+#define VIDEO_PIM_ENABLE        227
 #define LCD_PANEL_QVGA		154
 #define LCD_PANEL_RESB		155
 
@@ -315,8 +317,8 @@ static void __init omap3_bug_display_init(void)
 {
 	int r;
 
-	r  = gpio_request(227, "lcd_power");
-	r |= gpio_request(232, "lcd_level_shifter");
+	r  = gpio_request(VIDEO_PIM_ENABLE, "lcd_power");
+	r |= gpio_request(VIDEO_PIM_SW_ENABLE, "lcd_level_shifter");
 	r |= gpio_request(90,  "lcd_shutdown");
 	r |= gpio_request(93,  "lcd_reset");
 	r |= gpio_request(10,  "dvi_reset");
@@ -337,8 +339,8 @@ static int omap3_bug_panel_enable_lcd(struct omap_dss_device *display)
 	omap_cfg_reg (LCD_TP_RESET);
 	omap_cfg_reg (ACC_INT);
 
-	gpio_direction_output(227, 1);
-	gpio_direction_output(232, 0);
+	gpio_direction_output(VIDEO_PIM_ENABLE, 1);
+	gpio_direction_output(VIDEO_PIM_SW_ENABLE, 0);
 	gpio_direction_output(90,1);
 	gpio_direction_output(92,1);
 
@@ -347,7 +349,7 @@ static int omap3_bug_panel_enable_lcd(struct omap_dss_device *display)
 
 static void omap3_bug_panel_disable_lcd(struct omap_dss_device *display)
 {
-	gpio_direction_output(LCD_PANEL_ENABLE_GPIO, 1);
+	gpio_direction_output(VIDEO_PIM_SW_ENABLE, 1);
 
 	// Mux these pins to safe mode
   	omap_cfg_reg (DSS_D18);
@@ -382,15 +384,15 @@ static int omap3_bug_panel_enable_dvi(struct omap_dss_device *display)
 	omap_cfg_reg (DSS_DATA_23);
 	omap_cfg_reg (GPIO_10);
 
-	gpio_direction_output(227, 1);
-	gpio_direction_output(232, 0);
+	gpio_direction_output(VIDEO_PIM_ENABLE, 1);
+	gpio_direction_output(VIDEO_PIM_SW_ENABLE, 0);
 
 	return 0;
 }
 
 static void omap3_bug_panel_disable_dvi(struct omap_dss_device *display)
 {
-	gpio_direction_output(LCD_PANEL_ENABLE_GPIO, 1);
+	gpio_direction_output(VIDEO_PIM_SW_ENABLE, 1);
 
 	// Mux these pins to safe mode
   	omap_cfg_reg (DSS_D18);
@@ -404,6 +406,15 @@ static void omap3_bug_panel_disable_dvi(struct omap_dss_device *display)
 	return;
 }
 
+static struct omap_dss_device omap3_bug_vga_device = {
+	.type                = OMAP_DISPLAY_TYPE_DPI,
+	.name                = "vga",
+	.driver_name         = "vga_panel",
+	.phy.dpi.data_lines  = 24,
+	.platform_enable     = omap3_bug_panel_enable_dvi,
+	.platform_disable    = omap3_bug_panel_disable_dvi,
+};
+
 static struct omap_dss_device omap3_bug_dvi_device = {
 	.type                = OMAP_DISPLAY_TYPE_DPI,
 	.name                = "dvi",
@@ -416,6 +427,7 @@ static struct omap_dss_device omap3_bug_dvi_device = {
 struct omap_dss_device *omap3_bug_display_devices[] = {
         &omap3_bug_lcd_device,
 	&omap3_bug_dvi_device,
+	&omap3_bug_vga_device,
 };
 
 static struct omap_dss_board_info omap3_bug_dss_data = {

@@ -3,9 +3,17 @@ menu "OMAP2/3 Display Device Drivers"
 
 config PANEL_GENERIC
         tristate "Generic Panel"
+        depends on OMAP2_DSS
         help
 	  Generic panel driver.
 	  Used for DVI output for Beagle and OMAP3 SDP.
+
+config PANEL_VGA
+        tristate "Generic VGA Panel"
+        depends on OMAP2_DSS
+        help
+	  Generic panel driver.
+	  Used for VGA output for Beagle and OMAP3 SDP.
 
 config PANEL_SHARP_LS037V7DW01
         tristate "Sharp LS037V7DW01 LCD Panel"
@@ -48,5 +56,11 @@ config TFP410
        depends on I2C
        help
          TFP410 I2C support
+
+config THS8200
+       tristate "THS8200 I2C Support"
+       depends on I2C
+       help
+         THS8200 I2C support
 
 endmenu

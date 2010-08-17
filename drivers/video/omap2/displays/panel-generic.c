@@ -19,11 +19,11 @@
 
 #include <linux/module.h>
 #include <linux/delay.h>
-
 #include <mach/display.h>
 
 static struct omap_video_timings generic_panel_timings = {
-	/* 1280 x 1024 @ 57 Hz */        
+	/* 1280 x 1024 @ 57 Hz */
+        
   	.x_res		= 1280,
   	.y_res		= 1024,
 	.pixel_clock	= 86400,
@@ -33,6 +33,34 @@ static struct omap_video_timings generic_panel_timings = {
 	.vfp		= 3,
 	.vbp		= 18,
 	.vsw		= 7,
+	
+
+	/* 1024 x 768 @ 57 Hz */        
+	/*
+  	.x_res		= 1024,
+  	.y_res		= 768,
+	.pixel_clock	= 63500,
+	.hfp		= 23,
+	.hbp		= 159,
+	.hsw		= 135,
+	.vfp		= 2,
+	.vbp		= 28,
+	.vsw		= 5,
+	*/
+   	/* 800 x 600 */
+	/*
+  	.x_res		= 800,
+  	.y_res		= 600,
+	.pixel_clock	= 40000,
+	.hfp		= 40,
+	.hbp		= 88,
+	.hsw		= 128,
+	.vfp		= 1,
+	.vbp		= 23,
+	.vsw		= 4,
+	//Hsync polarity: +
+	//Vsync polarity: +
+	*/
 	
 	/* 640 x 480 @ 60 Hz  Reduced blanking VESA CVT 0.31M3-R */        
 	/*
