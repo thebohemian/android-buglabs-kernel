@@ -444,7 +444,7 @@ static int __li3m02cm_set_power(struct bmi_device *bdev, int on)
 		if(ret < 0)
 			goto error;		
 
-		printk(KERN_INFO "Camera SERDES LOCKED\n");
+		printk(KERN_DEBUG "Camera SERDES LOCKED\n");
 	}
 	return 0;
 
@@ -453,38 +453,16 @@ error:
 	return ret;
 }
 
-static int li3m02cm_enum_format(struct v4l2_subdev *s, struct v4l2_fmtdesc *fmt)
+static int li3m02cm_get_frame_interval(struct v4l2_subdev *subdev,
+				       struct v4l2_subdev_frame_interval *fi)
 {
-	return 0;
+	return mt9t111_get_frame_interval(subdev_to_cam(subdev)->mt9t111, fi);
 }
 
-static int li3m02cm_get_format(struct v4l2_subdev *subdev,
-			     struct v4l2_format *f)
+static int li3m02cm_set_frame_interval(struct v4l2_subdev *subdev,
+				       struct v4l2_subdev_frame_interval *fi)
 {
-	printk(KERN_INFO "%s enter\n", __func__);
-	return 0;
-}
-
-static int li3m02cm_try_format(struct v4l2_subdev *s, struct v4l2_format *f)
-{
-	return 0;
-}
-
-static int li3m02cm_set_format(struct v4l2_subdev *s, struct v4l2_format *f)
-{
-	return 0;
-}
-
-static int li3m02cm_enum_frame_sizes(struct v4l2_subdev *s,
-					struct v4l2_frmsizeenum *frms)
-{
-	return 0;
-}
-
-static int li3m02cm_enum_frame_intervals(struct v4l2_subdev *s,
-					struct v4l2_frmivalenum *frmi)
-{
-	return 0;
+	return mt9t111_set_frame_interval(subdev_to_cam(subdev)->mt9t111, fi);
 }
 
 static int li3m02cm_log_status(struct v4l2_subdev *subdev)
@@ -520,23 +498,20 @@ static int li3m02cm_enum_frame_size(struct v4l2_subdev *subdev,
 				    struct v4l2_subdev_fh *fh,
 				    struct v4l2_subdev_frame_size_enum *fse)
 {
-	printk(KERN_INFO "%s enter\n", __func__);
-	return 0;
+	return mt9t111_enum_frame_size(subdev_to_cam(subdev)->mt9t111, fh, fse);
 }
 
 static int li3m02cm_enum_frame_ival(struct v4l2_subdev *subdev,
 				    struct v4l2_subdev_fh *fh,
 				    struct v4l2_subdev_frame_interval_enum *fie)
 {
-	printk(KERN_INFO "%s enter\n", __func__);
-	return 0;
+	return mt9t111_enum_frame_ival(subdev_to_cam(subdev)->mt9t111, fh, fie);
 }
 static int li3m02cm_enum_mbus_code(struct v4l2_subdev *subdev,
 				   struct v4l2_subdev_fh *fh,
 				   struct v4l2_subdev_pad_mbus_code_enum *code)
 {
-	printk(KERN_INFO "%s enter\n", __func__);
-	return 0;
+	return mt9t111_enum_mbus_code(subdev_to_cam(subdev)->mt9t111, fh, code);
 }
 
 static int li3m02cm_get_pad_format(struct v4l2_subdev *subdev,
@@ -544,9 +519,7 @@ static int li3m02cm_get_pad_format(struct v4l2_subdev *subdev,
 				   struct v4l2_mbus_framefmt *fmt,
 				   enum v4l2_subdev_format which)
 {
-	struct bmi_li3m02cm *cam = subdev_to_cam(subdev);
 	struct v4l2_mbus_framefmt *format;
-	//printk(KERN_INFO "%s enter\n", __func__);
 		
 	switch (which) {
 	case V4L2_SUBDEV_FORMAT_PROBE:
@@ -554,8 +527,7 @@ static int li3m02cm_get_pad_format(struct v4l2_subdev *subdev,
 		*fmt = *format;
 		break;
 	case V4L2_SUBDEV_FORMAT_ACTIVE:
-		mt9t111_get_format(cam->mt9t111, fmt);
-		break;
+		return mt9t111_get_format(subdev_to_cam(subdev)->mt9t111, fmt);
 	default: 
 		return -EINVAL;
 	}
@@ -567,8 +539,7 @@ static int li3m02cm_set_pad_format(struct v4l2_subdev *subdev,
 				   struct v4l2_mbus_framefmt *fmt,
 				   enum v4l2_subdev_format which)
 {
-	struct bmi_li3m02cm *cam = subdev_to_cam(subdev);
-	return mt9t111_set_format(cam->mt9t111, fmt);
+	return mt9t111_set_format(subdev_to_cam(subdev)->mt9t111, fmt);
 }
 
 static int li3m02cm_set_flash_strobe(struct bmi_device *bdev, int on) 
@@ -616,7 +587,6 @@ static int li3m02cm_set_green_led(struct bmi_device *bdev, int on)
 	int ret;
 	unsigned char iox_data;
 	struct bmi_li3m02cm *cam = bmi_device_get_drvdata(bdev);
-	printk(KERN_INFO "%s on=%d\n", __func__, on);
 	ret = ReadByte_IOX (cam->iox, IOX_OUTPUT_REG, &iox_data);
 	if(ret < 0)
 		return ret;
@@ -633,12 +603,8 @@ static int li3m02cm_set_green_led(struct bmi_device *bdev, int on)
 #define li3m02cm_resume  NULL
 
 static const struct v4l2_subdev_video_ops li3m02cm_video_ops = {
-	.enum_fmt            = li3m02cm_enum_format,
-	.g_fmt               = li3m02cm_get_format,
-	.try_fmt             = li3m02cm_try_format,
-	.s_fmt               = li3m02cm_set_format,
-        .enum_framesizes     = li3m02cm_enum_frame_sizes,
-        .enum_frameintervals = li3m02cm_enum_frame_intervals,
+	.g_frame_interval    = li3m02cm_get_frame_interval,
+	.s_frame_interval    = li3m02cm_set_frame_interval,
 };
 
 static const struct v4l2_subdev_core_ops li3m02cm_core_ops = {
@@ -667,11 +633,11 @@ static struct v4l2_subdev_ops li3m02cm_ops = {
 
 static struct bmi_camera_ops li3m02cm_bmi_ops = {
 	.set_flash_strobe = li3m02cm_set_flash_strobe,
-	.set_red_led = li3m02cm_set_red_led,
-	.set_green_led = li3m02cm_set_green_led,
-	.ioctl = li3m02cm_ioctl,
-	.suspend = li3m02cm_suspend,
-	.resume = li3m02cm_resume,
+	.set_red_led      = li3m02cm_set_red_led,
+	.set_green_led    = li3m02cm_set_green_led,
+	.ioctl            = li3m02cm_ioctl,
+	.suspend          = li3m02cm_suspend,
+	.resume           = li3m02cm_resume,
 };
 
 int bmi_li3m02cm_probe(struct bmi_device *bdev)
@@ -717,10 +683,8 @@ void bmi_li3m02cm_remove(struct bmi_device *bdev)
 
 static __init int bmi_li3m02cm_init(void)
 {	
-	printk(KERN_INFO "BMI LI3M02CM Camera Sensor Driver v%s \n", BMI_LI3M02CM_VERSION);
 //	Register with BMI bus.
 	return  bmi_register_driver(&bmi_li3m02cm_driver); 
-
 }
 
 static void __exit bmi_li3m02cm_cleanup(void)

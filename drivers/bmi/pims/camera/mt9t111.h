@@ -43,7 +43,21 @@ extern int mt9t111_query_menu(struct i2c_client *client, struct v4l2_querymenu *
 extern int mt9t111_get_ctrl(  struct i2c_client *client, struct v4l2_control *vc);
 extern int mt9t111_set_ctrl(  struct i2c_client *client, struct v4l2_control *vc);
 extern int mt9t111_log_status(struct i2c_client *client);
+extern int mt9t111_enum_mbus_code(struct i2c_client *client,
+				  struct v4l2_subdev_fh *fh,
+				  struct v4l2_subdev_pad_mbus_code_enum *code);
+extern int mt9t111_enum_frame_size(struct i2c_client *client,
+				   struct v4l2_subdev_fh *fh,
+				   struct v4l2_subdev_frame_size_enum *fse);
+extern int mt9t111_enum_frame_ival(struct i2c_client *client,
+				   struct v4l2_subdev_fh *fh,
+				   struct v4l2_subdev_frame_interval_enum *fie);
+extern int mt9t111_get_frame_interval(struct i2c_client *client,
+				      struct v4l2_subdev_frame_interval *fi);
+extern int mt9t111_set_frame_interval(struct i2c_client *client,
+				      struct v4l2_subdev_frame_interval *fi);
 
+	
 struct mt9t111_regs {
 	u16 delay_time;
 	u16 addr;
