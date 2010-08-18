@@ -593,16 +593,17 @@ static struct gpio_led gpio_leds[] = {
 			.name		    = "omap3bug:green:battery",
 			.default_trigger    = "none",
 			.gpio		    = 53,
-			.active_low         = false,
+			.active_low         = true,
 			.default_state      = LEDS_GPIO_DEFSTATE_OFF,
 		},
 		{
-			.name		    = "omap3bug:blue:battery",
+			.name		    = "omap3bug:red:battery",
 			.default_trigger    = "none",
 			.gpio		    = 54,
-			.active_low         = false,
+			.active_low         = true,
 			.default_state      = LEDS_GPIO_DEFSTATE_OFF,
 		},
+/*
 		{
 			.name		    = "omap3bug:red:wlan",
 			.default_trigger    = "none",
@@ -620,10 +621,11 @@ static struct gpio_led gpio_leds[] = {
 		{
 			.name		    = "omap3bug:blue:wlan",
 			.default_trigger    = "none",
-			.gpio		    = 41,
+			.gpio		    = 56,
 			.active_low         = false,
 			.default_state      = LEDS_GPIO_DEFSTATE_OFF,
 		},
+*/
 };
 
 static struct gpio_led_platform_data gpio_led_info = {
@@ -646,18 +648,18 @@ static struct platform_device leds_gpio = {
 static struct led_pwm pwm_leds[] =
 {
 		{
-			.name               = "omap3bug:blue:power",
+			.name               = "omap3bug:red:wifi",
 			.default_trigger    = "none",
 			.pwm_id             = 0,
-			.active_low         = false,
+			.active_low         = true,
 			.max_brightness     = LED_FULL,
 			.pwm_period_ns      = 330,
 		},
 		{
-			.name               = "omap3bug:blue:bt",
+			.name               = "omap3bug:green:wifi",
 			.default_trigger    = "none",
 			.pwm_id             = 1,
-			.active_low         = false,
+			.active_low         = true,
 			.max_brightness     = LED_FULL,
 			.pwm_period_ns      = 330,
 		},
@@ -671,6 +673,7 @@ static struct led_pwm_platform_data pwm_led_info =
 
 static struct platform_device leds_pwm =
 {
+
                 .name = "leds_pwm",
 		.id = -1,
 		.dev =
@@ -683,8 +686,24 @@ static struct platform_device leds_pwm =
  * PWM LEDs available on OMAP.
  */
 
+static struct omap_pwm_led_platform_data omap_pwm_led_gpt8 = {
+       .name                = "omap3bug:blue:power",
+       .intensity_timer     = 8,
+       .blink_timer         = 0,
+       //.set_power           = set_power(&omap_pwm_led_gpt92, 0),
+};
+
+static struct platform_device omap3_bug_pwm_gpt8 = {
+       .name   = "omap_pwm_led",
+       .id     = 0,
+       .dev    = {
+               .platform_data  = &omap_pwm_led_gpt8,
+       },
+};
+
+
 static struct omap_pwm_led_platform_data omap_pwm_led_gpt9 = {
-       .name                = "omap3bug:red:battery",
+       .name                = "omap3bug:blue:battery",
        .intensity_timer     = 9,
        .blink_timer         = 0,
        //.set_power           = set_power(&omap_pwm_led_gpt92, 0),
@@ -692,11 +711,42 @@ static struct omap_pwm_led_platform_data omap_pwm_led_gpt9 = {
 
 static struct platform_device omap3_bug_pwm_gpt9 = {
        .name   = "omap_pwm_led",
-       .id     = -1,
+       .id     = 1,
        .dev    = {
                .platform_data  = &omap_pwm_led_gpt9,
        },
 };
+
+static struct omap_pwm_led_platform_data omap_pwm_led_gpt10 = {
+       .name                = "omap3bug:blue:wifi",
+       .intensity_timer     = 10,
+       .blink_timer         = 0,
+       //.set_power           = set_power(&omap_pwm_led_gpt92, 0),
+};
+
+static struct platform_device omap3_bug_pwm_gpt10 = {
+       .name   = "omap_pwm_led",
+       .id     = 2,
+       .dev    = {
+               .platform_data  = &omap_pwm_led_gpt10,
+       },
+};
+
+static struct omap_pwm_led_platform_data omap_pwm_led_gpt11 = {
+       .name                = "omap3bug:blue:bt",
+       .intensity_timer     = 11,
+       .blink_timer         = 0,
+       //.set_power           = set_power(&omap_pwm_led_gpt92, 0),
+};
+
+static struct platform_device omap3_bug_pwm_gpt11 = {
+       .name   = "omap_pwm_led",
+       .id     = 3,
+       .dev    = {
+               .platform_data  = &omap_pwm_led_gpt11,
+       },
+};
+
 
 static struct platform_device *omap3_bug_devices[] __initdata = {
 
@@ -706,7 +756,10 @@ static struct platform_device *omap3_bug_devices[] __initdata = {
 	&omap3_bug_pwr_switch,
 	&omap3_bug_pwm_a,
 	&omap3_bug_pwm_b,
+	&omap3_bug_pwm_gpt8,
 	&omap3_bug_pwm_gpt9,
+	&omap3_bug_pwm_gpt10,
+	&omap3_bug_pwm_gpt11,
 	&leds_pwm,
 	&leds_gpio
 };
