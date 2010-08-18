@@ -33,19 +33,19 @@ config BMI_GPS
 
 source "drivers/bmi/pims/mdacc/Kconfig"
 
-config VIDEO_BMI_LCD
-	tristate "BMI Bus LCD Module support"
+config BMI_LCD
+	tristate "BMI LCD Module support"
 	depends on BMI_PIMS
 	default n
 	---help---
-	  This is the BMI bus driver for the LCD Plug-In Module.
+	  This is the BMI driver for the LCD Plug-In Module.
 
-config VIDEO_BMI_DVI
-	tristate "BMI DVI/VGA Module support"
-	depends on BMI_PIMS
+config BMI_VIDEO
+	tristate "BMI Video Module support"
+	depends on BMI_PIMS && TFP410 && THS8200
 	default n
 	---help---
-	  This is the BMI bus driver for the LCD Plug-In Module.
+	  This is the BMI driver for the Video Plug-In Module (DVI/VGA).
 
 config BMI_AUDIO
 	tristate "BMI Bus Audio Module support"
