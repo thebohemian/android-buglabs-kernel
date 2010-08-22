@@ -27,12 +27,11 @@
 #include <linux/mm.h>
 #include <linux/delay.h>
 
-#include "bmi_camera_mux.h"
 #include "bmi_camera.h"
+#include <linux/bmi/bmi_camera.h>
 #include "mt9t111.h"
 
 #define BMI_LI3M02CM_VERSION  "0.1.0.5"
-extern struct platform_device omap3isp_device;
 
 // BMI device ID table
 static struct bmi_device_id bmi_li3m02cm_tbl[] = 
@@ -63,7 +62,6 @@ struct bmi_li3m02cm {
 	struct bmi_device *bdev;		
 	struct i2c_client *iox;
 	struct i2c_client *mt9t111;
-	struct v4l2_mbus_framefmt format;
 	u8  sysfs_iox_i2c_addr;
 	u16 sysfs_mt9t111_i2c_addr;
 };
@@ -88,8 +86,6 @@ struct bmi_li3m02cm {
 #define GPIO_FLASHON            2
 #define GPIO_REDLED             3
 
-// read byte from I2C IO expander
-
 static struct i2c_board_info iox_info = {
 	I2C_BOARD_INFO("CAM_IOX", BMI_IOX_I2C_ADDRESS),
 };
@@ -97,9 +93,10 @@ static struct i2c_board_info mt9t111_info = {
 	I2C_BOARD_INFO(MT9T111_NAME, MT9T111_I2C_ADDR),
 };
 
-
-
-static int ReadByte_IOX (struct i2c_client *client, unsigned char offset, unsigned char *data)
+// read byte from I2C IO expander
+static int ReadByte_IOX (struct i2c_client *client, 
+			 unsigned char offset, 
+			 unsigned char *data)
 {
 #ifdef REVB
         int    ret = 0;
@@ -144,7 +141,9 @@ static int ReadByte_IOX (struct i2c_client *client, unsigned char offset, unsign
 }
 
 // write byte to I2C IO expander
-static int WriteByte_IOX (struct i2c_client *client, unsigned char offset, unsigned char data)
+static int WriteByte_IOX (struct i2c_client *client, 
+			  unsigned char offset,
+			  unsigned char data)
 {
 #ifdef REVB
 	int	ret = 0;
@@ -266,11 +265,7 @@ static ssize_t store_mt9t111_addr(struct device *dev,
 	return size;
 }
 
-static int li3m02cm_set_power(struct bmi_device *bdev, int on);
-static int li3m02cm_set_pad_format(struct bmi_device *bdev,
-				 struct v4l2_subdev_fh *fh, unsigned int pad,
-				 struct v4l2_mbus_framefmt *fmt,
-				   enum v4l2_subdev_format which);
+static int __li3m02cm_set_power(struct bmi_device *bdev, int on);
 
 static ssize_t show_power(struct device *dev,
 			struct device_attribute *attr, char *buf)
@@ -285,9 +280,9 @@ static ssize_t store_power(struct device *dev,
 	long value = 0;
 	strict_strtol(buf, 0, &value);
 	if(value)
-		li3m02cm_set_power(cam->bdev, 1);
+		__li3m02cm_set_power(cam->bdev, 1);
 	else
-		li3m02cm_set_power(cam->bdev, 0);
+		__li3m02cm_set_power(cam->bdev, 0);
 	return size;
 }
 
@@ -295,7 +290,9 @@ static ssize_t show_format(struct device *dev,
 			struct device_attribute *attr, char *buf)
 {
 	struct bmi_li3m02cm *cam = dev_get_drvdata(dev);
-	return sprintf(buf, "%d %d\n", cam->format.width, cam->format.height);
+	struct v4l2_mbus_framefmt fmt;
+	mt9t111_get_format(cam->mt9t111, &fmt);
+	return sprintf(buf, "%d %d %d\n", fmt.width, fmt.height, fmt.code);
 }
 
 static ssize_t store_format(struct device *dev,
@@ -303,25 +300,49 @@ static ssize_t store_format(struct device *dev,
 {
 	struct bmi_li3m02cm *cam = dev_get_drvdata(dev);
 	struct v4l2_mbus_framefmt fmt;
-	sscanf(buf, "%d %d", &(fmt.width), &(fmt.height));
-	if(fmt.width && fmt.height)
-		li3m02cm_set_pad_format(cam->bdev, NULL, 0, &fmt, 0);
+	sscanf(buf, "%d %d %d", &(fmt.width), &(fmt.height), &(fmt.code));
+	if(fmt.width && fmt.height && fmt.code)
+		mt9t111_set_format(cam->mt9t111, &fmt);
 	return size;
 }
 
-static ssize_t show_serializer_locked(struct device *dev,
-			 struct device_attribute *attr, char *buf)
+static ssize_t show_context(struct device *dev,
+			struct device_attribute *attr, char *buf)
 {
-	return sprintf(buf, "%u\n", bmi_camera_mux_is_serializer_locked());
+	u16 value;
+	int result;
+	struct bmi_li3m02cm *cam = dev_get_drvdata(dev);
+	mt9t111_write_reg(cam->mt9t111, 0x098E, 0x8401);
+	mt9t111_read_reg( cam->mt9t111,  0x0990, &value);
+	if(value == 3) { 
+		result = 1; 
+	} else if(value == 7) { 
+		result = 2; 
+	} else {
+		result = -value;
+	}
+	return sprintf(buf, "%d\n", result);
 }
+
+static ssize_t store_context(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	int value;
+	struct bmi_li3m02cm *cam = dev_get_drvdata(dev);
+	sscanf(buf, "%d", &value);
+	mt9t111_write_reg(cam->mt9t111, 0x098E, 0x8400);
+	mt9t111_write_reg(cam->mt9t111, 0x0990, (u16) value);
+	return size;
+}
+
 
 static DEVICE_ATTR(iox_value, S_IWUGO | S_IRUGO, show_iox_value, store_iox_value);
 static DEVICE_ATTR(iox_addr,  S_IWUGO | S_IRUGO, show_iox_addr, store_iox_addr);
 static DEVICE_ATTR(mt9t111_value, S_IWUGO | S_IRUGO, show_mt9t111_value, store_mt9t111_value);
 static DEVICE_ATTR(mt9t111_addr,  S_IWUGO | S_IRUGO, show_mt9t111_addr, store_mt9t111_addr);
-static DEVICE_ATTR(serializer_locked, S_IRUGO, show_serializer_locked, NULL);
 static DEVICE_ATTR(set_power, S_IWUGO | S_IRUGO, show_power, store_power);
-static DEVICE_ATTR(set_format, S_IWUGO | S_IRUGO, show_format, store_format);
+static DEVICE_ATTR(format, S_IWUGO | S_IRUGO, show_format, store_format);
+static DEVICE_ATTR(context, S_IWUGO | S_IRUGO, show_context, store_context);
 
 // configure IOX IO and states
 void configure_IOX(struct bmi_li3m02cm *cam)
@@ -350,18 +371,15 @@ void deconfigure_module(struct bmi_li3m02cm *cam)
 	bmi_slot_gpio_direction_in(slot, 1);
 }
 
-static int
-li3m02cm_set_config(struct bmi_device *bdev, int irq, void *platform_data)
+#define subdev_to_bdev(subdev) (((struct bmi_camera_sensor *) to_bmi_camera_sensor(subdev))->bdev)
+#define subdev_to_cam(subdev) ((struct bmi_li3m02cm*) bmi_device_get_drvdata(subdev_to_bdev(subdev)))
+
+static int li3m02cm_set_power(struct v4l2_subdev *subdev, int on)
 {
-	struct bmi_li3m02cm *cam = bmi_device_get_drvdata(bdev);
-		
-	// configure GPIO and IOX
-	configure_GPIO(cam);
-	configure_IOX(cam);
-	return 0;
+	return __li3m02cm_set_power(subdev_to_bdev(subdev), on);
 }
 
-static int li3m02cm_set_power(struct bmi_device *bdev, int on)
+static int __li3m02cm_set_power(struct bmi_device *bdev, int on)
 {
 	struct bmi_li3m02cm *cam = bmi_device_get_drvdata(bdev);
 	unsigned char iox_data;
@@ -369,23 +387,13 @@ static int li3m02cm_set_power(struct bmi_device *bdev, int on)
 	int slot = bdev->slot->slotnum;
 
 	// setup the gpio pins
-	bmi_slot_gpio_direction_out(slot, GPIO_FLASHON, 0);
-	if(on) {
-		bmi_slot_gpio_direction_out(slot, GPIO_SER_EN,  1);
-		bmi_slot_gpio_direction_out(slot, GPIO_REDLED,  1);
-	} else {
-		bmi_slot_gpio_direction_out(slot, GPIO_SER_EN,  0);
-		bmi_slot_gpio_direction_out(slot, GPIO_REDLED,  0);
-	}
+	bmi_slot_gpio_direction_out(slot, GPIO_SER_EN,  on ? 1 : 0);
 
 	// setup the io expander pins on the camera module board
 	ret = ReadByte_IOX (cam->iox, IOX_OUTPUT_REG, &iox_data);
 	if(ret < 0)
 		return ret;
 
-	// turn off green led. Turn it back on if turning on power
-	// and everything goes OK.
-	iox_data &= ~IOX_GREEN_LED;
 	iox_data &= ~IOX_CAM_RESETB; // put part in reset regardless
 	iox_data |=  IOX_CAM_STBY;   // and standby
 	ret = WriteByte_IOX (cam->iox, IOX_OUTPUT_REG, iox_data);
@@ -402,11 +410,6 @@ static int li3m02cm_set_power(struct bmi_device *bdev, int on)
 			goto error;
 	}
 
-	// turn on/off bug base camera stuff
-	ret = bmi_camera_mux_set_power(on);
-	if(ret < 0)
-		goto error;
-
 	// set power to the sensor
 	ret = mt9t111_set_power(cam->mt9t111, on);
 	if(ret < 0) {
@@ -416,24 +419,18 @@ static int li3m02cm_set_power(struct bmi_device *bdev, int on)
 	ret = mt9t111_s_stream(cam->mt9t111, on);
 	if(ret < 0)
 		goto error;
-	// initialize the current camera format
-	cam->format.width  = 640;
-	cam->format.height = 480;
-	cam->format.code   = V4L2_MBUS_FMT_SGRBG10_1X10;
-	cam->format.colorspace   = V4L2_COLORSPACE_SRGB;
-	cam->format.field        = V4L2_FIELD_NONE;
 
 	if(on) {
 		u8 retry_count = 0;
-		while(1) { // wait for serializer to lock
-			ret = bmi_camera_mux_is_serializer_locked();
+		while(1) { // wait for SERDES to lock
+			ret = bmi_camera_is_serdes_locked();
 			if(ret < 0)
 				goto error;
 			if(ret) {
 				break; // we are locked
 			} else {
 				if(retry_count++ >= 20) {
-					printk(KERN_ERR "Camera serializer won't lock");
+					printk(KERN_ERR "Camera SERDES won't lock");
 					ret = -EBUSY;
 					goto error;
 				} else {            // if not locked,   
@@ -447,7 +444,7 @@ static int li3m02cm_set_power(struct bmi_device *bdev, int on)
 		if(ret < 0)
 			goto error;		
 
-		printk(KERN_INFO "Camera serializer LOCKED\n");
+		printk(KERN_DEBUG "Camera SERDES LOCKED\n");
 	}
 	return 0;
 
@@ -456,211 +453,171 @@ error:
 	return ret;
 }
 
-static int li3m02cm_s_stream(struct bmi_device *bdev, int streaming)
+static int li3m02cm_get_frame_interval(struct v4l2_subdev *subdev,
+				       struct v4l2_subdev_frame_interval *fi)
 {
-	struct bmi_li3m02cm *cam = bmi_device_get_drvdata(bdev);
-	unsigned char iox_data;
-	int ret;
-	int slot = bdev->slot->slotnum;
-
-	ret = ReadByte_IOX (cam->iox, IOX_OUTPUT_REG, &iox_data);
-	if(ret < 0)
-		goto error;
-
-
-	if(streaming) {
-		// if we made it to here, then turn on the green LED saying
-		// everything is good to go and turn off the red LED.
-		iox_data |= IOX_GREEN_LED;
-		ret = WriteByte_IOX (cam->iox, IOX_OUTPUT_REG, iox_data);
-		bmi_slot_gpio_direction_out(slot, GPIO_REDLED,  0);
-		if(ret < 0)
-			goto error;
-	} else {
-		// otherwise they are turning off the stream, so we
-		// turn on red led and off green
-		iox_data &= ~IOX_GREEN_LED;
-		ret = WriteByte_IOX (cam->iox, IOX_OUTPUT_REG, iox_data);
-		bmi_slot_gpio_direction_out(slot, GPIO_REDLED,  1);
-		if(ret < 0)
-			goto error;
-	}
-
-error:
-	return ret;
+	return mt9t111_get_frame_interval(subdev_to_cam(subdev)->mt9t111, fi);
 }
 
-static int li3m02cm_enum_format(struct bmi_device *s, struct v4l2_fmtdesc *fmt)
+static int li3m02cm_set_frame_interval(struct v4l2_subdev *subdev,
+				       struct v4l2_subdev_frame_interval *fi)
 {
-	return 0;
+	return mt9t111_set_frame_interval(subdev_to_cam(subdev)->mt9t111, fi);
 }
 
-static int li3m02cm_get_format(struct bmi_device *subdev,
-			     struct v4l2_format *f)
+static int li3m02cm_log_status(struct v4l2_subdev *subdev)
 {
-	printk(KERN_INFO "%s enter\n", __func__);
-	return 0;
+	return mt9t111_log_status(subdev_to_cam(subdev)->mt9t111);
 }
 
-static int li3m02cm_try_format(struct bmi_device *s, struct v4l2_format *f)
+static int li3m02cm_query_ctrl(struct v4l2_subdev *subdev,
+			       struct v4l2_queryctrl *a)
 {
-	return 0;
+	return mt9t111_query_ctrl(subdev_to_cam(subdev)->mt9t111, a);
 }
 
-static int li3m02cm_set_format(struct bmi_device *s, struct v4l2_format *f)
+static int li3m02cm_query_menu(struct v4l2_subdev *subdev,
+			       struct v4l2_querymenu *qm)
 {
-	return 0;
+	return mt9t111_query_menu(subdev_to_cam(subdev)->mt9t111, qm);
 }
 
-static int li3m02cm_get_param(struct bmi_device *subdev,
-			    struct v4l2_streamparm *a)
+static int li3m02cm_get_ctrl(struct v4l2_subdev *subdev,
+			     struct v4l2_control *vc)
 {
-	printk(KERN_INFO "%s enter\n", __func__);
-	return 0;
+	return mt9t111_get_ctrl(subdev_to_cam(subdev)->mt9t111, vc);
 }
 
-static int li3m02cm_set_param(struct bmi_device *subdev,
-			    struct v4l2_streamparm *a)
+static int li3m02cm_set_ctrl(struct v4l2_subdev *subdev,
+			     struct v4l2_control *vc)
 {
-	printk(KERN_INFO "%s enter\n", __func__);
-	return 0;
+	return mt9t111_set_ctrl(subdev_to_cam(subdev)->mt9t111, vc);
 }
 
-static int li3m02cm_enum_frame_sizes(struct bmi_device *s,
-					struct v4l2_frmsizeenum *frms)
+static int li3m02cm_enum_frame_size(struct v4l2_subdev *subdev,
+				    struct v4l2_subdev_fh *fh,
+				    struct v4l2_subdev_frame_size_enum *fse)
 {
-	return 0;
+	return mt9t111_enum_frame_size(subdev_to_cam(subdev)->mt9t111, fh, fse);
 }
 
-static int li3m02cm_enum_frame_intervals(struct bmi_device *s,
-					struct v4l2_frmivalenum *frmi)
+static int li3m02cm_enum_frame_ival(struct v4l2_subdev *subdev,
+				    struct v4l2_subdev_fh *fh,
+				    struct v4l2_subdev_frame_interval_enum *fie)
 {
-	return 0;
+	return mt9t111_enum_frame_ival(subdev_to_cam(subdev)->mt9t111, fh, fie);
+}
+static int li3m02cm_enum_mbus_code(struct v4l2_subdev *subdev,
+				   struct v4l2_subdev_fh *fh,
+				   struct v4l2_subdev_pad_mbus_code_enum *code)
+{
+	return mt9t111_enum_mbus_code(subdev_to_cam(subdev)->mt9t111, fh, code);
 }
 
-static int
-li3m02cm_get_chip_ident(struct bmi_device *subdev,
-		      struct v4l2_dbg_chip_ident *chip)
+static int li3m02cm_get_pad_format(struct v4l2_subdev *subdev,
+				   struct v4l2_subdev_fh *fh, unsigned int pad,
+				   struct v4l2_mbus_framefmt *fmt,
+				   enum v4l2_subdev_format which)
 {
-	return 0;
-}
-
-
-static int li3m02cm_query_ctrl(struct bmi_device *subdev,
-				  struct v4l2_queryctrl *a)
-{
-	printk(KERN_INFO "%s enter\n", __func__);
-	return 0;
-}
-
-static int li3m02cm_query_menu(struct bmi_device *subdev,
-				  struct v4l2_querymenu *qm)
-{
-	printk(KERN_INFO "%s enter\n", __func__);
-	return 0;
-}
-
-static int li3m02cm_get_ctrl(struct bmi_device *subdev,
-			       struct v4l2_control *vc)
-{
-	printk(KERN_INFO "%s enter\n", __func__);
-	return 0;
-}
-
-static int li3m02cm_set_ctrl(struct bmi_device *subdev,
-			       struct v4l2_control *vc)
-{
-	printk(KERN_INFO "%s enter\n", __func__);
-	return 0;
-}
-
-
-static int li3m02cm_enum_frame_size(struct bmi_device *subdev,
-				  struct v4l2_subdev_fh *fh,
-				  struct v4l2_subdev_frame_size_enum *fse)
-{
-	printk(KERN_INFO "%s enter\n", __func__);
-	return 0;
-}
-
-static int li3m02cm_enum_frame_ival(struct bmi_device *subdev,
-				  struct v4l2_subdev_fh *fh,
-				  struct v4l2_subdev_frame_interval_enum *fie)
-{
-	printk(KERN_INFO "%s enter\n", __func__);
-	return 0;
-}
-static int li3m02cm_enum_mbus_code(struct bmi_device *subdev,
-				 struct v4l2_subdev_fh *fh,
-				 struct v4l2_subdev_pad_mbus_code_enum *code)
-{
-	printk(KERN_INFO "%s enter\n", __func__);
-	return 0;
-}
-
-
-static int li3m02cm_get_pad_format(struct bmi_device *bdev,
-				 struct v4l2_subdev_fh *fh, unsigned int pad,
-				 struct v4l2_mbus_framefmt *fmt,
-				 enum v4l2_subdev_format which)
-{
-	struct bmi_li3m02cm *cam = bmi_device_get_drvdata(bdev);
 	struct v4l2_mbus_framefmt *format;
-	printk(KERN_INFO "%s enter\n", __func__);
 		
 	switch (which) {
 	case V4L2_SUBDEV_FORMAT_PROBE:
 		format = v4l2_subdev_get_probe_format(fh, pad);
+		*fmt = *format;
 		break;
 	case V4L2_SUBDEV_FORMAT_ACTIVE:
-		format = &cam->format;
-		break;
+		return mt9t111_get_format(subdev_to_cam(subdev)->mt9t111, fmt);
 	default: 
 		return -EINVAL;
 	}
-	*fmt = *format;
 	return 0;
 }
 
-static int li3m02cm_set_pad_format(struct bmi_device *bdev,
-				 struct v4l2_subdev_fh *fh, unsigned int pad,
-				 struct v4l2_mbus_framefmt *fmt,
-				 enum v4l2_subdev_format which)
+static int li3m02cm_set_pad_format(struct v4l2_subdev *subdev,
+				   struct v4l2_subdev_fh *fh, unsigned int pad,
+				   struct v4l2_mbus_framefmt *fmt,
+				   enum v4l2_subdev_format which)
 {
-	struct bmi_li3m02cm *cam = bmi_device_get_drvdata(bdev);
+	return mt9t111_set_format(subdev_to_cam(subdev)->mt9t111, fmt);
+}
+
+static int li3m02cm_set_flash_strobe(struct bmi_device *bdev, int on) 
+{
 	int ret;
-	printk(KERN_INFO "%s enter\n", __func__);
-	ret = mt9t111_set_format(cam->mt9t111, &fmt->width, &fmt->height);
+	unsigned char iox_data;
+	struct bmi_li3m02cm *cam = bmi_device_get_drvdata(bdev);
+	int slotnum = bdev->slot->slotnum;
+
+	// always turn off strobe initially so that high-beam can
+	// be enabled correctly.
+	bmi_slot_gpio_direction_out(slotnum, GPIO_FLASHON, 0); 
+	switch (on) {
+	case FLASH_STROBE_OFF:
+		break;
+	case FLASH_STROBE_TORCH_EN:
+	case FLASH_STROBE_HIGH_BEAM_EN:
+		ret = ReadByte_IOX (cam->iox, IOX_OUTPUT_REG, &iox_data);
+		if(ret < 0)
+			return ret;
+		if(on == FLASH_STROBE_TORCH_EN)
+			iox_data &= ~IOX_FLASH_TORCHB;
+		else
+			iox_data |=  IOX_FLASH_TORCHB;
+		ret = WriteByte_IOX (cam->iox, IOX_OUTPUT_REG, iox_data);
+		if(ret < 0)
+			return ret;
+		bmi_slot_gpio_direction_out(slotnum, GPIO_FLASHON, 1);
+		break;
+	default:
+		return -EINVAL;
+	}
+	return 0;
+}
+
+static int li3m02cm_set_red_led(struct bmi_device *bdev, int on) 
+{
+	int slotnum = bdev->slot->slotnum;
+	bmi_slot_gpio_direction_out(slotnum, GPIO_REDLED,  on ? 1 : 0);
+	return 0;
+}
+
+static int li3m02cm_set_green_led(struct bmi_device *bdev, int on) 
+{
+	int ret;
+	unsigned char iox_data;
+	struct bmi_li3m02cm *cam = bmi_device_get_drvdata(bdev);
+	ret = ReadByte_IOX (cam->iox, IOX_OUTPUT_REG, &iox_data);
 	if(ret < 0)
 		return ret;
-	cam->format.width  = fmt->width;
-	cam->format.height = fmt->height;
-	return 0;
+	if(on)
+		iox_data |=  IOX_GREEN_LED;
+	else
+		iox_data &= ~IOX_GREEN_LED;
+	return WriteByte_IOX (cam->iox, IOX_OUTPUT_REG, iox_data);
 }
 
-static const struct bmi_camera_video_ops li3m02cm_video_ops = {
-	.s_stream            = li3m02cm_s_stream,
-	.enum_fmt            = li3m02cm_enum_format,
-	.g_fmt               = li3m02cm_get_format,
-	.try_fmt             = li3m02cm_try_format,
-	.s_fmt               = li3m02cm_set_format,
-	.g_parm              = li3m02cm_get_param,
-	.s_parm              = li3m02cm_set_param,
-        .enum_framesizes     = li3m02cm_enum_frame_sizes,
-        .enum_frameintervals = li3m02cm_enum_frame_intervals,
+// We don't have any custom ioctl's for this board
+#define li3m02cm_ioctl   NULL
+#define li3m02cm_suspend NULL
+#define li3m02cm_resume  NULL
+
+static const struct v4l2_subdev_video_ops li3m02cm_video_ops = {
+	.g_frame_interval    = li3m02cm_get_frame_interval,
+	.s_frame_interval    = li3m02cm_set_frame_interval,
 };
 
-static const struct bmi_camera_core_ops li3m02cm_core_ops = {
-	.g_chip_ident = li3m02cm_get_chip_ident,
-	.s_config     = li3m02cm_set_config,
+static const struct v4l2_subdev_core_ops li3m02cm_core_ops = {
 	.queryctrl    = li3m02cm_query_ctrl,
 	.querymenu    = li3m02cm_query_menu,
 	.g_ctrl       = li3m02cm_get_ctrl,
 	.s_ctrl       = li3m02cm_set_ctrl,
 	.s_power      = li3m02cm_set_power,
+	.ioctl        = NULL, // no custom ioctl's
+	.log_status   = li3m02cm_log_status,
 };
 
-static const struct bmi_camera_pad_ops li3m02cm_pad_ops = {
+static const struct v4l2_subdev_pad_ops li3m02cm_pad_ops = {
 	.enum_mbus_code      = li3m02cm_enum_mbus_code,
         .enum_frame_size     = li3m02cm_enum_frame_size,
         .enum_frame_interval = li3m02cm_enum_frame_ival,
@@ -668,64 +625,66 @@ static const struct bmi_camera_pad_ops li3m02cm_pad_ops = {
 	.set_fmt             = li3m02cm_set_pad_format,
 };
 
-static struct bmi_camera_ops li3m02cm_ops = {
+static struct v4l2_subdev_ops li3m02cm_ops = {
 	.core  = &li3m02cm_core_ops,
 	.video = &li3m02cm_video_ops,
 	.pad   = &li3m02cm_pad_ops,
 };
 
+static struct bmi_camera_ops li3m02cm_bmi_ops = {
+	.set_flash_strobe = li3m02cm_set_flash_strobe,
+	.set_red_led      = li3m02cm_set_red_led,
+	.set_green_led    = li3m02cm_set_green_led,
+	.ioctl            = li3m02cm_ioctl,
+	.suspend          = li3m02cm_suspend,
+	.resume           = li3m02cm_resume,
+};
 
 int bmi_li3m02cm_probe(struct bmi_device *bdev)
 {	
-	struct bmi_li3m02cm *bmi_li3m02cm;
+	struct bmi_li3m02cm *cam;
 	int ret=0;
 
-	bmi_li3m02cm = kzalloc(sizeof(*bmi_li3m02cm), GFP_KERNEL);
-	if (!bmi_li3m02cm) {
+	cam = kzalloc(sizeof(*cam), GFP_KERNEL);
+	if (!cam)
 	     return -1;
-	}
 	
-	bmi_device_set_drvdata(bdev, bmi_li3m02cm);
-	bmi_li3m02cm->bdev = bdev;
-	bmi_li3m02cm->iox = i2c_new_device(bdev->slot->adap, &iox_info);
-	bmi_li3m02cm->mt9t111 = i2c_new_device(bdev->slot->adap, &mt9t111_info);
+	bmi_device_set_drvdata(bdev, cam);
+	cam->bdev = bdev;
+	cam->iox     = i2c_new_device(bdev->slot->adap, &iox_info);
+	cam->mt9t111 = i2c_new_device(bdev->slot->adap, &mt9t111_info);
 
-	bmi_register_camera(bdev, &li3m02cm_ops);
-
+	configure_GPIO(cam); 	// configure GPIO and IOX
+	configure_IOX(cam);
+	
+        //register this as a bug_camera
+	bmi_register_camera(bdev, &li3m02cm_ops, &li3m02cm_bmi_ops,THIS_MODULE);
+	
 	// These can be removed after driver stabalizes. They are for debug now.
-	ret = device_create_file(&bdev->dev, &dev_attr_serializer_locked);
 	ret = device_create_file(&bdev->dev, &dev_attr_iox_value);
 	ret = device_create_file(&bdev->dev, &dev_attr_iox_addr);
 	ret = device_create_file(&bdev->dev, &dev_attr_mt9t111_value);
 	ret = device_create_file(&bdev->dev, &dev_attr_mt9t111_addr);
 	ret = device_create_file(&bdev->dev, &dev_attr_set_power);
-	ret = device_create_file(&bdev->dev, &dev_attr_set_format);
-	return 0;
+	ret = device_create_file(&bdev->dev, &dev_attr_format);
+	ret = device_create_file(&bdev->dev, &dev_attr_context);
+	return ret;
 }
 
 void bmi_li3m02cm_remove(struct bmi_device *bdev)
 {	
-	int slot;
-	struct bmi_li3m02cm *bmi_li3m02cm;
-
-	bmi_li3m02cm = (struct bmi_li3m02cm*)(bmi_device_get_drvdata (bdev));
-	slot = bdev->slot->slotnum;
-	
+	struct bmi_li3m02cm *cam = bmi_device_get_drvdata (bdev);
 	bmi_unregister_camera(bdev);
-
-	i2c_unregister_device(bmi_li3m02cm->iox);
-	i2c_unregister_device(bmi_li3m02cm->mt9t111);
-
-	kfree (bmi_li3m02cm);
+	i2c_unregister_device(cam->iox);
+	i2c_unregister_device(cam->mt9t111);
+	kfree (cam);
 	return;
 }
 
 static __init int bmi_li3m02cm_init(void)
 {	
-	printk(KERN_INFO "BMI LI3M02CM Camera Sensor Driver v%s \n", BMI_LI3M02CM_VERSION);
 //	Register with BMI bus.
 	return  bmi_register_driver(&bmi_li3m02cm_driver); 
-
 }
 
 static void __exit bmi_li3m02cm_cleanup(void)
@@ -739,6 +698,6 @@ static void __exit bmi_li3m02cm_cleanup(void)
 module_init(bmi_li3m02cm_init);
 module_exit(bmi_li3m02cm_cleanup);
 
-MODULE_AUTHOR("Ubixum, Inc.");
+MODULE_AUTHOR("Lane Brooks");
 MODULE_DESCRIPTION("LI3M02CM Camera Driver");
 MODULE_LICENSE("GPL");
