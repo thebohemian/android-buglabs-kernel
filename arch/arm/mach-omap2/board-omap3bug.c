@@ -44,7 +44,6 @@
 #include <mach/mcspi.h>
 #include <mach/mux.h>
 #include <mach/display.h>
-//#include <mach/pm.h>
 #include <mach/clock.h>
 
 #include "sdram-micron-mt46h32m32lf-6.h"
@@ -844,55 +843,55 @@ static int omap3bug_ioexp_gpio_teardown(struct i2c_client *client,
 
 static int omap3bug_spi_uart_gpio_setup(struct spi_device *spi, unsigned gpio, unsigned ngpio, void *context)
 {
-  int r;
+	int r;
   
-  printk(KERN_INFO "spi_uart_gpio: Setting up gpios...\n");
-  omap3_bug_display_init();
-  r =   gpio_request(gpio + 4, "wifi_en");  
-  if (r) {
-    printk(KERN_ERR "spi_uart_gpio: failed to get wifi_en...\n");
-    return r;
-  }
-  gpio_direction_output(gpio+4, 1);
+	printk(KERN_INFO "spi_uart_gpio: Setting up gpios...\n");
+	omap3_bug_display_init();
+	r =   gpio_request(gpio + 4, "wifi_en");  
+	if (r) {
+	  printk(KERN_ERR "spi_uart_gpio: failed to get wifi_en...\n");
+	  return r;
+	}
+	gpio_direction_output(gpio+4, 1);
 
-  mdelay(100);
-  r =   gpio_request(157, "wifi_rst");
-  if (r) {
-    printk(KERN_ERR "spi_uart_gpio: failed to get wifi_rst...\n");
-    return r;
-  }
-  gpio_direction_output(157, 1);
+	mdelay(100);
+	r =   gpio_request(157, "wifi_rst");
+	if (r) {
+	  printk(KERN_ERR "spi_uart_gpio: failed to get wifi_rst...\n");
+	  return r;
+	}
+	gpio_direction_output(157, 1);
+
+	r =   gpio_request(156, "bt_rst");
+	if (r) {
+	  printk(KERN_ERR "spi_uart_gpio: failed to get bt_rst...\n");
+	  return r;
+	}
+	gpio_direction_output(156, 1);
+
+	r =   gpio_request(163, "wifi_wakeup");
+	if (r) {
+	  printk(KERN_ERR "spi_uart_gpio: failed to get wifi_wakeup...\n");
+	  return r;
+	}
+	gpio_direction_output(163, 0);
+	  
+	mdelay(100);
+	gpio_set_value (163, 1);
+	gpio_set_value (157, 0);
   
-  r =   gpio_request(156, "bt_rst");
-  if (r) {
-    printk(KERN_ERR "spi_uart_gpio: failed to get bt_rst...\n");
-    return r;
-  }
-  gpio_direction_output(156, 1);
+	mdelay(100);
+	gpio_set_value (157, 1);
+	gpio_set_value (156, 0);
+	mdelay(100);
+	gpio_set_value (156, 1);
 
-  r =   gpio_request(163, "wifi_wakeup");
-  if (r) {
-    printk(KERN_ERR "spi_uart_gpio: failed to get wifi_wakeup...\n");
-    return r;
-  }
-  gpio_direction_output(163, 0);
-  
-  mdelay(100);
-  gpio_set_value (163, 1);
-  gpio_set_value (157, 0);
-  
-  mdelay(100);
-  gpio_set_value (157, 1);
-  gpio_set_value (156, 0);
-  mdelay(100);
-  gpio_set_value (156, 1);
-
-
-  printk(KERN_INFO "spi_uart_gpio: Freeing gpios...");
-  gpio_free(156);
-  gpio_free(157);
-  gpio_free(163);
-  return 0;
+	printk(KERN_INFO "spi_uart_gpio: Freeing gpios...");
+	gpio_free(230);
+	gpio_free(156);
+	gpio_free(157);
+	gpio_free(163);
+	return 0;
 }
 
 #define TWL4030_VAUX2_1P8V 0x5
