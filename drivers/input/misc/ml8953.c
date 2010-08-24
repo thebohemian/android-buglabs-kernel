@@ -235,7 +235,7 @@ static ssize_t ml8953_position_show(struct device *dev,
 
 	mutex_lock(&ac->mutex);
 
-	count = sprintf(buf, "(%d %d, %d)\n",
+	count = sprintf(buf, "(%d, %d, %d)\n",
 			ac->saved[0], ac->saved[1], ac->saved[2]);
 	mutex_unlock(&ac->mutex);
 	return count;
