@@ -126,11 +126,11 @@ static void omap_pwm_led_set_pwm_cycle(struct omap_pwm_led *led, int cycle)
 	else	n = cycle - 1;
 
 	if (cycle == LED_FULL) {
-		omap_dm_timer_set_pwm(led->intensity_timer, 1, 1,
+		omap_dm_timer_set_pwm(led->intensity_timer, 0, 1,
 				      OMAP_TIMER_TRIGGER_OVERFLOW_AND_COMPARE);
 		omap_dm_timer_stop(led->intensity_timer);
 	} else {
-		omap_dm_timer_set_pwm(led->intensity_timer, 0, 1,
+		omap_dm_timer_set_pwm(led->intensity_timer, 1, 1,
 				      OMAP_TIMER_TRIGGER_OVERFLOW_AND_COMPARE);
 		omap_dm_timer_set_match(led->intensity_timer, 1,
 					(0xffffff00) | cycle);
@@ -155,6 +155,8 @@ static void omap_pwm_led_work(struct work_struct *work)
 		omap_pwm_led_power_on(led);
 		omap_pwm_led_set_pwm_cycle(led, led->brightness);
 	} else {
+		omap_pwm_led_power_on(led);
+		omap_pwm_led_set_pwm_cycle(led, led->brightness);
 		omap_pwm_led_power_off(led);
 	}
 }
@@ -269,6 +271,8 @@ static int omap_pwm_led_probe(struct platform_device *pdev)
 		ret = -ENODEV;
 		goto error_intensity;
 	}
+
+	omap_pwm_led_set(led, led->brightness);
 	omap_dm_timer_disable(led->intensity_timer);
 
 	if (pdata->blink_timer != 0) {
