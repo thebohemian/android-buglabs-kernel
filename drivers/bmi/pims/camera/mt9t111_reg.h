@@ -1386,12 +1386,6 @@ struct mt9t111_regs mt9t111_init_regs[] = {
 	{0, 0x0990, 0x0000},
 	{0, 0x098E, 0xE806}, // context A switch number of frames leave
 	{0, 0x0990, 0x0001},
-	{0, 0x098E, 0xEC04}, // context B switch number of frames enter
-	{0, 0x0990, 0x0001},
-	{0, 0x098E, 0xEC05}, // context B switch number of frames run
-	{0, 0x0990, 0x0000},
-	{0, 0x098E, 0xEC06}, // context B switch number of frames leave
-	{0, 0x0990, 0x0001},
 };
 
 struct mt9t111_regs fmt_GBRG_regs[] = {
@@ -1406,13 +1400,6 @@ struct mt9t111_regs fmt_GBRG_regs[] = {
 	{0, 0x990,   1000}, //is not sufficient to prevent a buffer underrun
 	{0, 0x98E, 0xE8AC},
 	{0, 0x990, 0x0001},
-
-	{0, 0x098E, 0x6C07},
-	{0, 0x0990, 0x0100},
-	{0, 0x098E, 0x6C09},
-	{0, 0x0990, 0x0100},
-	{0, 0x098E, 0xEC8E},
-	{0, 0x0990, 0x0000}
 };
 
 struct mt9t111_regs fmt_YCrCb_regs[] = {
@@ -1423,16 +1410,8 @@ struct mt9t111_regs fmt_YCrCb_regs[] = {
 	{0, 0x098E, 0xE88E}, // context A jpeg disable
 	{0, 0x0990, 0x0000},
 
-//	{0, 0x98E, 0xE8AC},
-//	{0, 0x990, 0x0000}, // auto TX watermark
-
-
-	{0, 0x098E, 0x6C07},
-	{0, 0x0990, 0x0001},
-	{0, 0x098E, 0x6C09},
-	{0, 0x0990, 0x0000},
-	{0, 0x098E, 0xEC8E},
-	{0, 0x0990, 0x0000}
+	{0, 0x98E, 0xE8AC},
+	{0, 0x990, 0x0000}, // auto TX watermark
 };
 
 struct mt9t111_regs fmt_JPEG_regs[] = {
@@ -1440,20 +1419,30 @@ struct mt9t111_regs fmt_JPEG_regs[] = {
 	{0, 0x0990, 0x0001}, 
 	{0, 0x098E, 0x6809}, // context A output phase
 	{0, 0x0990, 0x0000},
-	{0, 0x098E, 0xE88E}, // context A jpeg enable
-	{0, 0x0990, 0x0001},
+
+	{0, 0x098E, 0x68A2},
+	{0, 0x0990, 0x0000},
 
 	// register var(26,155 & 157) control the height of jpeg spoof image.
 	// default is 1024x384
 	{0, 0x098E, 0x689B},
 	{0, 0x0990, 1024  },
 	{0, 0x098E, 0x689D},
-	{0, 0x0990, 480   },
+	{0, 0x0990, 768   },
 
 	{0, 0x098E, 0xE89F}, // output buffer stop before spoof height
 	{0, 0x0990, 0x0000},
 	{0, 0x098E, 0x68A0}, // jpeg tx control (enable spoof mode)
-	{0, 0x0990, 0x082D},
+	{0, 0x0990, 0x080D},
+
+	//{0, 0x98E, 0x68AA}, //In raw mode, the auto TX FIFO Watermark (A)
+	//{0, 0x990,   1000}, //is not sufficient to prevent a buffer underrun
+	//{0, 0x98E, 0xE8AC},
+	//{0, 0x990, 0x0001},
+
+	{0, 0x098E, 0xE88E}, // context A jpeg enable
+	{0, 0x0990, 0x0001},
+
 };
 
 struct mt9t111_regs fmt_640x480_22fps[] = {
