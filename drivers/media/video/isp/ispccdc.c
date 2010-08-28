@@ -2099,7 +2099,7 @@ int isp_ccdc_init(struct isp_device *isp)
 	ccdc->syncif.vdpol = 0;
 
 	ccdc->blkcfg.oblen = 0;
-	ccdc->blkcfg.dcsubval = 64;
+	ccdc->blkcfg.dcsubval = 0;
 
 	ccdc->vpcfg.bitshift_sel = BIT9_0;
 	ccdc->vpcfg.pixelclk = 0;
