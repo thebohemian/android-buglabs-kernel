@@ -810,7 +810,9 @@ static int __init omap3bug_twl_gpio_setup(struct device *dev,
        /* Most GPIOs are for USB OTG.  Some are mostly sent to
         * the P2 connector; notably LEDA for the LCD backlight.
         */
-
+	gpio_request(gpio + 1, "usb_hub");
+	gpio_direction_output(gpio + 1, 1);
+	gpio_free(gpio + 1);
        return 0;
 }
 
@@ -876,6 +878,9 @@ static int omap3bug_spi_uart_gpio_setup(struct spi_device *spi, unsigned gpio, u
 	}
 	gpio_direction_output(163, 0);
 	  
+	r =   gpio_request(233, "5V_en");
+	gpio_direction_output(233,1);
+	gpio_free(233);
 	mdelay(100);
 	gpio_set_value (163, 1);
 	gpio_set_value (157, 0);
@@ -1020,6 +1025,7 @@ static void __init omap3_bug_map_io(void)
 	omap2_map_common_io();
 }
 
+//MACHINE_START(BUG, "OMAP3 BUG")
 MACHINE_START(OMAP3EVM, "OMAP3 BUG")
 	/* Maintainer: Matt Isaacs - BugLabs, inc */
 	.phys_io	= 0x48000000,
