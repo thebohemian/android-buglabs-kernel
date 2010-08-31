@@ -698,7 +698,7 @@ static struct platform_device leds_pwm =
  */
 
 static struct omap_pwm_led_platform_data omap_pwm_led_gpt8 = {
-       .name                = "omap3bug:blue:power",
+       .name                = "omap3bug:blue:bt",
        .intensity_timer     = 8,
        .blink_timer         = 0,
        //.set_power           = set_power(&omap_pwm_led_gpt92, 0),
@@ -744,7 +744,7 @@ static struct platform_device omap3_bug_pwm_gpt10 = {
 };
 
 static struct omap_pwm_led_platform_data omap_pwm_led_gpt11 = {
-       .name                = "omap3bug:blue:bt",
+       .name                = "omap3bug:blue:power",
        .intensity_timer     = 11,
        .blink_timer         = 0,
        //.set_power           = set_power(&omap_pwm_led_gpt92, 0),
