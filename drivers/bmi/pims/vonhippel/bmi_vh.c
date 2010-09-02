@@ -804,6 +804,9 @@ int bmi_vh_probe(struct bmi_device *bdev)
 		//return -EBUSY;
 	}
 
+	// add usb dependency
+	increment_usb_dep();
+
 	if (fcc_test) {
 		init_timer (&fcc_timer);
 		fcc_timer.data = (unsigned long) &bmi_vh[slot];
@@ -846,6 +849,9 @@ void bmi_vh_remove(struct bmi_device *bdev)
 	i2c_unregister_device(vh->adc);
 	i2c_unregister_device(vh->dac);
 	spi_unregister_device(vh->spi);
+
+	// remove usb dependency
+	decrement_usb_dep();
 
 	if (factory_test) {
 		// disable uart transceiver

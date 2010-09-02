@@ -247,6 +247,13 @@ config ISL29003
 	  This driver can also be built as a module.  If so, the module
 	  will be called isl29003.
 
+config BUG_DOCK
+	tristate "Bug Dock"
+	depends on I2C && SYSFS
+	help
+	  Say yes to enable omap3 bug to shut down and start up it's USB hub
+	  as it is needed by modules/dock. This should probably be built in.
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"

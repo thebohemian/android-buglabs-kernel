@@ -309,6 +309,8 @@ int bmi_accnt_probe(struct bmi_device *bdev)
 	bmi_slot_gpio_set_value (slot, RED_LED, 1);
 	bmi_slot_gpio_set_value (slot, GREEN_LED, 1);		// Red, Green LED=OFF 		
 
+	// add usb dependancy
+	increment_usb_dep();
 
 	irq = bdev->slot->status_irq;
 	acc_info.irq = irq;
@@ -361,6 +363,9 @@ void bmi_accnt_remove(struct bmi_device *bdev)
 
 	cdev_del (&accnt->cdev);
 	i2c_unregister_device(accnt->acc);
+
+	// remove usb dependency
+	decrement_usb_dep();
 
 	// de-attach driver-specific struct from bmi_device structure 
 	bmi_device_set_drvdata (bdev, 0);

@@ -10,7 +10,6 @@
 #include <linux/mutex.h>
 #include <linux/spi/spi.h>
 
-
 /* BMI bus device table constants */
 #define BMI_ANY					0x0
 
@@ -141,3 +140,7 @@ int bmi_add_slot(struct bmi_slot *slot);
 int bmi_del_slot(struct bmi_slot *slot);
 
 #endif
+
+/* USB device counting (perhaps this should be moved */
+void increment_usb_dep(void);
+void decrement_usb_dep(void);
