@@ -1565,11 +1565,30 @@ __ccdc_get_format(struct isp_ccdc_device *ccdc, struct v4l2_subdev_fh *fh,
  */
 
 static enum v4l2_mbus_pixelcode sink_fmts[] = {
+	V4L2_MBUS_FMT_YUYV8_2X8_LE,
+	V4L2_MBUS_FMT_YVYU8_2X8_LE,
+	V4L2_MBUS_FMT_YUYV8_2X8_BE,
+	V4L2_MBUS_FMT_YVYU8_2X8_BE,
+	V4L2_MBUS_FMT_RGB555_2X8_PADHI_LE,
+	V4L2_MBUS_FMT_RGB555_2X8_PADHI_BE,
+	V4L2_MBUS_FMT_RGB565_2X8_LE,
+	V4L2_MBUS_FMT_RGB565_2X8_BE,
+	V4L2_MBUS_FMT_SBGGR8_1X8,
+	V4L2_MBUS_FMT_SBGGR10_1X10,
+	V4L2_MBUS_FMT_GREY8_1X8,
+	V4L2_MBUS_FMT_Y10_1X10,
+	//V4L2_MBUS_FMT_SBGGR10_2X8_PADHI_LE,
+	//V4L2_MBUS_FMT_SBGGR10_2X8_PADLO_LE,
+	//V4L2_MBUS_FMT_SBGGR10_2X8_PADHI_BE,
+	//V4L2_MBUS_FMT_SBGGR10_2X8_PADLO_BE,
+	V4L2_MBUS_FMT_SGRBG8_1X8,
 	V4L2_MBUS_FMT_SGRBG10_1X10,
+	//V4L2_MBUS_FMT_SGRBG10_DPCM8_1X8,   // 10b companded to 8b
 	V4L2_MBUS_FMT_YUYV16_1X16,
 	V4L2_MBUS_FMT_UYVY16_1X16,
 	V4L2_MBUS_FMT_YVYU16_1X16,
 	V4L2_MBUS_FMT_VYUY16_1X16,
+	V4L2_MBUS_FMT_JPEG8,
 };
 
 static void
@@ -1746,20 +1765,44 @@ static int ccdc_set_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh,
 		ispctrl_val = isp_reg_readl(isp, OMAP3_ISP_IOMEM_MAIN, 
 					    ISP_CTRL);
 		syn_mode    &= ISPCCDC_SYN_MODE_INPMOD_MASK;
-		ispctrl_val &= ~ISPCTRL_PAR_BRIDGE_MASK;
+		syn_mode    &= ~(ISPCCDC_SYN_MODE_PACK8);
+		ispctrl_val &= ~(ISPCTRL_PAR_BRIDGE_MASK | ISPCTRL_JPEG_FLUSH);
 		switch(format->code) {
 		case V4L2_MBUS_FMT_YUYV16_1X16:
 		case V4L2_MBUS_FMT_UYVY16_1X16:
 		case V4L2_MBUS_FMT_YVYU16_1X16:
 		case V4L2_MBUS_FMT_VYUY16_1X16:
+		case V4L2_MBUS_FMT_YUYV8_2X8_LE:
+		case V4L2_MBUS_FMT_YVYU8_2X8_LE:
+		case V4L2_MBUS_FMT_YUYV8_2X8_BE:
+		case V4L2_MBUS_FMT_YVYU8_2X8_BE:
+		case V4L2_MBUS_FMT_RGB555_2X8_PADHI_LE:
+		case V4L2_MBUS_FMT_RGB555_2X8_PADHI_BE:
+		case V4L2_MBUS_FMT_RGB565_2X8_LE:
+		case V4L2_MBUS_FMT_RGB565_2X8_BE:
+			// This mode captures 8b data from bus and packs
+			// it into 8b byte stream. Intended for raw
+			// output reading from the CCDC (i.e. these
+			// modes cannot be passed onto the preveiw or resizer).
 			syn_mode |= ISPCCDC_SYN_MODE_INPMOD_YCBCR16;
-
-			/* TODO: In YCBCR16 mode, the bridge has to be
-			 * enabled, so we enable it here and force it
-			 * big endian. Whether to do big or little endian
-			 * should somehow come from the platform data.*/
-			ispctrl_val |= ISPCTRL_PAR_BRIDGE_BENDIAN 
+			ispctrl_val |= ISPCTRL_PAR_BRIDGE_LENDIAN 
 				<< ISPCTRL_PAR_BRIDGE_SHIFT;
+			break;
+		case V4L2_MBUS_FMT_GREY8_1X8:
+		case V4L2_MBUS_FMT_SGRBG8_1X8:
+		case V4L2_MBUS_FMT_SBGGR8_1X8:
+			// This mode captures 8b data from bus and packs
+			// it into 8b byte stream. Intended for raw
+			// output reading from the CCDC (i.e. these
+			// modes cannot be passed onto the preveiw or resizer).
+			syn_mode |= ISPCCDC_SYN_MODE_INPMOD_RAW | ISPCCDC_SYN_MODE_PACK8;
+			ispctrl_val |= (ISPCTRL_PAR_BRIDGE_DISABLE 
+					<< ISPCTRL_PAR_BRIDGE_SHIFT);
+			break;
+
+		case V4L2_MBUS_FMT_JPEG8:
+			syn_mode |= ISPCCDC_SYN_MODE_INPMOD_RAW | ISPCCDC_SYN_MODE_PACK8;
+			ispctrl_val |= (ISPCTRL_PAR_BRIDGE_DISABLE << ISPCTRL_PAR_BRIDGE_SHIFT); // | ISPCTRL_JPEG_FLUSH;
 			break;
 		default:
 			syn_mode |= ISPCCDC_SYN_MODE_INPMOD_RAW;
@@ -2047,7 +2090,7 @@ int isp_ccdc_init(struct isp_device *isp)
 
 	ccdc->syncif.ccdc_mastermode = 0;
 	ccdc->syncif.datapol = 0;
-	ccdc->syncif.datsz = 10;
+	ccdc->syncif.datsz = 8;
 	ccdc->syncif.fldmode = 0;
 	ccdc->syncif.fldout = 0;
 	ccdc->syncif.fldpol = 0;
@@ -2056,7 +2099,7 @@ int isp_ccdc_init(struct isp_device *isp)
 	ccdc->syncif.vdpol = 0;
 
 	ccdc->blkcfg.oblen = 0;
-	ccdc->blkcfg.dcsubval = 64;
+	ccdc->blkcfg.dcsubval = 0;
 
 	ccdc->vpcfg.bitshift_sel = BIT9_0;
 	ccdc->vpcfg.pixelclk = 0;

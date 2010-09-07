@@ -130,8 +130,14 @@ isp_video_validate_pipeline(struct isp_pipeline *pipe)
 		/* Check if the two ends match */
 		if (fmt_source.code != fmt_sink.code ||
 		    fmt_source.width != fmt_sink.width ||
-		    fmt_source.height != fmt_sink.height)
+		    fmt_source.height != fmt_sink.height) {
+			printk(KERN_ERR "%s format mismatch\n", __func__);
+			printk(KERN_ERR "  code   source=%d sink=%d\n", fmt_source.code, fmt_sink.code);
+			printk(KERN_ERR "  width  source=%d sink=%d\n", fmt_source.width, fmt_sink.width);
+			printk(KERN_ERR "  height source=%d sink=%d\n", fmt_source.height, fmt_sink.height);
+
 			return -EPIPE;
+		}
 	}
 
 	return 0;
@@ -179,9 +185,13 @@ isp_video_check_format(struct isp_video *video, struct isp_video_fh *vfh)
 	    vfh->format.fmt.pix.height != format.fmt.pix.height ||
 	    vfh->format.fmt.pix.width != format.fmt.pix.width ||
 	    vfh->format.fmt.pix.bytesperline != format.fmt.pix.bytesperline ||
-	    vfh->format.fmt.pix.sizeimage != format.fmt.pix.sizeimage)
+	    vfh->format.fmt.pix.sizeimage != format.fmt.pix.sizeimage) {
+		printk(KERN_ERR "%s format mismatch\n", __func__);
+		printk(KERN_ERR "  fmt    source=%d sink=%d\n", vfh->format.fmt.pix.pixelformat, format.fmt.pix.pixelformat);
+		printk(KERN_ERR "  width  source=%d sink=%d\n", vfh->format.fmt.pix.width, format.fmt.pix.width);
+		printk(KERN_ERR "  height source=%d sink=%d\n", vfh->format.fmt.pix.height, format.fmt.pix.height);
 		return -EINVAL;
-
+	}
 	return 0;
 }
 
@@ -194,8 +204,48 @@ void isp_video_mbus_to_pix(const struct isp_video *video,
 	pix->height = mbus->height;
 
 	switch (mbus->code) {
+	case V4L2_MBUS_FMT_JPEG8:
+		pix->pixelformat = V4L2_PIX_FMT_JPEG;
+		pix->bytesperline = pix->width;
+		break;
+	case V4L2_MBUS_FMT_SBGGR8_1X8:
+		pix->pixelformat = V4L2_PIX_FMT_SBGGR8;
+		pix->bytesperline = pix->width;
+		break;
+	case V4L2_MBUS_FMT_GREY8_1X8:
+		pix->pixelformat = V4L2_PIX_FMT_GREY;
+		pix->bytesperline = pix->width;
+		break;
+	case V4L2_MBUS_FMT_SGRBG8_1X8:
+		pix->pixelformat = V4L2_PIX_FMT_SGRBG8;
+		pix->bytesperline = pix->width;
+		break;
+	case V4L2_MBUS_FMT_RGB555_2X8_PADHI_LE:
+		pix->pixelformat = V4L2_PIX_FMT_RGB555;
+		pix->bytesperline = pix->width * 2;
+		break;
+	case V4L2_MBUS_FMT_RGB555_2X8_PADHI_BE:
+		pix->pixelformat = V4L2_PIX_FMT_RGB555X;
+		pix->bytesperline = pix->width * 2;
+		break;
+	case V4L2_MBUS_FMT_RGB565_2X8_BE:
+		pix->pixelformat = V4L2_PIX_FMT_RGB565X;
+		pix->bytesperline = pix->width * 2;
+		break;
+	case V4L2_MBUS_FMT_RGB565_2X8_LE:
+		pix->pixelformat = V4L2_PIX_FMT_RGB565;
+		pix->bytesperline = pix->width * 2;
+		break;
+	case V4L2_MBUS_FMT_SBGGR10_1X10:
+		pix->pixelformat = V4L2_PIX_FMT_SBGGR10;
+		pix->bytesperline = pix->width * 2;
+		break;
 	case V4L2_MBUS_FMT_SGRBG10_1X10:
 		pix->pixelformat = V4L2_PIX_FMT_SGRBG10;
+		pix->bytesperline = pix->width * 2;
+		break;
+	case V4L2_MBUS_FMT_Y10_1X10:
+		pix->pixelformat = V4L2_PIX_FMT_Y10;
 		pix->bytesperline = pix->width * 2;
 		break;
 	case V4L2_MBUS_FMT_SGRBG10_DPCM8_1X8:
@@ -203,10 +253,22 @@ void isp_video_mbus_to_pix(const struct isp_video *video,
 		pix->bytesperline = pix->width;
 		break;
 	case V4L2_MBUS_FMT_YUYV16_1X16:
+	case V4L2_MBUS_FMT_YUYV8_2X8_LE:
 		pix->pixelformat = V4L2_PIX_FMT_YUYV;
 		pix->bytesperline = pix->width * 2;
 		break;
+	case V4L2_MBUS_FMT_YVYU16_1X16:
+	case V4L2_MBUS_FMT_YVYU8_2X8_LE:
+		pix->pixelformat = V4L2_PIX_FMT_YVYU;
+		pix->bytesperline = pix->width * 2;
+		break;
+	case V4L2_MBUS_FMT_VYUY16_1X16:
+	case V4L2_MBUS_FMT_YVYU8_2X8_BE:
+		pix->pixelformat = V4L2_PIX_FMT_VYUY;
+		pix->bytesperline = pix->width * 2;
+		break;
 	case V4L2_MBUS_FMT_UYVY16_1X16:
+	case V4L2_MBUS_FMT_YUYV8_2X8_BE:
 	default:
 		pix->pixelformat = V4L2_PIX_FMT_UYVY;
 		pix->bytesperline = pix->width * 2;
@@ -230,6 +292,9 @@ void isp_video_pix_to_mbus(const struct v4l2_pix_format *pix,
 	mbus->height = pix->height;
 
 	switch (pix->pixelformat) {
+	case V4L2_PIX_FMT_JPEG:
+		mbus->code = V4L2_MBUS_FMT_JPEG8;
+		break;
 	case V4L2_PIX_FMT_SGRBG10:
 		mbus->code = V4L2_MBUS_FMT_SGRBG10_1X10;
 		break;
@@ -242,6 +307,39 @@ void isp_video_pix_to_mbus(const struct v4l2_pix_format *pix,
 	case V4L2_PIX_FMT_UYVY:
 	default:
 		mbus->code = V4L2_MBUS_FMT_UYVY16_1X16;
+		break;
+	case V4L2_PIX_FMT_YVYU:
+		mbus->code = V4L2_MBUS_FMT_YVYU16_1X16;
+		break;
+	case V4L2_PIX_FMT_VYUY:
+		mbus->code = V4L2_MBUS_FMT_VYUY16_1X16;
+		break;
+	case V4L2_PIX_FMT_SBGGR8:
+		mbus->code = V4L2_MBUS_FMT_SBGGR8_1X8;
+		break;
+	case V4L2_PIX_FMT_GREY:
+		mbus->code = V4L2_MBUS_FMT_GREY8_1X8;
+		break;
+	case V4L2_PIX_FMT_SGRBG8:
+		mbus->code = V4L2_MBUS_FMT_SGRBG8_1X8;
+		break;
+	case V4L2_PIX_FMT_RGB555:
+		mbus->code = V4L2_MBUS_FMT_RGB555_2X8_PADHI_LE;
+		break;
+	case V4L2_PIX_FMT_RGB555X:
+		mbus->code = V4L2_MBUS_FMT_RGB555_2X8_PADHI_BE;
+		break;
+	case V4L2_PIX_FMT_RGB565X:
+		mbus->code = V4L2_MBUS_FMT_RGB565_2X8_BE;
+		break;
+	case V4L2_PIX_FMT_RGB565:
+		mbus->code = V4L2_MBUS_FMT_RGB565_2X8_LE;
+		break;
+	case V4L2_PIX_FMT_SBGGR10:
+		mbus->code = V4L2_MBUS_FMT_SBGGR10_1X10;
+		break;
+	case V4L2_PIX_FMT_Y10:
+		mbus->code = V4L2_MBUS_FMT_Y10_1X10;
 		break;
 	}
 
@@ -724,8 +822,10 @@ isp_video_streamon(struct file *file, void *fh, enum v4l2_buf_type type)
 	 * the connected subdev.
 	 */
 	ret = isp_video_check_format(video, vfh);
-	if (ret < 0)
+	if (ret < 0) {
+		printk(KERN_ERR "%s check format failed\n", __func__);
 		goto error;
+	}
 
 	/* Find the ISP video node connected at the far end of the pipeline. */
 	far_end = isp_video_far_end(video);

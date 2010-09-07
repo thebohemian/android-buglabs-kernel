@@ -366,11 +366,30 @@ struct mt9t111_format mt9t111_fmt[] = {
 };
 
 u32 mt9t111_mbus_codes[] = {
+	V4L2_MBUS_FMT_YUYV8_2X8_LE,
+	V4L2_MBUS_FMT_YVYU8_2X8_LE,
+	V4L2_MBUS_FMT_YUYV8_2X8_BE,
+	V4L2_MBUS_FMT_YVYU8_2X8_BE,
+	V4L2_MBUS_FMT_RGB555_2X8_PADHI_LE,
+	V4L2_MBUS_FMT_RGB555_2X8_PADHI_BE,
+	V4L2_MBUS_FMT_RGB565_2X8_LE,
+	V4L2_MBUS_FMT_RGB565_2X8_BE,
+	V4L2_MBUS_FMT_SBGGR8_1X8,
+	V4L2_MBUS_FMT_SBGGR10_1X10,
+	V4L2_MBUS_FMT_GREY8_1X8,
+	V4L2_MBUS_FMT_Y10_1X10,
+	//V4L2_MBUS_FMT_SBGGR10_2X8_PADHI_LE,
+	//V4L2_MBUS_FMT_SBGGR10_2X8_PADLO_LE,
+	//V4L2_MBUS_FMT_SBGGR10_2X8_PADHI_BE,
+	//V4L2_MBUS_FMT_SBGGR10_2X8_PADLO_BE,
+	V4L2_MBUS_FMT_SGRBG8_1X8,
 	V4L2_MBUS_FMT_SGRBG10_1X10,
+	//V4L2_MBUS_FMT_SGRBG10_DPCM8_1X8,   // 10b companded to 8b
 	V4L2_MBUS_FMT_YUYV16_1X16,
 	V4L2_MBUS_FMT_UYVY16_1X16,
 	V4L2_MBUS_FMT_YVYU16_1X16,
 	V4L2_MBUS_FMT_VYUY16_1X16,
+	V4L2_MBUS_FMT_JPEG8,
 };	
 
 int mt9t111_set_format(struct i2c_client *client, struct v4l2_mbus_framefmt *fmt)
@@ -423,20 +442,41 @@ int mt9t111_set_format(struct i2c_client *client, struct v4l2_mbus_framefmt *fmt
 
 
 	switch(fmt->code) {
-	//case V4L2_MBUS_FMT_YUYV8_2X8_LE:
-	//case V4L2_MBUS_FMT_YVYU8_2X8_LE:
-	//case V4L2_MBUS_FMT_YUYV8_2X8_BE:
-	//case V4L2_MBUS_FMT_YVYU8_2X8_BE:
-	//case V4L2_MBUS_FMT_YUYV16_1X16:
-	//case V4L2_MBUS_FMT_UYVY16_1X16:
-	//case V4L2_MBUS_FMT_YVYU16_1X16:
-	//case V4L2_MBUS_FMT_VYUY16_1X16:
-	//case V4L2_MBUS_FMT_JPEG8:
-	//	printk(KERN_INFO "%s applying JPEG mode\n", __func__);
-	//	ret = MT9T111_APPLY_PATCH(client, fmt_JPEG_regs);
-	//	if(ret < 0)
-	//		return ret;
-	//	break;
+	case V4L2_MBUS_FMT_GREY8_1X8:
+	case V4L2_MBUS_FMT_Y10_1X10:
+		// monochrome modes are the same as bayer mode except for
+		// the pri_a_output_format (0x6807) register
+		printk(KERN_INFO "%s applying MONOCHROME mode\n", __func__);
+		ret = MT9T111_APPLY_PATCH(client, fmt_GBRG_regs);
+		if(ret < 0)
+			return ret;
+		//mt9t111_write_var(client, 0x6807, 0x200); // monochrome mode
+		break;
+	case V4L2_MBUS_FMT_JPEG8:
+		printk(KERN_INFO "%s applying JPEG mode\n", __func__);
+		ret = MT9T111_APPLY_PATCH(client, fmt_JPEG_regs);
+		if(ret < 0)
+			return ret;
+		break;
+	case V4L2_MBUS_FMT_RGB555_2X8_PADHI_LE:
+	case V4L2_MBUS_FMT_RGB555_2X8_PADHI_BE:
+	case V4L2_MBUS_FMT_RGB565_2X8_LE:
+	case V4L2_MBUS_FMT_RGB565_2X8_BE:
+		// same as YUV mode except for register (0x6807)
+		printk(KERN_INFO "%s applying RGB555/565 mode\n", __func__);
+		ret = MT9T111_APPLY_PATCH(client, fmt_YCrCb_regs);
+		if(ret < 0)
+			return ret;
+		if(fmt->code == V4L2_MBUS_FMT_RGB565_2X8_BE ||
+		   fmt->code == V4L2_MBUS_FMT_RGB555_2X8_PADHI_BE)
+			// byte swap
+			mt9t111_write_var(client, 0x6809, 0x2);
+		if(fmt->code == V4L2_MBUS_FMT_RGB565_2X8_BE ||
+		   fmt->code == V4L2_MBUS_FMT_RGB565_2X8_LE)
+			mt9t111_write_var(client, 0x6807, 0x8);
+		else
+			mt9t111_write_var(client, 0x6807, 0x4);
+
 	case V4L2_MBUS_FMT_YUYV8_2X8_LE:
 	case V4L2_MBUS_FMT_YVYU8_2X8_LE:
 	case V4L2_MBUS_FMT_YUYV8_2X8_BE:
@@ -449,6 +489,31 @@ int mt9t111_set_format(struct i2c_client *client, struct v4l2_mbus_framefmt *fmt
 		ret = MT9T111_APPLY_PATCH(client, fmt_YCrCb_regs);
 		if(ret < 0)
 			return ret;
+		if(fmt->code == V4L2_MBUS_FMT_YVYU16_1X16  ||
+		   fmt->code == V4L2_MBUS_FMT_VYUY16_1X16  ||
+		   fmt->code == V4L2_MBUS_FMT_YVYU8_2X8_LE ||
+		   fmt->code == V4L2_MBUS_FMT_YVYU8_2X8_BE)
+			// swap Cr/Cb
+			mt9t111_write_var_bits(client, 0x6809, 0x1, 0x1);
+		if(fmt->code == V4L2_MBUS_FMT_VYUY16_1X16 ||
+		   fmt->code == V4L2_MBUS_FMT_UYVY16_1X16 ||
+		   fmt->code ==  V4L2_MBUS_FMT_YUYV8_2X8_BE ||
+		   fmt->code ==  V4L2_MBUS_FMT_YVYU8_2X8_BE)
+			// byte swap
+			mt9t111_write_var_bits(client, 0x6809, 0x2, 0x2);
+		break;
+	case V4L2_MBUS_FMT_SGRBG8_1X8:
+	case V4L2_MBUS_FMT_SGRBG10_1X10:
+	case V4L2_MBUS_FMT_SBGGR8_1X8:
+	case V4L2_MBUS_FMT_SBGGR10_1X10:
+		printk(KERN_INFO "%s applying GBRG mode\n", __func__);
+		ret = MT9T111_APPLY_PATCH(client, fmt_GBRG_regs);
+		if(ret < 0)
+			return ret;
+		if(fmt->code == V4L2_MBUS_FMT_SBGGR8_1X8 ||
+		   fmt->code == V4L2_MBUS_FMT_SBGGR10_1X10)
+			// set first pixel as B
+			mt9t111_write_var(client, 0x6809, 0x80);
 		break;
 	default:
 		printk(KERN_INFO "%s applying GBRG mode\n", __func__);
@@ -458,6 +523,9 @@ int mt9t111_set_format(struct i2c_client *client, struct v4l2_mbus_framefmt *fmt
 		fmt->code = V4L2_MBUS_FMT_SGRBG10_1X10;
 		break;
 	}
+
+	//mt9t111_write_var(client, 0x689B, fmt->width*2);
+	//mt9t111_write_var(client, 0x689D, fmt->height+10);
 
 	memcpy(&(sensor->format), fmt, sizeof(*fmt));
 	return mt9t111_refresh(client);
