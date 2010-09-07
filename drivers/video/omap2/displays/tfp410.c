@@ -1,58 +1,134 @@
+/*
+ * 	tfp410.c
+ *
+ */
+
+/*
+ * The code contained herein is licensed under the GNU General Public
+ * License. You may obtain a copy of the GNU General Public License
+ * Version 2 or later at the following locations:
+ *
+ * http://www.opensource.org/licenses/gpl-license.html
+ * http://www.gnu.org/copyleft/gpl.html
+ */
+
+/*
+ *	Include files
+ */
+
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/delay.h>
 #include <mach/gpio.h>
 #include <linux/i2c.h>
+#include "tfp410.h"
 
-
-static int WriteByte_TFP (struct i2c_client *client, unsigned char offset, unsigned char data)
+static int tfp410_write (struct i2c_client *client, unsigned char offset, unsigned char data)
 {
-	int	ret = 0;
-	unsigned char msg[2];
+    int err = 0;
+    unsigned char msg[2];
 	
-     	msg[0] = offset;
-	msg[1] = data;
-	ret = i2c_master_send(client, msg, sizeof(msg));
+    msg[0] = offset;
+    msg[1] = data;
+    err = i2c_master_send(client, msg, sizeof(msg));
 	
-	if (ret < 0)
-	  printk (KERN_ERR "WriteByte_TFP() - i2c_transfer() failed...%d\n",ret);
+    if (err < 0)
+        printk (KERN_ERR "tfp410.c: tfp410_write() - i2c transfer failed...%d\n",err);
 
-	return ret;
+    return err;
 }
+
+int tfp410_enable(struct i2c_client *client)
+{
+    int err = 0;
+
+    //bring reset line low
+    gpio_direction_output(10, 0);
+    gpio_set_value (10, 1);
+    mdelay (1);
+    gpio_set_value (10, 0);
+    mdelay (1);
+
+    //exit PD mode
+    err |= tfp410_write(client, 0x08, 0xbd);
+    mdelay (1);
+    if (err < 0) {
+        dev_err(&client->dev, "%s: Error during enable\n", __func__);
+        return -EINVAL;
+    }
+
+    return 0;
+}
+EXPORT_SYMBOL(tfp410_enable);
+
+int tfp410_disable(struct i2c_client *client)
+{
+    int err;
+
+    //issue reset
+    gpio_direction_output(10, 0);
+    gpio_set_value (10, 1);
+    mdelay (1);
+    gpio_set_value (10, 0);
+    mdelay (1);
+
+    //attempt graceful powerdown
+    err = tfp410_write(client, 0x08, 0xbc);
+    if (err < 0) {
+        dev_err(&client->dev, "%s: TFP410 may already be in RESET or PD mode...\n", __func__);
+       return -EINVAL;
+    }
+    mdelay(1);    
+
+    //hold reset line high
+    gpio_direction_output(10, 0);
+    gpio_set_value (10, 1);
+    mdelay(1);    
+
+    return 0;
+}
+EXPORT_SYMBOL(tfp410_disable);
+
+
+int tfp410_init(struct i2c_client *client)
+{
+    int err = 0;
+
+    //issue reset
+    gpio_direction_output(10, 0);
+    gpio_set_value (10, 1);
+    mdelay (1);
+    gpio_set_value (10, 0);
+    mdelay (1);
+
+    //init tfp
+    err |= tfp410_write(client, 0x08, 0xbd);
+    mdelay (1);
+    err |= tfp410_write(client, 0x09, 0x98);
+    mdelay (1);
+    err |= tfp410_write(client, 0x33, 0x30);
+    mdelay (1);
+
+    if (err < 0) {
+        dev_err(&client->dev, "%s: Error during TFP410 init\n", __func__);
+	return -EINVAL;
+    }
+
+    return 0;
+}
+EXPORT_SYMBOL(tfp410_init);
 
 static int tfp410p_probe(struct i2c_client *client,
 			 const struct i2c_device_id *id)
 {
-  int err = 0;
-  u8 value;
+    //printk (KERN_INFO "tfp410.c: probe...\n");
 
-  gpio_direction_output(10, 0);
-  gpio_set_value (10, 1);
-  mdelay (1);
-  gpio_set_value (10, 0);
-  mdelay (1);
-  //  gpio_set_value (10, 1);
-
-
-  value = 0xbd;
-  err |= WriteByte_TFP(client, 0x08, value);
-  mdelay (1);
-  
-  value = 0x98;
-  err |= WriteByte_TFP(client, 0x09, value);
-  mdelay (1);
-  value = 0x30;
-  err |= WriteByte_TFP(client, 0x33, value);
-  mdelay (1);
-  if (err < 0) {
-    dev_err(&client->dev, "%s: Error during init\n", __func__);
-    return -EINVAL;
-  }
-  return 0;
+    return 0;
 }
 
 static int tfp410p_remove(struct i2c_client *client)
 {
+    //printk (KERN_INFO "tfp410.c: remove...\n");
 
 	return 0;
 }
@@ -86,3 +162,5 @@ static __exit void exit_tfp410p(void)
 
 module_init(init_tfp410p);
 module_exit(exit_tfp410p);
+
+MODULE_LICENSE("GPL");

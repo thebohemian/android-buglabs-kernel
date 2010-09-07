@@ -205,6 +205,9 @@ int bmi_lcd_probe(struct bmi_device *bdev)
 	// bind driver and bmi_device 
 	lcd->bdev = bdev;
 
+
+  	gpio_direction_input(15);		
+
 	tsc_info.irq = gpio_to_irq(10);
 	lcd->tsc = i2c_new_device(bdev->slot->adap, &tsc_info);
 	if (lcd->tsc == NULL)

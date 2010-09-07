@@ -114,8 +114,8 @@ static void ml8953_work(struct work_struct *work)
 {
 	struct ml8953 *ac = container_of(work, struct ml8953, work);
 	struct i2c_client *client = ac->client;
-	short pitch;
-	short roll;
+	int pitch;
+	int roll;
 	short gx;
 	short gy;
 	short gz;
@@ -137,10 +137,12 @@ static void ml8953_work(struct work_struct *work)
 
 	*data = ml8953_smbus_read(client, ACC_GAZH);
 	ac->sample[0] = *data;
-	
+	gz = *data << 8;
+
 	*data = ml8953_smbus_read(client, ACC_GAZL);
 	ac->sample[1] = *data;
-	  
+	gz = gz | *data;
+
 	*data = ml8953_smbus_read(client, ACC_GAYH);
 	ac->sample[2] = *data;
 	gy = *data << 8;
@@ -157,7 +159,11 @@ static void ml8953_work(struct work_struct *work)
 	ac->sample[5] = *data;
 	gx = gx | *data;
 	
-
+	mutex_lock(&ac->mutex);
+	ac->saved[0] = gx;
+	ac->saved[1] = gy;
+	ac->saved[2] = gz;
+	mutex_unlock(&ac->mutex);
 	// read STATUS
 	*data = ml8953_smbus_read(client, ACC_STATUS);
 
@@ -173,14 +179,15 @@ static void ml8953_work(struct work_struct *work)
 
 		// write PAGESEL
 	*data = 0x1;
-	if(ml8953_smbus_write(client, ACC_PAGESEL, *data))
+	ml8953_smbus_write(client, ACC_PAGESEL, *data);
 
-		// report orientation
-	// printk(KERN_INFO "bmi_lcd.c: bmi_lcd_input work (slot %d) pitch=0x%x, roll=0x%x, ABS_MISC=0x%x\n", 
-		// slot, pitch, roll, pitch << 16 | roll);	//pjg - debug
-
-	//input_report_abs(ac->input, ABS_MISC, (pitch << 16) | roll);
-	//input_sync(ac->input);
+	// report orientation
+	
+	//printk(KERN_DEBUG "ml8953_work: 0x%x\n", (pitch << 16) | roll);
+	input_report_abs(ac->input, ABS_MISC, (pitch << 16) | roll);
+	input_sync(ac->input);
+	//printk(KERN_INFO "ml8953_work: enabling irq %d\n",client->irq);
+	enable_irq(client->irq);
 	msleep(10);
 }
 
@@ -188,6 +195,7 @@ static irqreturn_t ml8953_irq(int irq, void *handle)
 {
 	struct ml8953 *ac = handle;
 
+	//printk(KERN_INFO "ml8953_irq: %d\n", irq);
 	disable_irq_nosync(irq);
 	schedule_work(&ac->work);
 
@@ -218,6 +226,31 @@ static void ml8953_input_close(struct input_dev *input)
 	ac->open = 0;
 	mutex_unlock(&ac->mutex);
 }
+
+static ssize_t ml8953_position_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct ml8953 *ac = dev_get_drvdata(dev);
+	ssize_t count;
+
+	mutex_lock(&ac->mutex);
+
+	count = sprintf(buf, "(%d, %d, %d)\n",
+			ac->saved[0], ac->saved[1], ac->saved[2]);
+	mutex_unlock(&ac->mutex);
+	return count;
+}
+
+static DEVICE_ATTR(position, 0444, ml8953_position_show, NULL);
+
+static struct attribute *ml8953_attributes[] = {
+	&dev_attr_position.attr,
+	NULL
+};
+
+static const struct attribute_group ml8953_attr_group = {
+	.attrs = ml8953_attributes,
+};
 
 static int __devinit ml8953_i2c_probe(struct i2c_client *client,
 				       const struct i2c_device_id *id)
@@ -257,16 +290,18 @@ static int __devinit ml8953_i2c_probe(struct i2c_client *client,
 	input_dev->close = ml8953_input_close;
 	input_set_drvdata(input_dev, ac);
 
+	__set_bit(EV_ABS, input_dev->evbit);
 	__set_bit(ABS_X, input_dev->absbit);
 	__set_bit(ABS_Y, input_dev->absbit);
 	__set_bit(ABS_Z, input_dev->absbit);
+	__set_bit(ABS_MISC, input_dev->absbit);
 
 	input_set_abs_params(input_dev, ABS_X, -ML8953_RANGE, ML8953_RANGE, 3, 3);
 	input_set_abs_params(input_dev, ABS_Y, -ML8953_RANGE, ML8953_RANGE, 3, 3);
 	input_set_abs_params(input_dev, ABS_Z, -ML8953_RANGE, ML8953_RANGE, 3, 3);
 	
 	error = request_irq(client->irq, ml8953_irq,
-			  IRQF_TRIGGER_HIGH, client->dev.driver->name, ac);
+			  IRQF_TRIGGER_LOW, client->dev.driver->name, ac);
 	if (error) {
 		dev_err(&client->dev, "irq %d busy?\n", client->irq);
 		goto free_input_dev;
@@ -274,10 +309,16 @@ static int __devinit ml8953_i2c_probe(struct i2c_client *client,
 	error = input_register_device(input_dev);
 	if (error) {
 		dev_err(&client->dev, "input device failed to register?\n");
-		goto free_input_dev;
+		goto free_dev_irq;
 	}
+
+	error = sysfs_create_group(&client->dev.kobj, &ml8953_attr_group);
+	if (error)
+		goto free_dev_irq;
 	i2c_set_clientdata(client, ac);
 	return 0;
+free_dev_irq:
+	free_irq(client->irq, ac);
 free_input_dev:
 	input_free_device(input_dev);
 	kfree(ac);

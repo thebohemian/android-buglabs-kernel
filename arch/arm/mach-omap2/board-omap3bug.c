@@ -44,7 +44,6 @@
 #include <mach/mcspi.h>
 #include <mach/mux.h>
 #include <mach/display.h>
-//#include <mach/pm.h>
 #include <mach/clock.h>
 
 #include "sdram-micron-mt46h32m32lf-6.h"
@@ -302,7 +301,9 @@ static struct platform_device omap3bug_vout_device = {
 #define LCD_PANEL_UD		3
 #define LCD_PANEL_INI		152
 
-#define LCD_PANEL_ENABLE_GPIO	232
+
+#define VIDEO_PIM_SW_ENABLE     232
+#define VIDEO_PIM_ENABLE        227
 #define LCD_PANEL_QVGA		154
 #define LCD_PANEL_RESB		155
 
@@ -315,11 +316,12 @@ static void __init omap3_bug_display_init(void)
 {
 	int r;
 
-	r  = gpio_request(227, "lcd_power");
-	r |= gpio_request(232, "lcd_level_shifter");
+	r  = gpio_request(VIDEO_PIM_ENABLE, "lcd_power");
+	r |= gpio_request(VIDEO_PIM_SW_ENABLE, "lcd_level_shifter");
 	r |= gpio_request(90,  "lcd_shutdown");
 	r |= gpio_request(93,  "lcd_reset");
 	r |= gpio_request(10,  "dvi_reset");
+	r |= gpio_request(92,  "acc_reset");
 	if (r) {
 	  printk(KERN_INFO "gpio request failed...\n");
 	}
@@ -336,16 +338,17 @@ static int omap3_bug_panel_enable_lcd(struct omap_dss_device *display)
 	omap_cfg_reg (LCD_TP_RESET);
 	omap_cfg_reg (ACC_INT);
 
-	gpio_direction_output(227, 1);
-	gpio_direction_output(232, 0);
+	gpio_direction_output(VIDEO_PIM_ENABLE, 1);
+	gpio_direction_output(VIDEO_PIM_SW_ENABLE, 0);
 	gpio_direction_output(90,1);
+	gpio_direction_output(92,1);
 
 	return 0;
 }
 
 static void omap3_bug_panel_disable_lcd(struct omap_dss_device *display)
 {
-	gpio_direction_output(LCD_PANEL_ENABLE_GPIO, 1);
+	gpio_direction_output(VIDEO_PIM_SW_ENABLE, 1);
 
 	// Mux these pins to safe mode
   	omap_cfg_reg (DSS_D18);
@@ -380,15 +383,15 @@ static int omap3_bug_panel_enable_dvi(struct omap_dss_device *display)
 	omap_cfg_reg (DSS_DATA_23);
 	omap_cfg_reg (GPIO_10);
 
-	gpio_direction_output(227, 1);
-	gpio_direction_output(232, 0);
+	gpio_direction_output(VIDEO_PIM_ENABLE, 1);
+	gpio_direction_output(VIDEO_PIM_SW_ENABLE, 0);
 
 	return 0;
 }
 
 static void omap3_bug_panel_disable_dvi(struct omap_dss_device *display)
 {
-	gpio_direction_output(LCD_PANEL_ENABLE_GPIO, 1);
+	gpio_direction_output(VIDEO_PIM_SW_ENABLE, 1);
 
 	// Mux these pins to safe mode
   	omap_cfg_reg (DSS_D18);
@@ -402,6 +405,15 @@ static void omap3_bug_panel_disable_dvi(struct omap_dss_device *display)
 	return;
 }
 
+static struct omap_dss_device omap3_bug_vga_device = {
+	.type                = OMAP_DISPLAY_TYPE_DPI,
+	.name                = "vga",
+	.driver_name         = "vga_panel",
+	.phy.dpi.data_lines  = 24,
+	.platform_enable     = omap3_bug_panel_enable_dvi,
+	.platform_disable    = omap3_bug_panel_disable_dvi,
+};
+
 static struct omap_dss_device omap3_bug_dvi_device = {
 	.type                = OMAP_DISPLAY_TYPE_DPI,
 	.name                = "dvi",
@@ -414,6 +426,7 @@ static struct omap_dss_device omap3_bug_dvi_device = {
 struct omap_dss_device *omap3_bug_display_devices[] = {
         &omap3_bug_lcd_device,
 	&omap3_bug_dvi_device,
+	&omap3_bug_vga_device,
 };
 
 static struct omap_dss_board_info omap3_bug_dss_data = {
@@ -591,16 +604,17 @@ static struct gpio_led gpio_leds[] = {
 			.name		    = "omap3bug:green:battery",
 			.default_trigger    = "none",
 			.gpio		    = 53,
-			.active_low         = false,
+			.active_low         = true,
 			.default_state      = LEDS_GPIO_DEFSTATE_OFF,
 		},
 		{
-			.name		    = "omap3bug:blue:battery",
+			.name		    = "omap3bug:red:battery",
 			.default_trigger    = "none",
 			.gpio		    = 54,
-			.active_low         = false,
+			.active_low         = true,
 			.default_state      = LEDS_GPIO_DEFSTATE_OFF,
 		},
+/*
 		{
 			.name		    = "omap3bug:red:wlan",
 			.default_trigger    = "none",
@@ -618,10 +632,11 @@ static struct gpio_led gpio_leds[] = {
 		{
 			.name		    = "omap3bug:blue:wlan",
 			.default_trigger    = "none",
-			.gpio		    = 41,
+			.gpio		    = 56,
 			.active_low         = false,
 			.default_state      = LEDS_GPIO_DEFSTATE_OFF,
 		},
+*/
 };
 
 static struct gpio_led_platform_data gpio_led_info = {
@@ -644,18 +659,18 @@ static struct platform_device leds_gpio = {
 static struct led_pwm pwm_leds[] =
 {
 		{
-			.name               = "omap3bug:blue:power",
+			.name               = "omap3bug:red:wifi",
 			.default_trigger    = "none",
 			.pwm_id             = 0,
-			.active_low         = false,
+			.active_low         = true,
 			.max_brightness     = LED_FULL,
 			.pwm_period_ns      = 330,
 		},
 		{
-			.name               = "omap3bug:blue:bt",
+			.name               = "omap3bug:green:wifi",
 			.default_trigger    = "none",
 			.pwm_id             = 1,
-			.active_low         = false,
+			.active_low         = true,
 			.max_brightness     = LED_FULL,
 			.pwm_period_ns      = 330,
 		},
@@ -669,6 +684,7 @@ static struct led_pwm_platform_data pwm_led_info =
 
 static struct platform_device leds_pwm =
 {
+
                 .name = "leds_pwm",
 		.id = -1,
 		.dev =
@@ -681,20 +697,71 @@ static struct platform_device leds_pwm =
  * PWM LEDs available on OMAP.
  */
 
+static struct omap_pwm_led_platform_data omap_pwm_led_gpt8 = {
+       .name                = "omap3bug:blue:bt",
+       .intensity_timer     = 8,
+       .blink_timer         = 0,
+       .default_trigger     = "none",
+       //.set_power           = set_power(&omap_pwm_led_gpt92, 0),
+};
+
+static struct platform_device omap3_bug_pwm_gpt8 = {
+       .name   = "omap_pwm_led",
+       .id     = 0,
+       .dev    = {
+               .platform_data  = &omap_pwm_led_gpt8,
+       },
+};
+
+
 static struct omap_pwm_led_platform_data omap_pwm_led_gpt9 = {
-       .name                = "omap3bug:red:battery",
+       .name                = "omap3bug:blue:battery",
        .intensity_timer     = 9,
        .blink_timer         = 0,
+       .default_trigger     = "none",
        //.set_power           = set_power(&omap_pwm_led_gpt92, 0),
 };
 
 static struct platform_device omap3_bug_pwm_gpt9 = {
        .name   = "omap_pwm_led",
-       .id     = -1,
+       .id     = 1,
        .dev    = {
                .platform_data  = &omap_pwm_led_gpt9,
        },
 };
+
+static struct omap_pwm_led_platform_data omap_pwm_led_gpt10 = {
+       .name                = "omap3bug:blue:wifi",
+       .intensity_timer     = 10,
+       .blink_timer         = 0,
+       .default_trigger     = "none",
+       //.set_power           = set_power(&omap_pwm_led_gpt92, 0),
+};
+
+static struct platform_device omap3_bug_pwm_gpt10 = {
+       .name   = "omap_pwm_led",
+       .id     = 2,
+       .dev    = {
+               .platform_data  = &omap_pwm_led_gpt10,
+       },
+};
+
+static struct omap_pwm_led_platform_data omap_pwm_led_gpt11 = {
+       .name                = "omap3bug:blue:power",
+       .intensity_timer     = 11,
+       .blink_timer         = 0,
+       .default_trigger     = "breathe",
+       //.set_power           = set_power(&omap_pwm_led_gpt92, 0),
+};
+
+static struct platform_device omap3_bug_pwm_gpt11 = {
+       .name   = "omap_pwm_led",
+       .id     = 3,
+       .dev    = {
+               .platform_data  = &omap_pwm_led_gpt11,
+       },
+};
+
 
 static struct platform_device *omap3_bug_devices[] __initdata = {
 
@@ -704,7 +771,10 @@ static struct platform_device *omap3_bug_devices[] __initdata = {
 	&omap3_bug_pwr_switch,
 	&omap3_bug_pwm_a,
 	&omap3_bug_pwm_b,
+	&omap3_bug_pwm_gpt8,
 	&omap3_bug_pwm_gpt9,
+	&omap3_bug_pwm_gpt10,
+	&omap3_bug_pwm_gpt11,
 	&leds_pwm,
 	&leds_gpio
 };
@@ -744,7 +814,9 @@ static int __init omap3bug_twl_gpio_setup(struct device *dev,
        /* Most GPIOs are for USB OTG.  Some are mostly sent to
         * the P2 connector; notably LEDA for the LCD backlight.
         */
-
+	gpio_request(gpio + 1, "usb_hub");
+	gpio_direction_output(gpio + 1, 1);
+	gpio_free(gpio + 1);
        return 0;
 }
 
@@ -777,55 +849,58 @@ static int omap3bug_ioexp_gpio_teardown(struct i2c_client *client,
 
 static int omap3bug_spi_uart_gpio_setup(struct spi_device *spi, unsigned gpio, unsigned ngpio, void *context)
 {
-  int r;
+	int r;
   
-  printk(KERN_INFO "spi_uart_gpio: Setting up gpios...\n");
-  omap3_bug_display_init();
-  r =   gpio_request(gpio + 4, "wifi_en");  
-  if (r) {
-    printk(KERN_ERR "spi_uart_gpio: failed to get wifi_en...\n");
-    return r;
-  }
-  gpio_direction_output(gpio+4, 1);
+	printk(KERN_INFO "spi_uart_gpio: Setting up gpios...\n");
+	omap3_bug_display_init();
+	r =   gpio_request(gpio + 4, "wifi_en");  
+	if (r) {
+	  printk(KERN_ERR "spi_uart_gpio: failed to get wifi_en...\n");
+	  return r;
+	}
+	gpio_direction_output(gpio+4, 1);
 
-  mdelay(100);
-  r =   gpio_request(157, "wifi_rst");
-  if (r) {
-    printk(KERN_ERR "spi_uart_gpio: failed to get wifi_rst...\n");
-    return r;
-  }
-  gpio_direction_output(157, 1);
+	mdelay(100);
+	r =   gpio_request(157, "wifi_rst");
+	if (r) {
+	  printk(KERN_ERR "spi_uart_gpio: failed to get wifi_rst...\n");
+	  return r;
+	}
+	gpio_direction_output(157, 1);
+
+	r =   gpio_request(156, "bt_rst");
+	if (r) {
+	  printk(KERN_ERR "spi_uart_gpio: failed to get bt_rst...\n");
+	  return r;
+	}
+	gpio_direction_output(156, 1);
+
+	r =   gpio_request(163, "wifi_wakeup");
+	if (r) {
+	  printk(KERN_ERR "spi_uart_gpio: failed to get wifi_wakeup...\n");
+	  return r;
+	}
+	gpio_direction_output(163, 0);
+	  
+	r =   gpio_request(233, "5V_en");
+	gpio_direction_output(233,1);
+	gpio_free(233);
+	mdelay(100);
+	gpio_set_value (163, 1);
+	gpio_set_value (157, 0);
   
-  r =   gpio_request(156, "bt_rst");
-  if (r) {
-    printk(KERN_ERR "spi_uart_gpio: failed to get bt_rst...\n");
-    return r;
-  }
-  gpio_direction_output(156, 1);
+	mdelay(100);
+	gpio_set_value (157, 1);
+	gpio_set_value (156, 0);
+	mdelay(100);
+	gpio_set_value (156, 1);
 
-  r =   gpio_request(163, "wifi_wakeup");
-  if (r) {
-    printk(KERN_ERR "spi_uart_gpio: failed to get wifi_wakeup...\n");
-    return r;
-  }
-  gpio_direction_output(163, 0);
-  
-  mdelay(100);
-  gpio_set_value (163, 1);
-  gpio_set_value (157, 0);
-  
-  mdelay(100);
-  gpio_set_value (157, 1);
-  gpio_set_value (156, 0);
-  mdelay(100);
-  gpio_set_value (156, 1);
-
-
-  printk(KERN_INFO "spi_uart_gpio: Freeing gpios...");
-  gpio_free(156);
-  gpio_free(157);
-  gpio_free(163);
-  return 0;
+	printk(KERN_INFO "spi_uart_gpio: Freeing gpios...");
+	gpio_free(230);
+	gpio_free(156);
+	gpio_free(157);
+	gpio_free(163);
+	return 0;
 }
 
 #define TWL4030_VAUX2_1P8V 0x5
@@ -954,6 +1029,7 @@ static void __init omap3_bug_map_io(void)
 	omap2_map_common_io();
 }
 
+//MACHINE_START(BUG, "OMAP3 BUG")
 MACHINE_START(OMAP3EVM, "OMAP3 BUG")
 	/* Maintainer: Matt Isaacs - BugLabs, inc */
 	.phys_io	= 0x48000000,
