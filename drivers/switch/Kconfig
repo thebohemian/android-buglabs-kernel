@@ -1,3 +1,7 @@
+#
+# SWITCH Infrastructure
+#
+
 menuconfig SWITCH
 	tristate "Switch class support"
 	help
