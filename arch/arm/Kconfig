@@ -1479,6 +1479,8 @@ source "drivers/staging/Kconfig"
 
 source "drivers/bmi/Kconfig"
 
+source "drivers/switch/Kconfig"
+
 if ARCH_OMAP
 source "drivers/cbus/Kconfig"
 endif
