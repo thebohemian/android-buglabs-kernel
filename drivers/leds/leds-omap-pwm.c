@@ -248,7 +248,8 @@ static int omap_pwm_led_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, led);
 	led->cdev.brightness_set = omap_pwm_led_set;
-	led->cdev.default_trigger = NULL;
+
+	led->cdev.default_trigger = pdata->default_trigger; 
 	led->cdev.name = pdata->name;
 	led->pdata = pdata;
 	led->brightness = LED_OFF;
@@ -272,7 +273,7 @@ static int omap_pwm_led_probe(struct platform_device *pdev)
 		goto error_intensity;
 	}
 
-	omap_pwm_led_set(led, led->brightness);
+	omap_pwm_led_set(&led->cdev, led->brightness);
 	omap_dm_timer_disable(led->intensity_timer);
 
 	if (pdata->blink_timer != 0) {

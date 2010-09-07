@@ -701,6 +701,7 @@ static struct omap_pwm_led_platform_data omap_pwm_led_gpt8 = {
        .name                = "omap3bug:blue:bt",
        .intensity_timer     = 8,
        .blink_timer         = 0,
+       .default_trigger     = "none",
        //.set_power           = set_power(&omap_pwm_led_gpt92, 0),
 };
 
@@ -717,6 +718,7 @@ static struct omap_pwm_led_platform_data omap_pwm_led_gpt9 = {
        .name                = "omap3bug:blue:battery",
        .intensity_timer     = 9,
        .blink_timer         = 0,
+       .default_trigger     = "none",
        //.set_power           = set_power(&omap_pwm_led_gpt92, 0),
 };
 
@@ -732,6 +734,7 @@ static struct omap_pwm_led_platform_data omap_pwm_led_gpt10 = {
        .name                = "omap3bug:blue:wifi",
        .intensity_timer     = 10,
        .blink_timer         = 0,
+       .default_trigger     = "none",
        //.set_power           = set_power(&omap_pwm_led_gpt92, 0),
 };
 
@@ -747,6 +750,7 @@ static struct omap_pwm_led_platform_data omap_pwm_led_gpt11 = {
        .name                = "omap3bug:blue:power",
        .intensity_timer     = 11,
        .blink_timer         = 0,
+       .default_trigger     = "breathe",
        //.set_power           = set_power(&omap_pwm_led_gpt92, 0),
 };
 

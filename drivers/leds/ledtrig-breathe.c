@@ -52,7 +52,7 @@ static void led_breathe_function(unsigned long data)
 	}
 
 	led_set_brightness(led_cdev, breathe_data->brightness);
-	mod_timer(&breathe_data->timer, jiffies + msecs_to_jiffies(20));
+	mod_timer(&breathe_data->timer, jiffies + msecs_to_jiffies(10));
 }
 
 static void breathe_trig_activate(struct led_classdev *led_cdev)
