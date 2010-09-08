@@ -450,7 +450,7 @@ int mt9t111_set_format(struct i2c_client *client, struct v4l2_mbus_framefmt *fmt
 		ret = MT9T111_APPLY_PATCH(client, fmt_GBRG_regs);
 		if(ret < 0)
 			return ret;
-		//mt9t111_write_var(client, 0x6807, 0x200); // monochrome mode
+		mt9t111_write_var(client, 0x6807, 0x200); // monochrome mode
 		break;
 	case V4L2_MBUS_FMT_JPEG8:
 		printk(KERN_INFO "%s applying JPEG mode\n", __func__);
