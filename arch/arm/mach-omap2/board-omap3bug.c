@@ -315,9 +315,10 @@ static struct platform_device omap3bug_vout_device = {
 static void __init omap3_bug_display_init(void)
 {
 	int r;
-
+/*
 	r  = gpio_request(VIDEO_PIM_ENABLE, "lcd_power");
 	r |= gpio_request(VIDEO_PIM_SW_ENABLE, "lcd_level_shifter");
+*/
 	r |= gpio_request(90,  "lcd_shutdown");
 	r |= gpio_request(93,  "lcd_reset");
 	r |= gpio_request(10,  "dvi_reset");
@@ -338,8 +339,10 @@ static int omap3_bug_panel_enable_lcd(struct omap_dss_device *display)
 	omap_cfg_reg (LCD_TP_RESET);
 	omap_cfg_reg (ACC_INT);
 
+/*
 	gpio_direction_output(VIDEO_PIM_ENABLE, 1);
 	gpio_direction_output(VIDEO_PIM_SW_ENABLE, 0);
+*/
 	gpio_direction_output(90,1);
 	gpio_direction_output(92,1);
 
@@ -348,7 +351,7 @@ static int omap3_bug_panel_enable_lcd(struct omap_dss_device *display)
 
 static void omap3_bug_panel_disable_lcd(struct omap_dss_device *display)
 {
-	gpio_direction_output(VIDEO_PIM_SW_ENABLE, 1);
+	//gpio_direction_output(VIDEO_PIM_SW_ENABLE, 1);
 
 	// Mux these pins to safe mode
   	omap_cfg_reg (DSS_D18);
@@ -382,16 +385,16 @@ static int omap3_bug_panel_enable_dvi(struct omap_dss_device *display)
 	omap_cfg_reg (DSS_DATA_22);
 	omap_cfg_reg (DSS_DATA_23);
 	omap_cfg_reg (GPIO_10);
-
+/*
 	gpio_direction_output(VIDEO_PIM_ENABLE, 1);
 	gpio_direction_output(VIDEO_PIM_SW_ENABLE, 0);
-
+*/
 	return 0;
 }
 
 static void omap3_bug_panel_disable_dvi(struct omap_dss_device *display)
 {
-	gpio_direction_output(VIDEO_PIM_SW_ENABLE, 1);
+	//gpio_direction_output(VIDEO_PIM_SW_ENABLE, 1);
 
 	// Mux these pins to safe mode
   	omap_cfg_reg (DSS_D18);
@@ -1029,8 +1032,8 @@ static void __init omap3_bug_map_io(void)
 	omap2_map_common_io();
 }
 
-//MACHINE_START(BUG, "OMAP3 BUG")
-MACHINE_START(OMAP3EVM, "OMAP3 BUG")
+MACHINE_START(BUG, "OMAP3 BUG")
+//MACHINE_START(OMAP3EVM, "OMAP3 BUG")
 	/* Maintainer: Matt Isaacs - BugLabs, inc */
 	.phys_io	= 0x48000000,
 	.io_pg_offst	= ((0xd8000000) >> 18) & 0xfffc,
