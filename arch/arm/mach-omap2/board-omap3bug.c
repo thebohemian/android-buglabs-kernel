@@ -660,7 +660,7 @@ static struct led_pwm pwm_leds[] =
 {
 		{
 			.name               = "omap3bug:red:wifi",
-			.default_trigger    = "none",
+			.default_trigger    = "phy0radio",
 			.pwm_id             = 0,
 			.active_low         = true,
 			.max_brightness     = LED_FULL,
@@ -668,7 +668,7 @@ static struct led_pwm pwm_leds[] =
 		},
 		{
 			.name               = "omap3bug:green:wifi",
-			.default_trigger    = "none",
+			.default_trigger    = "phy0assoc",
 			.pwm_id             = 1,
 			.active_low         = true,
 			.max_brightness     = LED_FULL,
