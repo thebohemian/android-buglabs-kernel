@@ -36,8 +36,8 @@ static void bl_power_on(struct bmi_slot* slot)
     
     break;
   case 1:
-    //    gpio_direction_output(227,1);
-    //    gpio_direction_output(232,0);
+    gpio_direction_output(227,1);
+    gpio_direction_output(232,0);
     break;
   case 2:
     gpio_direction_output(228,1);
@@ -61,8 +61,8 @@ static void bl_power_off(struct bmi_slot* slot)
     gpio_direction_output(225,1);
     break;
   case 1:
-    //    gpio_direction_output(227,0);
-    //    gpio_direction_output(232,1);
+    gpio_direction_output(227,0);
+    gpio_direction_output(232,1);
     break;
   case 2:
     gpio_direction_output(228,0);
@@ -228,6 +228,15 @@ static int omapbmi_slot_probe(struct platform_device *pdev)
     goto err_release;
   }
   
+  //Request slot enable gpios
+  ret = gpio_request(225, "slot0 buf");
+  ret = gpio_request(226, "slot0 en");
+  ret = gpio_request(232, "slot1 buf");
+  ret = gpio_request(227, "slot1 en");
+  ret = gpio_request(216, "slot2 buf");
+  ret = gpio_request(228, "slot2 en");
+  ret = gpio_request(217, "slot3 buf");
+  ret = gpio_request(229, "slot3 en");
   ret = gpio_request(irq_stat->start, "BMI SINT");
   if (ret) {
     printk(KERN_ERR "slots_bug: GPIO %d request failed...\n",irq_stat->start);
