@@ -1032,8 +1032,8 @@ static void __init omap3_bug_map_io(void)
 	omap2_map_common_io();
 }
 
-MACHINE_START(BUG, "OMAP3 BUG")
-//MACHINE_START(OMAP3EVM, "OMAP3 BUG")
+//MACHINE_START(BUG, "OMAP3 BUG")
+MACHINE_START(OMAP3EVM, "OMAP3 BUG")
 	/* Maintainer: Matt Isaacs - BugLabs, inc */
 	.phys_io	= 0x48000000,
 	.io_pg_offst	= ((0xd8000000) >> 18) & 0xfffc,
