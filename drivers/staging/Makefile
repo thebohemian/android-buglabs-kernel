@@ -31,7 +31,6 @@ obj-$(CONFIG_INPUT_MIMIO)	+= mimio/
 obj-$(CONFIG_TRANZPORT)		+= frontier/
 obj-$(CONFIG_EPL)		+= epl/
 obj-$(CONFIG_ANDROID)		+= android/
-obj-$(CONFIG_STAGING_DREAM)	+= dream/
 obj-$(CONFIG_DST)		+= dst/
 obj-$(CONFIG_POHMELFS)		+= pohmelfs/
 obj-$(CONFIG_STLC45XX)		+= stlc45xx/
