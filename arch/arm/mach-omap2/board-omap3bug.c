@@ -19,7 +19,11 @@
 #include <linux/err.h>
 #include <linux/clk.h>
 #include <linux/input.h>
+#include <linux/input/matrix_keypad.h>
 #include <linux/leds.h>
+#include <linux/mtd/mtd.h>
+#include <linux/mtd/partitions.h>
+#include <linux/mtd/nand.h>
 
 #include <linux/spi/spi.h>
 #include <linux/spi/ads7846.h>
@@ -30,34 +34,41 @@
 #include <linux/mmc/host.h>
 #include <linux/bmi/omap_bmi.h>
 #include <linux/leds_pwm.h>
+#include <linux/regulator/machine.h>
+#include <linux/regulator/fixed.h>
+#include <linux/usb/android_composite.h>
 
-#include <mach/hardware.h>
+#include <plat/hardware.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
 #include <asm/mach/map.h>
 
-#include <mach/gpio.h>
-#include <mach/keypad.h>
-#include <mach/board.h>
-#include <mach/usb.h>
-#include <mach/common.h>
-#include <mach/mcspi.h>
-#include <mach/mux.h>
-#include <mach/display.h>
-#include <mach/clock.h>
+#include <plat/gpio.h>
+#include <plat/board.h>
+#include <plat/usb.h>
+#include <plat/common.h>
+#include <plat/mcspi.h>
+#include <plat/nand.h>
+#include <plat/gpmc.h>
+#include <plat/mux.h>
+#include <plat/display.h>
 
 #include "sdram-micron-mt46h32m32lf-6.h"
-#include "twl4030-generic-scripts.h"
 #include "mmc-twl4030.h"
-//#include "pm.h"
-//#include "omap3-opp.h"
-#include "board-omap3bug-dc.h"
-#include <linux/regulator/machine.h>
-#include <linux/regulator/fixed.h>
 
-#define OMAP3_BUG_TS_GPIO	175
+#define GPMC_CS0_BASE  0x60
+#define GPMC_CS_SIZE   0x30
+#define MAX_USB_SERIAL_NUM			17
+#define OMAP3_BUG_TS_GPIO			175
+#define BUGBASE_VENDOR_ID			0x22B8
+#define BUGBASE_PRODUCT_ID			0x41D9
+#define BUGBASE_ADB_PRODUCT_ID			0x41DB
+#define BUGBASE_RNDIS_PRODUCT_ID		0x41E4
+#define BUGBASE_RNDIS_ADB_PRODUCT_ID		0x41E5
+#define DIE_ID_REG_BASE			(L4_WK_34XX_PHYS + 0xA000)
+#define DIE_ID_REG_OFFSET		0x218
 
-extern void omap3bug_flash_init(void);
+static char device_serial[MAX_USB_SERIAL_NUM];
 
 static int omap3bug_twl_gpio_setup(struct device *dev,
                unsigned gpio, unsigned ngpio);
@@ -79,8 +90,67 @@ static struct omap_uart_config omap3_bug_uart_config __initdata = {
 static struct platform_device omap3_bug_dss_device;
 static struct omap_dss_device omap3_bug_lcd_device;
 
-static struct regulator_consumer_supply bug_vmmc1_supply = {
-	.supply			= "vmmc",
+
+#define NAND_BLOCK_SIZE		SZ_128K
+
+static struct mtd_partition omap3bug_nand_partitions[] = {
+	/* All the partition sizes are listed in terms of NAND block size */
+	{
+		.name		= "X-Loader",
+		.offset		= 0,
+		.size		= 4 * NAND_BLOCK_SIZE,
+		.mask_flags	= MTD_WRITEABLE,	/* force read-only */
+	},
+	{
+		.name		= "U-Boot",
+		.offset		= MTDPART_OFS_APPEND,	/* Offset = 0x80000 */
+		.size		= 15 * NAND_BLOCK_SIZE,
+		.mask_flags	= MTD_WRITEABLE,	/* force read-only */
+	},
+	{
+		.name		= "U-Boot Env",
+		.offset		= MTDPART_OFS_APPEND,	/* Offset = 0x260000 */
+		.size		= 1 * NAND_BLOCK_SIZE,
+	},
+	{
+		.name		= "Kernel",
+		.offset		= MTDPART_OFS_APPEND,	/* Offset = 0x280000 */
+		.size		= 32 * NAND_BLOCK_SIZE,
+	},
+	{
+		.name		= "File System",
+		.offset		= MTDPART_OFS_APPEND,	/* Offset = 0x680000 */
+		.size		= MTDPART_SIZ_FULL,
+	},
+};
+
+static struct omap_nand_platform_data omap3bug_nand_data = {
+	.options	= NAND_BUSWIDTH_16,
+	.parts		= omap3bug_nand_partitions,
+	.nr_parts	= ARRAY_SIZE(omap3bug_nand_partitions),
+	.dma_channel	= -1,		/* disable DMA in OMAP NAND driver */
+	.nand_setup	= NULL,
+	.dev_ready	= NULL,
+};
+
+static struct resource omap3bug_nand_resource = {
+	.flags		= IORESOURCE_MEM,
+};
+
+static struct platform_device omap3bug_nand_device = {
+	.name		= "omap2-nand",
+	.id		= -1,
+	.dev		= {
+		.platform_data	= &omap3bug_nand_data,
+	},
+	.num_resources	= 1,
+	.resource	= &omap3bug_nand_resource,
+};
+
+static struct regulator_consumer_supply bug_vmmc_supplies[] = {
+	{
+		.supply			= "vmmc0",
+	},
 };
 
 static struct regulator_consumer_supply bug_vaux2_supply = {
@@ -90,6 +160,7 @@ static struct regulator_consumer_supply bug_vaux2_supply = {
 /* VMMC1 for MMC1 pins CMD, CLK, DAT0..DAT3 (20 mA, plus card == max 220 mA) */
 static struct regulator_init_data bug_vmmc1 = {
 	.constraints = {
+		.name			= "VMMC1",
 		.min_uV			= 1850000,
 		.max_uV			= 3150000,
 		.valid_modes_mask	= REGULATOR_MODE_NORMAL
@@ -97,14 +168,16 @@ static struct regulator_init_data bug_vmmc1 = {
 		.valid_ops_mask		= REGULATOR_CHANGE_VOLTAGE
 					| REGULATOR_CHANGE_MODE
 					| REGULATOR_CHANGE_STATUS,
+		.boot_on		= true,
 	},
-	.num_consumer_supplies	= 1,
-	.consumer_supplies	= &bug_vmmc1_supply,
+	.num_consumer_supplies	= ARRAY_SIZE(bug_vmmc_supplies),
+	.consumer_supplies	= bug_vmmc_supplies,
 };
 
 /* VAUX2 for USB PHY (max 100 mA) */
 static struct regulator_init_data bug_vaux2 = {
 	.constraints = {
+		.name			= "VAUX2",
 		.min_uV			= 1800000,
 		.max_uV			= 1800000,
 		.apply_uV		= true,
@@ -120,34 +193,78 @@ static struct regulator_init_data bug_vaux2 = {
 };
 
 /* Supply enable for digital video outputs */
-static struct regulator_consumer_supply bug_disp_supplies[] = {
-  {
-    .supply= "vdds_dsi",
-    .dev= &omap3_bug_dss_device.dev,
-  }
+static struct regulator_consumer_supply bug_1_8_supplies[] = {
+	{
+		.supply= "vdds_dsi",
+		.dev= &omap3_bug_dss_device.dev,
+	},
+	{
+		.supply = "vmmc2",
+	},
 };
 
-static struct regulator_init_data bug_disp_data = {
-  .constraints = {
-    .always_on = 1,
-  },
-  .num_consumer_supplies= ARRAY_SIZE(bug_disp_supplies),
-  .consumer_supplies= bug_disp_supplies,
-
+static struct regulator_init_data bug_fixed_1_8_data = {
+	.constraints = {
+		.min_uV			= 1800000,
+		.max_uV			= 1800000,
+		.apply_uV		= true,
+		.boot_on 		= true,
+		.valid_modes_mask	= REGULATOR_MODE_NORMAL
+			| REGULATOR_MODE_STANDBY,
+		.always_on 		= true,
+	},
+	.num_consumer_supplies= ARRAY_SIZE(bug_1_8_supplies),
+	.consumer_supplies= bug_1_8_supplies,
 };
 
-static struct fixed_voltage_config bug_disp_pwr_pdata = {
-	.supply_name   = "VLCD",
-	.microvolts    = 5000000,
-	.init_data     = &bug_disp_data,
+static struct fixed_voltage_config bug_fixed_1_8_pdata = {
+	.supply_name   = "V1.8",
+	.microvolts    = 1800000,
+	.init_data     = &bug_fixed_1_8_data,
 	.gpio          = -1,
 };
 
-static struct platform_device bug_disp_pwr = {
+static struct platform_device bug_fixed_1_8 = {
 	.name          = "reg-fixed-voltage",
-	.id            = -1,
+	.id            = 0,
 	.dev = {
-		.platform_data = &bug_disp_pwr_pdata,
+		.platform_data = &bug_fixed_1_8_pdata,
+	},
+};
+
+static struct regulator_consumer_supply bug_sd_supplies[] = {
+	{
+		.supply = "vmmc1",
+	},
+};
+
+static struct regulator_init_data bug_fixed_sd_data = {
+	.constraints = {
+		.min_uV			= 3300000,
+		.max_uV			= 3300000,
+		.apply_uV		= true,
+		.boot_on 		= true,
+		.valid_modes_mask	= REGULATOR_MODE_NORMAL
+			| REGULATOR_MODE_STANDBY,
+
+		.always_on 		= true,
+	},
+	.num_consumer_supplies= ARRAY_SIZE(bug_sd_supplies),
+	.consumer_supplies= bug_sd_supplies,
+};
+
+static struct fixed_voltage_config bug_fixed_sd_pdata = {
+	.supply_name   = "SD",
+	.microvolts    = 300000,
+	.init_data     = &bug_fixed_sd_data,
+	.gpio          = 35,
+};
+
+static struct platform_device bug_fixed_sd = {
+	.name          = "reg-fixed-voltage",
+	.id            = 1,
+	.dev = {
+		.platform_data = &bug_fixed_sd_pdata,
 	},
 };
 
@@ -164,6 +281,14 @@ static struct twl4030_usb_data omap3bug_usb_data = {
 	.usb_mode	= T2_USB_MODE_ULPI,
 };
 
+static struct twl4030_codec_audio_data omap3bug_audio_data = {
+	.audio_mclk = 26000000,
+};
+
+static struct twl4030_codec_data omap3bug_codec_data = {
+	.audio_mclk = 26000000,
+	.audio = &omap3bug_audio_data,
+};
 
 static struct twl4030_madc_platform_data omap3bug_madc_data = {
 	.irq_line	= 1,
@@ -173,12 +298,15 @@ static int omap3bug_keymap[] = {
 	KEY(0, 0, KEY_VIDEO_PREV),
 };
 
+static struct matrix_keymap_data omap3bug_keymap_data = {
+	.keymap			= omap3bug_keymap,
+	.keymap_size		= ARRAY_SIZE(omap3bug_keymap),
+};
 
 static struct twl4030_keypad_data omap3bug_kp_data = {
+	.keymap_data	= &omap3bug_keymap_data,
 	.rows		= 1,
 	.cols		= 1,
-	.keymap		= omap3bug_keymap,
-	.keymapsize	= ARRAY_SIZE(omap3bug_keymap),
 	.rep		= 1,
 };
 
@@ -196,11 +324,65 @@ static struct twl4030_platform_data omap3bug_twldata = {
 	.gpio		= &omap3bug_gpio_data,
 };
 
+#define GOOGLE_VENDOR_ID               0x18d1
+#define GOOGLE_PRODUCT_ID              0x9018
+#define GOOGLE_ADB_PRODUCT_ID          0x9015
+
+static char *usb_functions_adb[] = {
+	"adb",
+};
+
+static char *usb_functions_all[] = {
+	"adb",
+};
+
+static struct android_usb_product usb_products[] = {
+	{
+		.product_id     = GOOGLE_PRODUCT_ID,
+		.num_functions  = ARRAY_SIZE(usb_functions_adb),
+		.functions      = usb_functions_adb,
+	},
+};
+
+static struct android_usb_platform_data android_usb_pdata = {
+	.vendor_id = GOOGLE_VENDOR_ID,
+	.product_id = GOOGLE_PRODUCT_ID,
+	.functions = usb_functions_all,
+	.products = usb_products,
+	.version = 0x0100,
+	.product_name = "BUGBase",
+	.manufacturer_name = "Buglabs",
+	.serial_number = device_serial,
+	.num_functions = ARRAY_SIZE(usb_functions_all),
+};
+
+static struct platform_device androidusb_device = {
+	.name = "android_usb",
+	.id = -1,
+	.dev = {
+		.platform_data = &android_usb_pdata,
+	},
+};
+
+static void bugbase_gadget_init(void)
+{
+	unsigned int val[2];
+	unsigned int reg;
+
+	reg = DIE_ID_REG_BASE + DIE_ID_REG_OFFSET;
+	val[0] = omap_readl(reg);
+	val[1] = omap_readl(reg + 4);
+
+	snprintf(device_serial, MAX_USB_SERIAL_NUM, "%08X%08X", val[1], val[0]);
+
+	platform_device_register(&androidusb_device);
+}
 
 static struct sc16is_gpio_platform_data bugbase_spi_gpio = {
   .gpio_base	= OMAP_MAX_GPIO_LINES + TWL4030_GPIO_MAX + 16,
   .setup	= omap3bug_spi_uart_gpio_setup,
 };
+
 
 static struct sc16is_uart_platform_data bugbase_spi_uart = {
   .irq_pin = 36,
@@ -317,9 +499,10 @@ static void __init omap3_bug_display_init(void)
 	int r;
 /*
 	r  = gpio_request(VIDEO_PIM_ENABLE, "lcd_power");
-	r |= gpio_request(VIDEO_PIM_SW_ENABLE, "lcd_level_shifter");
+	r |= gpio_request(VIDEO_PIM_SW_ENABLE, "l
+cd_level_shifter");
 */
-	r |= gpio_request(90,  "lcd_shutdown");
+	r = gpio_request(90,  "lcd_shutdown");
 	r |= gpio_request(93,  "lcd_reset");
 	r |= gpio_request(10,  "dvi_reset");
 	r |= gpio_request(92,  "acc_reset");
@@ -401,6 +584,7 @@ static void omap3_bug_panel_disable_dvi(struct omap_dss_device *display)
 	omap_cfg_reg (DSS_D19);
 	omap_cfg_reg (DSS_D20);
 	omap_cfg_reg (DSS_D21);
+
 	omap_cfg_reg (DSS_D21);
 	omap_cfg_reg (DSS_D22);
 	omap_cfg_reg (DSS_D23);
@@ -511,6 +695,7 @@ static struct omap_bmi_platform_data bmi_slot_pdata3 = {
 static struct omap_bmi_platform_data bmi_slot_pdata4 = {
   .gpios = {210, 211, 212, 213},
   .i2c_bus_no = 7,
+
   .spi_cs = 6,  
 };
 
@@ -555,6 +740,7 @@ static struct platform_device bmi_slot_devices[] = {
 
 
 static void omap_init_bmi_slots(void)
+
 {
   int i;
 
@@ -614,7 +800,8 @@ static struct gpio_led gpio_leds[] = {
 			.name		    = "omap3bug:red:battery",
 			.default_trigger    = "none",
 			.gpio		    = 54,
-			.active_low         = true,
+			.active_low         = 
+true,
 			.default_state      = LEDS_GPIO_DEFSTATE_OFF,
 		},
 /*
@@ -704,7 +891,7 @@ static struct omap_pwm_led_platform_data omap_pwm_led_gpt8 = {
        .name                = "omap3bug:blue:bt",
        .intensity_timer     = 8,
        .blink_timer         = 0,
-       .default_trigger     = "none",
+       //.default_trigger     = "none",
        //.set_power           = set_power(&omap_pwm_led_gpt92, 0),
 };
 
@@ -721,7 +908,7 @@ static struct omap_pwm_led_platform_data omap_pwm_led_gpt9 = {
        .name                = "omap3bug:blue:battery",
        .intensity_timer     = 9,
        .blink_timer         = 0,
-       .default_trigger     = "none",
+       //.default_trigger     = "none",
        //.set_power           = set_power(&omap_pwm_led_gpt92, 0),
 };
 
@@ -737,7 +924,7 @@ static struct omap_pwm_led_platform_data omap_pwm_led_gpt10 = {
        .name                = "omap3bug:blue:wifi",
        .intensity_timer     = 10,
        .blink_timer         = 0,
-       .default_trigger     = "none",
+       //.default_trigger     = "none",
        //.set_power           = set_power(&omap_pwm_led_gpt92, 0),
 };
 
@@ -753,7 +940,7 @@ static struct omap_pwm_led_platform_data omap_pwm_led_gpt11 = {
        .name                = "omap3bug:blue:power",
        .intensity_timer     = 11,
        .blink_timer         = 0,
-       .default_trigger     = "breathe",
+       //.default_trigger     = "breathe",
        //.set_power           = set_power(&omap_pwm_led_gpt92, 0),
 };
 
@@ -765,10 +952,10 @@ static struct platform_device omap3_bug_pwm_gpt11 = {
        },
 };
 
-
 static struct platform_device *omap3_bug_devices[] __initdata = {
 
-  	&bug_disp_pwr,
+  	&bug_fixed_1_8,
+	&bug_fixed_sd,
 	&omap3_bug_dss_device,
 	&omap3bug_vout_device,
 	&omap3_bug_pwr_switch,
@@ -788,21 +975,21 @@ static struct twl4030_hsmmc_info mmc[] __initdata = {
 		.mmc		= 1,
 		.wires		= 4,
 		.gpio_cd	= -EINVAL,
-		.gpio_wp	= 63,
+		.gpio_wp	= -EINVAL,
 	},
 	{
-	  .mmc = 2,
-	  .wires = 4,
-	  .gpio_cd	= 170,
-	  //.gpio_wp	= 63,
-	  .ocr_mask = MMC_VDD_32_33,
+		.mmc = 2,
+		.wires = 4,
+		.gpio_cd	= 170,
+		//.gpio_wp	= 63,
+		.ocr_mask = MMC_VDD_32_33,
 	},
 	{
-	  .mmc = 3,
-	  .wires = 1,
-	  .gpio_cd	= -EINVAL,
-	  .gpio_wp	= -EINVAL,
-	  .ocr_mask = MMC_VDD_165_195 | MMC_VDD_32_33,
+		.mmc = 3,
+		.wires = 1,
+		.gpio_cd	= -EINVAL,
+		.gpio_wp	= -EINVAL,
+		.ocr_mask = MMC_VDD_165_195 | MMC_VDD_32_33,
 	},
 	{}	/* Terminator */
 };
@@ -813,7 +1000,11 @@ static int __init omap3bug_twl_gpio_setup(struct device *dev,
        /* gpio + 0 is "mmc0_cd" (input/IRQ) */
        mmc[0].gpio_cd = gpio + 0;
        twl4030_mmc_init(mmc);
-       bug_vmmc1_supply.dev = mmc[0].dev;
+
+       bug_vmmc_supplies[0].dev = mmc[0].dev;
+       bug_vmmc_supplies[1].dev = mmc[1].dev;
+       bug_vmmc_supplies[2].dev = mmc[2].dev;
+
        /* Most GPIOs are for USB OTG.  Some are mostly sent to
         * the P2 connector; notably LEDA for the LCD backlight.
         */
@@ -967,12 +1158,13 @@ void gen_gpio_settings(void)
     return;
   }
   gpio_direction_output(109, 1);
-
+/*
   r =   gpio_request(35, "mmc1_enable");
   if (r) {
     printk(KERN_ERR "gen_gpio: failed to get mmc1_enable...\n");
     return;
   }
+*/  
   gpio_direction_output(35, 1);
 
   r =   gpio_request(108, "audio_mute");
@@ -986,13 +1178,51 @@ void gen_gpio_settings(void)
   
 }
 
+static void __init omap3bug_flash_init(void)
+{
+	u8 cs = 0;
+	u8 nandcs = GPMC_CS_NUM + 1;
+
+	u32 gpmc_base_add = OMAP34XX_GPMC_VIRT;
+
+	/* find out the chip-select on which NAND exists */
+	while (cs < GPMC_CS_NUM) {
+		u32 ret = 0;
+		ret = gpmc_cs_read_reg(cs, GPMC_CS_CONFIG1);
+
+		if ((ret & 0xC00) == 0x800) {
+			printk(KERN_INFO "Found NAND on CS%d\n", cs);
+			if (nandcs > GPMC_CS_NUM)
+				nandcs = cs;
+		}
+		cs++;
+	}
+
+	if (nandcs > GPMC_CS_NUM) {
+		printk(KERN_INFO "NAND: Unable to find configuration "
+				 "in GPMC\n ");
+		return;
+	}
+
+	if (nandcs < GPMC_CS_NUM) {
+		omap3bug_nand_data.cs = nandcs;
+		omap3bug_nand_data.gpmc_cs_baseaddr = (void *)
+			(gpmc_base_add + GPMC_CS0_BASE + nandcs * GPMC_CS_SIZE);
+		omap3bug_nand_data.gpmc_baseaddr = (void *) (gpmc_base_add);
+
+		printk(KERN_INFO "Registering NAND on CS%d\n", nandcs);
+		if (platform_device_register(&omap3bug_nand_device) < 0)
+			printk(KERN_ERR "Unable to register NAND device\n");
+	}
+}
+
 static struct ehci_hcd_omap_platform_data ehci_pdata __initconst = {
 
 	.port_mode[0] = EHCI_HCD_OMAP_MODE_UNKNOWN,
 	.port_mode[1] = EHCI_HCD_OMAP_MODE_UNKNOWN,
 	.port_mode[2] = EHCI_HCD_OMAP_MODE_UNKNOWN,
 
-	.chargepump = false,
+	//.chargepump = false,
 	.phy_reset  = true,
 	.reset_gpio_port[0]  = -EINVAL,
 	.reset_gpio_port[1]  = 126,
@@ -1011,12 +1241,15 @@ static void __init omap3_bug_init(void)
 	spi_register_board_info(omap3bug_spi_board_info,
 				ARRAY_SIZE(omap3bug_spi_board_info));
 	omap_serial_init();
+	gpio_request(35, "mmc1_enable");
 	platform_add_devices(omap3_bug_devices, ARRAY_SIZE(omap3_bug_devices));
 	//omap_init_twl4030();
 	usb_gpio_settings();
 	usb_musb_init();
+	bugbase_gadget_init();
 	usb_ehci_init(&ehci_pdata);
 	gen_gpio_settings();
+
 	omap3bug_flash_init();
 	omap_init_bmi_slots();
 
@@ -1032,8 +1265,8 @@ static void __init omap3_bug_map_io(void)
 	omap2_map_common_io();
 }
 
-//MACHINE_START(BUG, "OMAP3 BUG")
-MACHINE_START(OMAP3EVM, "OMAP3 BUG")
+MACHINE_START(BUG20, "OMAP3 BUG")
+//MACHINE_START(OMAP3EVM, "OMAP3 BUG")
 	/* Maintainer: Matt Isaacs - BugLabs, inc */
 	.phys_io	= 0x48000000,
 	.io_pg_offst	= ((0xd8000000) >> 18) & 0xfffc,
